@@ -8,7 +8,6 @@ set(CMAKE_Fortran_FLAGS
     "-Wconversion"
     "-Wconversion-extra"
     "-fbacktrace"
-    "-fcheck=all"
     "-ffree-line-length-none"
     "-fopenmp"
     "-g"

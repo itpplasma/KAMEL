@@ -36,6 +36,10 @@ elseif(CMAKE_HOST_SYSTEM_NAME MATCHES "Linux")
     endif()
 endif()
 
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 project(KAMEL LANGUAGES C CXX Fortran)
 
 # Set C++ standard globally
@@ -77,20 +81,21 @@ if(APPLE)
         message(STATUS "Found libomp at ${LIBOMP_PREFIX}")
     endif()
 
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -g -fbacktrace -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L${LIBOMP_PREFIX}/lib -lomp")
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -L${LIBOMP_PREFIX}/lib -lomp")
 else()
-    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -fcheck=all -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
+    set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
 endif()
 
 enable_testing()
 
 include(${CMAKE_SOURCE_DIR}/cmake/Dependencies.cmake)
 
-set(CMAKE_BUILD_TYPE Release)
+# Debug builds get runtime checks and trapping; Release keeps the global flags only.
+set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -O0 -fcheck=all -ffpe-trap=invalid,zero,overflow -finit-real=snan")
 
 # Option to install KIM with system-wide symbolic link
 

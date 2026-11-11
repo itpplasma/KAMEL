@@ -154,9 +154,11 @@ jobs:
 
   test-macos-arm64:
     if: github.event_name != 'workflow_dispatch' || !inputs.skip_macos
+    # The hosted macos-14 image is retired. The job keeps its required-check
+    # name and builds for macOS 14 (MACOSX_DEPLOYMENT_TARGET) on macos-15.
     name: Test (macOS 14 ARM64)
     needs: pre-commit
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       MACOSX_DEPLOYMENT_TARGET: '14.0'
       HOMEBREW_NO_AUTO_UPDATE: '1'

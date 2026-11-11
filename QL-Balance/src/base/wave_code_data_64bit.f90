@@ -637,7 +637,7 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     character(1024) :: groupname, candidate, rb_name
     character(128) :: mode_groups(3), index_name, rb_index_name
     integer :: lb, ub, field_ub, rb_ub, i, j
-    logical :: found
+    logical :: found, rb_found
 
     call log_info('Read time evolved background profiles from hdf5 file')
     call reset_periodic_restart()
@@ -702,6 +702,11 @@ subroutine read_background_profiles_h5_timeevol(tstep)
         ! Er is the rc average of the boundary field, padded to size ub + 1, so only
         ! Er(1:ub) is used, on rc.
         call h5_get_bounds_1(group_id_1, 'n', lb, ub)
+        call h5_obj_exists(h5_id, trim(rb_name), rb_found)
+        if (.not. rb_found) then
+            call log_info('missing boundary grid for Vth: '//trim(rb_name))
+            error stop 'legacy checkpoint lacks the boundary grid rb that Vth is stored on'
+        end if
         call h5_get_bounds_1(h5_id, trim(rb_name), lb, rb_ub)
         if (rb_ub /= ub + 1) error stop 'legacy checkpoint: expected size(rb) = size(rc) + 1'
         allocate(in(ub), iTi(ub), iTe(ub), iVth(rb_ub), iVz(ub), idPhi0(ub))

@@ -426,6 +426,7 @@ contains
             ! already contains the linearized RMP sources (and omits the constant
             ! poloidal-rotation part of E0r), so adding the full sources to q
             ! instead would count them twice [B1, #199].
+            if (k /= nz) error stop 'rhs_balance: Jacobian sparsity differs from the count pass'
             call compute_rate_at_state(npoi, fluxes_dif_nl, rate)
             rhsvec = rate + dery_equisource
             do i = 1, k

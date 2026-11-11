@@ -729,9 +729,15 @@ contains
             convec_velocity = 0.5_dp * (fluxes_con_nl(ieq, ipoi + 1) + fluxes_con_nl(ieq, ipoi)) / &
                               Sc(ipoi)
             if (convec_velocity .gt. 0.0_dp) then
-                dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
-                                      (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / &
-                                      (rc(ipoi + 1) - rc(ipoi))
+                if (ipoi .lt. size(params_lin, 2)) then
+                    dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
+                                          (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / &
+                                          (rc(ipoi + 1) - rc(ipoi))
+                else  ! no center point after the last grid point
+                    dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
+                        (params_b_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / &
+                        (rb(ipoi + 1) - rc(ipoi))
+                end if
             else
                 if (ipoi .gt. 1) then
                     dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &

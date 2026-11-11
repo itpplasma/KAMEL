@@ -47,7 +47,10 @@ def is_h5(path):
 
 
 def h5_dataset_names(p):
-    """Names of the physics datasets in an HDF5 file ([] if unreadable)."""
+    """Names of the physics datasets in an HDF5 file; None if the file cannot be opened.
+
+    A missing h5py raises ImportError (loud failure) instead of dropping the file.
+    """
     import h5py
 
     names = []
@@ -59,8 +62,8 @@ def h5_dataset_names(p):
     try:
         with h5py.File(p, "r") as f:
             f.visititems(visit)
-    except Exception:
-        return []
+    except OSError:
+        return None
     return names
 
 
@@ -123,7 +126,11 @@ def rel_files(root):
                 rel = os.path.relpath(full, root)
                 if is_h5(f):
                     # one virtual entry per dataset: schema drift is reported per name
-                    found.extend(rel + H5_SEP + n for n in h5_dataset_names(full))
+                    names = h5_dataset_names(full)
+                    if names is None:  # unreadable: whole-file byte comparison
+                        found.append(rel)
+                    else:
+                        found.extend(rel + H5_SEP + n for n in names)
                 else:
                     found.append(rel)
     return set(found)
@@ -161,6 +168,15 @@ for rel in common:
             print(f"{rel}: {'MATCH(value)' if same else 'DIFFER(value)'}")
             fail += 0 if same else 1
             continue
+        if len(na) != len(nb):
+            checked += 1
+            fail += 1
+            print(f"{rel}: DIFFER(shape) ref={len(na)} cur={len(nb)}")
+            continue
+        if not na:
+            checked += 1
+            print(f"{rel}: MATCH(empty)")
+            continue
     if os.path.basename(rel).endswith("poy_test_err.dat"):
         ra, rb = last_col(pa) or [], last_col(pb) or []
         ma = max((abs(v) for v in ra), default=0.0)
@@ -175,7 +191,7 @@ for rel in common:
         continue
     if H5_SEP not in rel:
         na, nb = nums(pa), nums(pb)
-    if na is None or nb is None or len(na) != len(nb) or not na:
+    if H5_SEP not in rel and (na is None or nb is None or len(na) != len(nb) or not na):
         same = open(pa, "rb").read() == open(pb, "rb").read()
         checked += 1
         print(f"{rel}: {'MATCH(bytes)' if same else 'DIFFER(bytes/shape)'}")

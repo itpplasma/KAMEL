@@ -59,6 +59,48 @@ def test_h5_divergence_and_schema_drift_flag(tmp_path):
     assert "out.h5::version: MISSING(ref)" in out
 
 
+def test_h5_length_mismatch_and_empty_dataset(tmp_path):
+    pytest.importorskip("h5py")
+    import h5py
+
+    for root, n in (("ref", 2), ("cur", 3)):
+        p = tmp_path / root / "out.h5"
+        p.parent.mkdir(parents=True)
+        with h5py.File(p, "w") as f:
+            f.create_dataset("a/vals", data=[1.0] * n)
+            f.create_dataset("a/empty", data=[], dtype="f8")
+    rc, out = _run(tmp_path / "ref", tmp_path / "cur")
+    assert rc == 1, out
+    assert "out.h5::a/vals: DIFFER(shape)" in out
+    assert "out.h5::a/empty: MATCH(empty)" in out
+
+
+def test_h5_unreadable_file_falls_back_to_bytes(tmp_path):
+    pytest.importorskip("h5py")
+    _write(tmp_path / "ref" / "bad.h5", "not hdf5 A")
+    _write(tmp_path / "cur" / "bad.h5", "not hdf5 A")
+    rc, out = _run(tmp_path / "ref", tmp_path / "cur")
+    assert rc == 0 and "bad.h5: MATCH(bytes)" in out, out
+    _write(tmp_path / "cur" / "bad.h5", "not hdf5 B")
+    rc, out = _run(tmp_path / "ref", tmp_path / "cur")
+    assert rc == 1 and "bad.h5: DIFFER" in out, out
+
+
+def test_h5_missing_h5py_fails_loudly(tmp_path):
+    (tmp_path / "stub").mkdir()
+    (tmp_path / "stub" / "h5py.py").write_text("raise ImportError('h5py unavailable')\n")
+    _write(tmp_path / "ref" / "x.h5", "same")
+    _write(tmp_path / "cur" / "x.h5", "same")
+    env = dict(os.environ, PYTHONPATH=str(tmp_path / "stub"))
+    r = subprocess.run(
+        [sys.executable, str(CMP), str(tmp_path / "ref"), str(tmp_path / "cur")],
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert r.returncode != 0 and "ImportError" in r.stderr
+
+
 def test_nested_numeric_match(tmp_path):
     for root in ("ref", "cur"):
         _write(tmp_path / root / "linear-data" / "m_6_n_2" / "EB.dat", "1.0 2.0\n3.0 4.0\n")

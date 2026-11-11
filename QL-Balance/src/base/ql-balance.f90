@@ -11,6 +11,7 @@ program ql_balance
     use balance_mod
     use control_mod, only: ihdf5IO
     use run_info_m, only: write_run_info
+    use h5mod, only: prepare_output_file
 
     implicit none
 
@@ -24,8 +25,12 @@ program ql_balance
     write(*,*) '        \__>       \/                \/      \/          \/     \/     \/    \/ '
 
     call read_config
-    ! Start time, git commit and namelist of this run, see run_info.f90.
-    if (ihdf5IO .eq. 1) call write_run_info
+    if (ihdf5IO .eq. 1) then
+        ! Streaming output (fresh file) unless a restart reads from path2out.
+        call prepare_output_file
+        ! Start time, git commit and namelist of this run, see run_info.f90.
+        call write_run_info
+    end if
     call from_balance_factory_get_balance(type_of_run, balance_instance)
 
     call balance_instance%init_balance()

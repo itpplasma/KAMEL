@@ -5,19 +5,22 @@ module rhs_balance_m
     ! Implements 1D transport/balance equations for n, Vphi, Te, Ti
     ! [Markl2023 (22)–(25), Heyn2014 (63)–(66)].
     !
-    ! Solves the discretized transport equations:
-    !   dy/dt = A·y + q
+    ! Solves the discretized transport equations dy/dt = f(y) with the
+    ! linearly implicit scheme
+    !   dy/dt ≈ A(y)·y + q(y),   q(y) = f(y) - A(y)·y
+    !   y' - Δt·A(y)·y' = y + Δt·q(y)
     ! where:
     !   y - vector of plasma parameters at grid points (size 4N)
-    !   A - sparse Jacobian matrix
-    !   q - source vector
-    ! using implicit time stepping.
-    ! The implicit time stepping scheme uses:
-    !   y' - Δt·A(y)·y' = y + Δt·q(y)
+    !   f - right-hand side at the current state, including the RMP sources
+    !   A - sparse frozen-coefficient Jacobian of f
+    !   q - remainder, so that A(y)·y + q(y) = f(y) for any approximation of A
+    !
+    ! A contains the linearized RMP sources (δ(E0r·Γ_ql) = E0r·δΓ_ql + δE0r·Γ_ql),
+    ! so the sources must not be added to q a second time; q = f - A·y keeps
+    ! every term of f exactly once [B1, #199].
     !
     ! Public API:
-    !   - rhs_balance:        Compute sparse Jacobian matrix A
-    !   - rhs_balance_source: Compute source vector q
+    !   - rhs_balance: Compute A (sparse) and q (returned in dy and rhsvec)
     !
     ! ============================================================================
     ! Frozen-Coefficient Linearization for Jacobian Construction
@@ -81,7 +84,6 @@ module rhs_balance_m
     !---------------------------------------------------------------------------
     public :: initialize_rhs
     public :: rhs_balance
-    public :: rhs_balance_source
 
     !---------------------------------------------------------------------------
     ! Public for testing (pure helper functions)
@@ -92,7 +94,6 @@ module rhs_balance_m
     public :: compute_linearized_product
     public :: compute_diffusive_parts
     public :: compute_convective_parts
-    public :: compute_source_terms_at_point
 
     public :: thermodynamic_forces_t
     public :: species_fluxes_t
@@ -175,14 +176,16 @@ contains
         ! and storing non-zero elements in sparse format (irow, icol, amat).
         !
         ! When isw_rhs=0: Only counts non-zeros (for allocation)
-        ! When isw_rhs=1: Fills the sparse matrix and calls rhs_balance_source for q
+        ! When isw_rhs=1: Fills the sparse matrix and sets q = f(y) - A(y)·y
+        !                 (returned in dy and rhsvec)
         !
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sc, Sb, deriv_coef, ipbeg, &
                             ipend, rb, reint_coef, fluxes_dif_lin, fluxes_con_lin, rc, dae11, &
                             dae12, dae22, dai11, dai12, dai22, dni22, visca, gpp_av, dqle11, &
                             dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, &
                             T_EM_phi_i, sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, &
-                            qlheat_i, Ercov_lin, fluxes_con_nl, Gamma_ql_e_frozen, Gamma_ql_i_frozen
+                            qlheat_i, Ercov_lin, fluxes_con_nl, Gamma_ql_e_frozen, &
+                            Gamma_ql_i_frozen, dery_equisource
         use plasma_parameters, only: params, ddr_params_lin, params_lin, params_b_lin, &
                                      params_b, dot_params, ddr_params_nl
         use baseparam_mod, only: Z_i, am
@@ -205,6 +208,8 @@ contains
         real(dp), dimension(4) :: flux_dif_lin_loc, flux_con_lin_loc
         real(dp), dimension(4) :: flux_dif_nl_loc, flux_con_nl_loc
         real(dp), dimension(4) :: dot_params_loc
+        real(dp), dimension(nbaleqs, npoib) :: fluxes_dif_nl
+        real(dp), dimension(neqset) :: rate
 
         if (iboutype .eq. 1) then
             npoi = npoic - 1
@@ -257,12 +262,14 @@ contains
                                             Gamma_ql_i_nl, Qe_nl, Qi_nl, flux_dif_nl_loc, &
                                             flux_con_nl_loc)
 
+            fluxes_dif_nl(:, ipoi) = flux_dif_nl_loc
             fluxes_con_nl(:, ipoi) = flux_con_nl_loc
             Gamma_ql_e_frozen(ipoi) = Gamma_ql_e_nl
             Gamma_ql_i_frozen(ipoi) = Gamma_ql_i_nl
         end do
 
         ! Apply boundary condition: zero flux at inner boundary
+        fluxes_dif_nl(:, 1) = 0.0_dp
         fluxes_con_nl(:, 1) = 0.0_dp
 
         ! Jacobian probing loop
@@ -415,51 +422,48 @@ contains
             nz = k
             nsize = neqset
         else
-            call rhs_balance_source(x, y, dy)
-            rhsvec = dy
+            ! q = f(y) - A(y)·y, so that A(y)·y + q(y) = f(y) exactly. The probed A
+            ! already contains the linearized RMP sources (and omits the constant
+            ! poloidal-rotation part of E0r), so adding the full sources to q
+            ! instead would count them twice [B1, #199].
+            if (k /= nz) error stop 'rhs_balance: Jacobian sparsity differs from the count pass'
+            call compute_rate_at_state(npoi, fluxes_dif_nl, rate)
+            rhsvec = rate + dery_equisource
+            do i = 1, k
+                rhsvec(irow(i)) = rhsvec(irow(i)) - amat(i) * y(icol(i))
+            end do
+            dy = rhsvec
         end if
 
     end subroutine rhs_balance
 
-    subroutine rhs_balance_source(x, y, dy)
+    subroutine compute_rate_at_state(npoi, fluxes_dif_nl, rate)
         !
-        ! Compute the source vector q in: dy/dt = A·y + q
+        ! Evaluate the right-hand side f(y) of the balance equations at the current
+        ! state: flux divergence and upwind convection from the fluxes at the state,
+        ! plus the RMP sources (full products, not linearized) [Markl2023 (22)-(25)].
         !
-        ! This computes only the source terms (not flux divergence terms, which
-        ! are in matrix A). The sources are:
-        !   - polforce: momentum source from RMP-induced radial current
-        !   - qlheat_e/i: heat sources from RMP-induced particle transport
-        !   - dery_equisource: equilibrium background source
+        ! Uses the frozen-state quantities that rhs_balance has just computed
+        ! (params, params_b, Ercov, transport coefficients, fluxes_con_nl and the
+        ! QL particle fluxes Gamma_ql_*_frozen). Also sets polforce, qlheat_e/i and
+        ! the torque densities T_EM_phi_e/i at the state for diagnostics.
         !
-        ! NOTE: This subroutine is only called from rhs_balance, which has already
-        ! set up params, params_b, ddr_params_nl, Ercov, and diffusion coefficients.
-        !
-        use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, gpp_av, dery_equisource, &
-                            T_EM_phi_e, T_EM_phi_i, sqrt_g_times_B_theta_over_c, Ercov, &
-                            polforce, qlheat_e, qlheat_i, Gamma_ql_e_frozen, Gamma_ql_i_frozen
-        use plasma_parameters, only: params, dot_params
+        use grid_mod, only: nbaleqs, npoib, Sc, rb, rc, gpp_av, T_EM_phi_e, T_EM_phi_i, &
+                            sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i, &
+                            Gamma_ql_e_frozen, Gamma_ql_i_frozen, fluxes_con_nl
+        use plasma_parameters, only: params, params_b
         use baseparam_mod, only: Z_i, am
 
         implicit none
 
-        real(dp), intent(in) :: x
-        real(dp), dimension(neqset), intent(in) :: y
-        real(dp), dimension(neqset), intent(out) :: dy
+        integer, intent(in) :: npoi
+        real(dp), intent(in) :: fluxes_dif_nl(:, :)
+        real(dp), intent(out) :: rate(:)
 
-        integer :: ipoi, ieq, i, npoi
+        integer :: ipoi
         real(dp), dimension(4) :: dot_params_loc
 
-        if (iboutype .eq. 1) then
-            npoi = npoic - 1
-        else
-            npoi = npoic
-        end if
-
-        ! Compute RMP-induced sources using frozen QL fluxes (already computed in rhs_balance)
         do ipoi = 1, npoib
-            ! For actual state computation: no frozen contribution (zeros)
-            ! Result: qlheat = E0r * Gamma_ql (full product, not linearized)
-            ! => set linearized quantities to 0
             call compute_rmp_induced_sources(Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
                                              0.0_dp, 0.0_dp, Ercov(ipoi), 0.0_dp, &
                                              sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
@@ -467,28 +471,21 @@ contains
                                              T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
         end do
 
-        ! Compute source terms only (flux divergence is in matrix A)
+        ! The state itself takes the role of the probe perturbation: fluxes at the
+        ! state, params as the upwinded quantity and params_b at the inner boundary.
+        rate = 0.0_dp
         do ipoi = 1, npoi
-            call compute_source_terms_at_point(ipoi, params, gpp_av, polforce, qlheat_e, qlheat_i, &
-                                               Z_i, dot_params_loc)
-            dot_params(:, ipoi) = dot_params_loc
+            call compute_dot_params_at_point(ipoi, npoi, nbaleqs, fluxes_dif_nl, fluxes_con_nl, &
+                                             fluxes_con_nl, params, params, params_b, Sc, rb, &
+                                             rc, gpp_av, polforce, qlheat_e, qlheat_i, Z_i, &
+                                             dot_params_loc)
+            rate(nbaleqs * (ipoi - 1) + 1:nbaleqs * ipoi) = dot_params_loc
         end do
 
-        ! Copy to dy
-        do ipoi = 1, npoi
-            do ieq = 1, nbaleqs
-                i = nbaleqs * (ipoi - 1) + ieq
-                dy(i) = dot_params(ieq, ipoi)
-            end do
-        end do
-
-        ! Add equilibrium source (background source term)
-        dy = dy + dery_equisource
-
-    end subroutine rhs_balance_source
+    end subroutine compute_rate_at_state
 
     !===========================================================================
-    ! Core computation routines (shared by rhs_balance and rhs_balance_source)
+    ! Core computation routines (shared by the Jacobian probe and the rate evaluation)
     !===========================================================================
 
     pure subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, &
@@ -625,7 +622,7 @@ contains
         !
         ! Compute RMP-induced source terms of the four balance equations.
         !
-        ! For actual state computation (rhs_balance_source):
+        ! For actual state computation (compute_rate_at_state):
         !   Pass Gamma_ql_*_froz = 0 and E0r_lin = 0
         !   Result: qlheat = E0r * Gamma_ql
         !
@@ -733,9 +730,15 @@ contains
             convec_velocity = 0.5_dp * (fluxes_con_nl(ieq, ipoi + 1) + fluxes_con_nl(ieq, ipoi)) / &
                               Sc(ipoi)
             if (convec_velocity .gt. 0.0_dp) then
-                dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
-                                      (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / &
-                                      (rc(ipoi + 1) - rc(ipoi))
+                if (ipoi .lt. size(params_lin, 2)) then
+                    dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
+                                          (params_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / &
+                                          (rc(ipoi + 1) - rc(ipoi))
+                else  ! no center point after the last grid point
+                    dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
+                        (params_b_lin(ieq, ipoi + 1) - params_lin(ieq, ipoi)) / &
+                        (rb(ipoi + 1) - rc(ipoi))
+                end if
             else
                 if (ipoi .gt. 1) then
                     dot_params_out(ieq) = dot_params_out(ieq) - convec_velocity * &
@@ -769,64 +772,6 @@ contains
                             params(1, ipoi)
 
     end subroutine compute_dot_params_at_point
-
-    pure subroutine compute_source_terms_at_point(ipoi, params, gpp_av, polforce, qlheat_e, &
-                                                  qlheat_i, Z_i, dot_params_out)
-        !
-        ! Compute source contributions only (no flux divergence).
-        !
-        ! This subroutine is used by rhs_balance_source where flux terms belong
-        ! in the matrix A, not in the source vector q. It computes:
-        !   - polforce: momentum source from radial current (divided by mi)
-        !   - qlheat_e/i: heat sources from QL fluxes
-        !
-        ! And applies the necessary conversions:
-        !   - Momentum → rotation frequency (divide by n, gpp)
-        !   - d(nT)/dt → dT/dt (using density evolution)
-        !
-        ! Note: Unlike compute_dot_params_at_point, this does NOT include:
-        !   - Flux divergence terms
-        !   - Upstream convection terms
-        ! Those belong in matrix A for the source computation.
-        !
-
-        implicit none
-
-        integer, intent(in) :: ipoi
-        real(dp), intent(in) :: params(:, :)
-        real(dp), intent(in) :: gpp_av(:)
-        real(dp), intent(in) :: polforce(:), qlheat_e(:), qlheat_i(:)
-        real(dp), intent(in) :: Z_i
-        real(dp), dimension(4), intent(out) :: dot_params_out
-
-        ! Initialize - no flux contributions here
-        dot_params_out = 0.0_dp
-
-        ! Eq 1: Particle density - no internal sources
-        dot_params_out(1) = 0.0_dp
-
-        ! Eq 2: Momentum source (averaged to cell center)
-        dot_params_out(2) = 0.5_dp * (polforce(ipoi) + polforce(ipoi + 1))
-
-        ! Eq 3: Electron heat source (averaged to cell center)
-        dot_params_out(3) = 0.5_dp * (qlheat_e(ipoi) + qlheat_e(ipoi + 1))
-
-        ! Eq 4: Ion heat source (averaged to cell center)
-        dot_params_out(4) = 0.5_dp * (qlheat_i(ipoi) + qlheat_i(ipoi + 1))
-
-        ! Convert momentum time derivative to rotation frequency:
-        ! d(Omega)/dt = d(p/mi)/dt * Z / (n * gpp)
-        dot_params_out(2) = dot_params_out(2) * Z_i / params(1, ipoi) * &
-                            2.0_dp / (gpp_av(ipoi + 1) + gpp_av(ipoi))
-
-        ! Convert d(nT)/dt to dT/dt:
-        ! Since dot_params_out(1) = 0 for source-only computation,
-        ! d(nT)/dt = n*dT/dt + T*dn/dt simplifies to:
-        ! dT/dt = (1/n) * [source / 1.5]
-        dot_params_out(3) = dot_params_out(3) / (1.5_dp * params(1, ipoi))
-        dot_params_out(4) = dot_params_out(4) / (1.5_dp * params(1, ipoi))
-
-    end subroutine compute_source_terms_at_point
 
     !===========================================================================
     ! Testing helper functions (pure, for unit testing)

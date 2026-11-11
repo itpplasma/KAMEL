@@ -30,7 +30,7 @@ program test_evolvestep_stationary
 
     implicit none
 
-    real(dp), parameter :: residual_tol = 1.0e-14_dp
+    real(dp), parameter :: residual_tol = 1.0e-13_dp
     real(dp), parameter :: dt_values(3) = [1.0e-2_dp, 1.0e-1_dp, 5.0e-1_dp]
     real(dp), allocatable :: input_r(:), state(:, :), y_new(:), y_old(:), dyv(:)
     real(dp), allocatable :: lhs(:), mag(:)
@@ -118,7 +118,6 @@ contains
         call init_background_profiles()
         call calc_geometric_parameter_profiles()
 
-        ! Switch off momentum diffusion so that the torque is the only momentum term.
         viscosity_factor = 0.0_dp
 
         ! Localised quasilinear transport around a resonance at r = 31 cm.

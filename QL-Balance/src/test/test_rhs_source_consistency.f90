@@ -49,6 +49,15 @@ program test_rhs_source_consistency
     Vth = 3.0e5_dp * r / 60.0_dp
     call check_torque_counted_once('with poloidal rotation')
 
+    ! Electron energy row: without anomalous transport and without electron QL heat
+    ! flux coefficients, the electron heat flux vanishes and the row reduces to
+    !   dTe/dt = (-Te dn/dt + H_e / (3/2)) / n,  H_e = e E0r Gamma^ql_e,
+    ! so the QL heating can be checked against the particle row.
+    dqle21 = 0.0_dp
+    dqle22 = 0.0_dp
+    call write_anomalous_diffusion(0.0_dp)
+    call check_electron_heating_counted_once('electron QL heating')
+
     if (num_failed > 0) then
         print *, 'TESTS FAILED: ', num_failed
         error stop 1
@@ -101,8 +110,54 @@ contains
                      label//': A(y)*y + q(y) does not reproduce the RMP torque once')
     end subroutine check_torque_counted_once
 
+    subroutine check_electron_heating_counted_once(label)
+        character(*), intent(in) :: label
+        real(dp), allocatable :: y(:), dy(:), a_times_y(:), rate(:), heat_rate(:), expected(:)
+        integer :: ipoi, k, npoi, i_par, i_te
+        real(dp) :: scale, ratio_num, ratio_den, max_err
+
+        npoi = npoic
+        allocate (y(neqset), dy(neqset), a_times_y(neqset), rate(neqset), expected(npoi))
+        y = reshape(params(:, 1:npoi), [neqset])
+
+        call initialize_rhs(y, dy)
+        call rhs_balance(0.0_dp, y, dy)
+
+        a_times_y = 0.0_dp
+        do k = 1, nz
+            a_times_y(irow(k)) = a_times_y(irow(k)) + amat(k) * y(icol(k))
+        end do
+        rate = a_times_y + rhsvec
+
+        call reference_electron_heat_rate(heat_rate)
+        max_err = 0.0_dp
+        ratio_num = 0.0_dp
+        ratio_den = 0.0_dp
+        do ipoi = 1, npoi
+            i_par = nbaleqs * (ipoi - 1) + 1
+            i_te = nbaleqs * (ipoi - 1) + 3
+            expected(ipoi) = (-params(3, ipoi) * rate(i_par) + heat_rate(ipoi) / 1.5_dp) / &
+                             params(1, ipoi)
+            ! heating part of the row as applied by the step, and as expected
+            ratio_num = ratio_num + (rate(i_te) * params(1, ipoi) * 1.5_dp + &
+                                     1.5_dp * params(3, ipoi) * rate(i_par)) * heat_rate(ipoi)
+            ratio_den = ratio_den + heat_rate(ipoi)**2
+        end do
+        scale = maxval(abs(expected))
+        call require(maxval(abs(heat_rate)) > 0.0_dp, label//': fixture produces no QL heating')
+        do ipoi = 1, npoi
+            max_err = max(max_err, abs(rate(nbaleqs * (ipoi - 1) + 3) - expected(ipoi)))
+        end do
+        print '(2A)', '  case: ', label
+        print '(A,ES12.4)', '    A*y+q Te rows vs expected, max rel. error: ', max_err / scale
+        print '(A,F10.6)', '    least-squares ratio applied/expected QL heating: ', &
+            ratio_num / ratio_den
+        call require(max_err <= rel_tol * scale, &
+                     label//': A(y)*y + q(y) does not apply the QL heating once')
+    end subroutine check_electron_heating_counted_once
+
     subroutine setup_plasma()
-        real(dp), allocatable :: diffusion(:), bump(:)
+        real(dp), allocatable :: bump(:)
 
         rmin = 2.0_dp
         rmax = 60.0_dp
@@ -153,15 +208,8 @@ contains
         rb_cut_in = 0.0_dp
         rb_cut_out = maxval(rb) + 1.0_dp
         re_cut_out = rb_cut_out + 1.0_dp
-        diffusion = spread(1.0e4_dp, 1, npoib)
         path2inp = 'rhs_source_consistency_input.h5'
-        call h5_create(trim(path2inp), h5_id)
-        call h5_define_group(h5_id, 'da_estimation', group_id_1)
-        call h5_close_group(group_id_1)
-        call h5_add(h5_id, '/da_estimation/r', rb, [1], [npoib])
-        call h5_add(h5_id, '/da_estimation/Da', diffusion, [1], [npoib])
-        call h5_close(h5_id)
-        call h5_deinit()
+        call write_anomalous_diffusion(1.0e4_dp)
     end subroutine setup_plasma
 
     subroutine reference_torque_rate(rate_out)
@@ -200,6 +248,51 @@ contains
                            Z_i / params(1, ic) * 2.0_dp / (gpp_av(ic) + gpp_av(ic + 1))
         end do
     end subroutine reference_torque_rate
+
+    subroutine reference_electron_heat_rate(rate_out)
+        !! Electron QL heating density H_e = e E0r Gamma^ql_e on cell centres, with
+        !! the sign convention of the production code (+e E0r Gamma_e; the sign is
+        !! an open physics question and not what this test checks).
+        real(dp), allocatable, intent(out) :: rate_out(:)
+        real(dp), allocatable :: heat_b(:)
+        real(dp) :: nb, vphib, teb, tib, dn, dte, dti, er, a1e, a2e, gamma_e
+        integer :: ib, ic, lo, hi
+
+        allocate (heat_b(npoib), rate_out(npoic))
+        do ib = 1, npoib
+            lo = ipbeg(ib)
+            hi = ipend(ib)
+            nb = sum(params(1, lo:hi) * reint_coef(:, ib))
+            vphib = sum(params(2, lo:hi) * reint_coef(:, ib))
+            teb = sum(params(3, lo:hi) * reint_coef(:, ib))
+            tib = sum(params(4, lo:hi) * reint_coef(:, ib))
+            dn = sum(params(1, lo:hi) * deriv_coef(:, ib))
+            dte = sum(params(3, lo:hi) * deriv_coef(:, ib))
+            dti = sum(params(4, lo:hi) * deriv_coef(:, ib))
+            er = (tib / nb * dn + dti) / (Z_i * e_charge) + &
+                 sqrt_g_times_B_theta_over_c(ib) * (vphib - q(ib) * Vth(ib) / rb(ib))
+            a1e = dn / nb - 1.5_dp * dte / teb + e_charge * er / teb
+            a2e = dte / teb
+            gamma_e = -(dqle11(ib) * a1e + dqle12(ib) * a2e) * nb
+            heat_b(ib) = e_charge * er * gamma_e
+        end do
+        do ic = 1, npoic
+            rate_out(ic) = 0.5_dp * (heat_b(ic) + heat_b(ic + 1))
+        end do
+    end subroutine reference_electron_heat_rate
+
+    subroutine write_anomalous_diffusion(value)
+        real(dp), intent(in) :: value
+        real(dp), allocatable :: diffusion(:)
+        diffusion = spread(value, 1, npoib)
+        call h5_create(trim(path2inp), h5_id)
+        call h5_define_group(h5_id, 'da_estimation', group_id_1)
+        call h5_close_group(group_id_1)
+        call h5_add(h5_id, '/da_estimation/r', rb, [1], [npoib])
+        call h5_add(h5_id, '/da_estimation/Da', diffusion, [1], [npoib])
+        call h5_close(h5_id)
+        call h5_deinit()
+    end subroutine write_anomalous_diffusion
 
     subroutine require(condition, message)
         logical, intent(in) :: condition

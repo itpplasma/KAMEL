@@ -14,7 +14,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || format('{0}-{1}', github.ref, github.run_id) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 env:
-  CMAKE_BUILD_PARALLEL_LEVEL: '2'
   MPLBACKEND: Agg
   OPENBLAS_NUM_THREADS: '1'
   OMP_NUM_THREADS: '1'
@@ -63,13 +62,18 @@ jobs:
           key: golden-ext-${{ runner.os }}-${{ hashFiles('cmake/Fetch*.cmake') }}
           restore-keys: golden-ext-${{ runner.os }}-
 
+      - name: Set parallelism from the CPU budget
+        run: ci/set_parallelism.sh
+
       - name: Run golden-record suite (ref=golden-baseline, cur=HEAD)
         run: test/golden/run_golden.sh golden-baseline ${{ github.sha }}
 
+  # Diagnostic only (continue-on-error), so it stays out of the merge queue,
+  # where its two extra builds would hold the shared runner.
   golden-pre-fortnum:
     name: golden-record (pre-fortnum diagnostic)
     if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     runs-on: [self-hosted, itp-ubuntu24]
     timeout-minutes: 30
@@ -102,6 +106,9 @@ jobs:
             test/golden/build_cur/src/build/external-install
           key: golden-ext-${{ runner.os }}-${{ hashFiles('cmake/Fetch*.cmake') }}
           restore-keys: golden-ext-${{ runner.os }}-
+
+      - name: Set parallelism from the CPU budget
+        run: ci/set_parallelism.sh
 
       - name: Run golden-record suite (ref=pre-fortnum, cur=HEAD)
         continue-on-error: true

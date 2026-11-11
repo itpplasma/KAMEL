@@ -437,33 +437,4 @@ module paramscan_mod
 
     end subroutine
 
-
-    subroutine write_Dqle22
-
-        use grid_mod, only: dqle22
-        use h5mod
-
-        implicit none
-
-        CALL h5_init()
-        CALL h5_open_rw(path2out, h5_id)
-        CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
-            h5_exists_log)
-        if (.not. h5_exists_log) then
-            CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
-            CALL h5_close_group(group_id_2)
-        end if
-
-        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22_res', &
-                            reshape(dqle22_res, (/size(dqle22_res)/)), &
-                            lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
-                            ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
-        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22', &
-                                dqle22, lbound(dqle22), ubound(dqle22))
-
-        CALL h5_close(h5_id)
-        CALL h5_deinit()
-
-    end subroutine
-
 end module

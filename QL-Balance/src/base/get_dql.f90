@@ -532,29 +532,6 @@ subroutine interp_rb_at_r0(func, r0, func_res)
 
 end subroutine
 
-subroutine get_Brvac(brvac_interp)
-
-    use PolyLagrangeInterpolation
-    use grid_mod, only: rb, npoib, r_resonant
-    use QLBalance_kinds, only: dp
-    use h5mod
-    use wave_code_data, only: Br
-
-    implicit none
-
-    integer :: ibrabsres, ind_begin_interp, ind_end_interp
-    complex(dp), intent(out) :: brvac_interp
-
-    if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
-
-    call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
-    call get_ind_Lagr_interp(ibrabsres, ind_begin_interp, ind_end_interp)
-    call plag_coeff(nlagr, nder, r_resonant(1), rb(ind_begin_interp:ind_end_interp), coef)
-
-    brvac_interp = sum(coef(0,:) * abs(Br(ind_begin_interp:ind_end_interp)))
-
-end subroutine
-
 subroutine write_Brvac(brvac_interp)
 
     use h5mod

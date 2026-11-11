@@ -85,7 +85,7 @@
  boozer_file = ""
  boozer_pert_file = ""  ! required, e.g. a GPEC perturbation .bc file
  amount_of_s = 100
- antenna_factor_exponent = 2.0  ! NTV torque ~ (antenna_factor/antenna_factor_max)**exponent
+ antenna_factor_exponent = 1.0  ! NTV torque ~ (antenna_factor/antenna_factor_max)**exponent; antenna_factor ~ dB^2
  ! original NEO-RT settings
  epsmn = 1.0
  ! m0 is set from the internal poloidal mode

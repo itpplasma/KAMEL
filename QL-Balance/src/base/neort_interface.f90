@@ -86,7 +86,9 @@ contains
         boozer_file = ""
         boozer_pert_file = ""
         amount_of_s = 100
-        antenna_factor_exponent = 2.0_dp  ! quasilinear NTV torque scales with (delta B)^2
+        ! antenna_factor is the squared field ratio (compute_antenna_factor_from_Ipar),
+        ! so the quasilinear NTV torque ~ (delta B)^2 scales with its first power
+        antenna_factor_exponent = 1.0_dp
         epsmn = defaults%epsmn
         supban = defaults%supban
         magdrift = defaults%magdrift

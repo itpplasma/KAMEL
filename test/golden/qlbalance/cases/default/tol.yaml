@@ -37,3 +37,15 @@ quantities:
     - Ti
     - n
     - Er
+  f_6_2:                  # time-series histories, compared as whole arrays
+    - br_abs_time
+    - br_vac_res
+    - br_abs_antenna_factor
+    - br_abs_res
+    - dqle22_res_time
+    - dae22_res_time
+    - bifurcation_criterion
+    - br_formfactor       # complex
+    - timstep_evol.dat    # (3, n_steps)
+    - T_tot_phi_e
+    - T_tot_phi_i

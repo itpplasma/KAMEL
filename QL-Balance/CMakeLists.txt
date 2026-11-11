@@ -102,6 +102,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/recstep_mod.f90
     ${base_balance_src}/resonances_mod.f90
     ${base_balance_src}/restart.f90
+    ${base_balance_src}/run_info.f90
     ${base_balance_src}/rhs_balance_m.f90
     ${base_balance_src}/sample_matrix.f90
     ${base_balance_src}/SingleStep.f90
@@ -131,6 +132,20 @@ set(balance_lib_cpp_sources
 add_library(ql-balance_lib STATIC ${balance_lib_base_fortran_sources}
                                     ${balance_lib_stellarator_fortran_sources}
                                     ${balance_lib_cpp_sources})
+
+# Git commit of the build for /run_info in every output file (run_info.f90).
+# The target runs on every build. Its include changes only with the commit or
+# the dirty state, so an unchanged tree recompiles nothing.
+set(git_version_dir ${PROJECT_BINARY_DIR}/generated/ql-balance)
+set(git_version_inc ${git_version_dir}/ql_balance_git_version.inc)
+add_custom_target(ql-balance_git_version
+    COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${PROJECT_SOURCE_DIR} -DOUTPUT=${git_version_inc}
+            -P ${PROJECT_SOURCE_DIR}/cmake/WriteGitVersion.cmake
+    BYPRODUCTS ${git_version_inc}
+    COMMENT "Recording the git commit of QL-Balance"
+    VERBATIM)
+add_dependencies(ql-balance_lib ql-balance_git_version)
+target_include_directories(ql-balance_lib PRIVATE ${git_version_dir})
 
 set_target_properties(ql-balance_lib PROPERTIES LINKER_LANGUAGE Fortran
     OUTPUT_NAME ql-balance

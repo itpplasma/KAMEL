@@ -40,6 +40,11 @@ file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/diff_coeffs/profiles)
 set_tests_properties(test_diff_coeffs PROPERTIES
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/diff_coeffs)
 
+# Namelist text stored as /run_info/balancenml
+add_executable(test_run_info.x test_run_info.f90)
+target_link_libraries(test_run_info.x PUBLIC ql-balance_lib)
+add_fortran_test(test_run_info)
+
 # Integrated toroidal torque normalization
 add_executable(test_toroidal_torque.x test_toroidal_torque.f90)
 target_link_libraries(test_toroidal_torque.x PUBLIC ql-balance_lib)

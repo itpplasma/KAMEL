@@ -125,13 +125,8 @@ set(balance_lib_stellarator_fortran_sources
     ${src}/stellarator/time_evol_stell.f90
     ${src}/stellarator/evolvestep_stell.f90
 )
-set(balance_lib_cpp_sources
-    ${base_balance_src}/cvodeint.cpp
-)
-
 add_library(ql-balance_lib STATIC ${balance_lib_base_fortran_sources}
-                                    ${balance_lib_stellarator_fortran_sources}
-                                    ${balance_lib_cpp_sources})
+                                    ${balance_lib_stellarator_fortran_sources})
 
 # Git commit of the build for /run_info in every output file (run_info.f90).
 # The target runs on every build. Its include changes only with the commit or

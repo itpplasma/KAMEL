@@ -7,6 +7,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 HERE = Path(__file__).resolve().parent
 CMP = HERE / "gr_numcompare.py"
 
@@ -21,6 +23,40 @@ def _run(a, b, *extra):
 def _write(p, text):
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(text)
+
+
+def _write_h5(p, phi, runtime, extra=None):
+    import h5py
+    import numpy as np
+
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with h5py.File(p, "w") as f:
+        compound = np.dtype([("real", "<f8"), ("imag", "<f8")])
+        data = np.zeros(len(phi), dtype=compound)
+        data["real"] = phi
+        f.create_dataset("fields/Phi", data=data)
+        f.create_dataset("runtime", data=runtime)
+        for name, value in (extra or {}).items():
+            f.create_dataset(name, data=value)
+
+
+def test_h5_ignores_runtime_and_compares_datasets(tmp_path):
+    pytest.importorskip("h5py")
+    _write_h5(tmp_path / "ref" / "out.h5", [1.0, 2.0], runtime=0.1)
+    _write_h5(tmp_path / "cur" / "out.h5", [1.0, 2.0], runtime=9.9)
+    rc, out = _run(tmp_path / "ref", tmp_path / "cur")
+    assert rc == 0, out
+    assert "out.h5::fields/Phi" in out
+
+
+def test_h5_divergence_and_schema_drift_flag(tmp_path):
+    pytest.importorskip("h5py")
+    _write_h5(tmp_path / "ref" / "out.h5", [1.0, 2.0], runtime=0.1)
+    _write_h5(tmp_path / "cur" / "out.h5", [1.0, 2.2], runtime=0.1, extra={"version": 1})
+    rc, out = _run(tmp_path / "ref", tmp_path / "cur")
+    assert rc == 1, out
+    assert "out.h5::fields/Phi" in out and "FAIL" in out
+    assert "out.h5::version: MISSING(ref)" in out
 
 
 def test_nested_numeric_match(tmp_path):

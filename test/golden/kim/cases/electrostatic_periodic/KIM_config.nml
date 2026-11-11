@@ -31,11 +31,11 @@
     profile_location = './'
     output_path = './out/'
     hdf5_input = .false.
-    hdf5_output = .false.
+    hdf5_output = .true.
     log_level = 1
     data_verbosity = 0
     calculate_asymptotics = .true.
-    h5_out_file = ''
+    h5_out_file = 'KIM_out.h5'
 /
 
 &kim_setup

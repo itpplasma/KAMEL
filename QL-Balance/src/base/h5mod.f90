@@ -33,6 +33,25 @@ module h5mod
 
     end subroutine
 
+    !> Record that |Br| at the resonance left its linear trend.
+    subroutine write_br_discrepancy_reached_to_h5(time_ind, time)
+
+        implicit none
+
+        integer, intent(in) :: time_ind
+        real(8), intent(in) :: time
+
+        CALL h5_init()
+        CALL h5_open_rw(path2out, h5_id)
+        CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
+            '/info', 'discrepancy to linearly predicted value of Br_abs_res > delta')
+        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
+            '/discrep_time', (/time_ind*1.d0, time/), (/1/), (/2/))
+        CALL h5_close(h5_id)
+        CALL h5_deinit()
+
+    end subroutine
+
     subroutine create_group_if_not_existent(group_name)
 
         implicit none

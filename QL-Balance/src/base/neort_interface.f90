@@ -474,7 +474,7 @@ contains
     subroutine apply_ntv_transport(r, transport_data, antenna_factor_exponent)
         use PolyLagrangeInterpolation, only: binsrc
         use control_mod, only: data_verbosity
-        use grid_mod, only: rb, torque_ntv
+        use grid_mod, only: rb, torque_density_ntv
         use writeData_m, only: write_NTV_torque_diagnostic
         use spline, only: spline_coeff, spline_val
         use wave_code_data, only: antenna_factor
@@ -531,13 +531,13 @@ contains
         torque_splined = spline_val(torque_of_r_coeffs, rb(1:i_separatrix))
 
         ! torque for r > separatrix should be zero
-        torque_ntv(1:i_separatrix) = torque_splined(:, 1)
-        torque_ntv(i_separatrix + 1:nrb) = 0.0_dp
+        torque_density_ntv(1:i_separatrix) = torque_splined(:, 1)
+        torque_density_ntv(i_separatrix + 1:nrb) = 0.0_dp
 
         ! rescale ntv by antenna factor proportion and
         ! exponent (for different collisionality regimes)
         antenna_factor_scaling = (antenna_factor / antenna_factor_max)**antenna_factor_exponent
-        torque_ntv = torque_ntv * antenna_factor_scaling
+        torque_density_ntv = torque_density_ntv * antenna_factor_scaling
     end subroutine apply_ntv_transport
 
 !================== Writing routines for debugging ==================
@@ -891,7 +891,7 @@ contains
         end if
 
         ! Write header
-        write (iunit, '(A)') "r,torque_ntv"
+        write (iunit, '(A)') "r,torque_density_ntv"
 
         ! Write data rows
         do i = 1, n

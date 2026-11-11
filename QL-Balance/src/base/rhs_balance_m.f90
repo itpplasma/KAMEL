@@ -186,10 +186,11 @@ contains
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sc, Sb, deriv_coef, ipbeg, &
                             ipend, rb, reint_coef, fluxes_dif_lin, fluxes_con_lin, rc, dae11, &
                             dae12, dae22, dai11, dai12, dai22, dni22, visca, gpp_av, dqle11, &
-                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, &
-                            T_EM_phi_i, torque_ntv, sqrt_g_times_B_theta_over_c, Ercov, polforce, &
-                            qlheat_e, qlheat_i, Ercov_lin, fluxes_con_nl, Gamma_ql_e_frozen, &
-                            Gamma_ql_i_frozen, dery_equisource
+                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, &
+                            torque_density_e, torque_density_i, torque_density_ntv, &
+                            sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i, &
+                            Ercov_lin, fluxes_con_nl, Gamma_ql_e_frozen, Gamma_ql_i_frozen, &
+                            dery_equisource
         use plasma_parameters, only: params, ddr_params_lin, params_lin, params_b_lin, &
                                      params_b, dot_params, ddr_params_nl
         use baseparam_mod, only: Z_i, am
@@ -359,7 +360,8 @@ contains
                                                  Ercov(ipoi), Ercov_lin(ipoi), &
                                                  sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
                                                  0.0_dp, polforce(ipoi), qlheat_e(ipoi), &
-                                                 qlheat_i(ipoi), T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
+                                                 qlheat_i(ipoi), torque_density_e(ipoi), &
+                                                 torque_density_i(ipoi))
             end do
 
             ! Apply boundary conditions for linearized fluxes
@@ -444,11 +446,12 @@ contains
         ! Uses the frozen-state quantities that rhs_balance has just computed
         ! (params, params_b, Ercov, transport coefficients, fluxes_con_nl and the
         ! QL particle fluxes Gamma_ql_*_frozen). Also sets polforce, qlheat_e/i and
-        ! the torque densities T_EM_phi_e/i at the state for diagnostics.
+        ! the torque densities torque_density_e/i at the state for diagnostics.
         !
-        use grid_mod, only: nbaleqs, npoib, Sc, rb, rc, gpp_av, T_EM_phi_e, T_EM_phi_i, &
-                            torque_ntv, sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, &
-                            qlheat_i, Gamma_ql_e_frozen, Gamma_ql_i_frozen, fluxes_con_nl
+        use grid_mod, only: nbaleqs, npoib, Sc, rb, rc, gpp_av, torque_density_e, &
+                            torque_density_i, torque_density_ntv, &
+                            sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i, &
+                            Gamma_ql_e_frozen, Gamma_ql_i_frozen, fluxes_con_nl
         use plasma_parameters, only: params, params_b
         use baseparam_mod, only: Z_i, am
 
@@ -465,8 +468,9 @@ contains
             call compute_rmp_induced_sources(Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
                                              0.0_dp, 0.0_dp, Ercov(ipoi), 0.0_dp, &
                                              sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
-                                             torque_ntv(ipoi), polforce(ipoi), qlheat_e(ipoi), &
-                                             qlheat_i(ipoi), T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
+                                             torque_density_ntv(ipoi), polforce(ipoi), &
+                                             qlheat_e(ipoi), qlheat_i(ipoi), &
+                                             torque_density_e(ipoi), torque_density_i(ipoi))
         end do
 
         ! The state itself takes the role of the probe perturbation: fluxes at the
@@ -658,7 +662,7 @@ contains
 
     pure subroutine compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, Gamma_ql_e_froz, &
                                                 Gamma_ql_i_froz, E0r, E0r_lin, sqrt_g_Bth_over_c, &
-                                                Z, am, torque_ntv, polforce, qlheat_e, &
+                                                Z, am, torque_density_ntv, polforce, qlheat_e, &
                                                 qlheat_i, torque_e, torque_i)
         !
         ! Compute RMP-induced source terms of the four balance equations.
@@ -691,7 +695,7 @@ contains
         real(dp), intent(in) :: E0r, E0r_lin
         real(dp), intent(in) :: sqrt_g_Bth_over_c
         real(dp), intent(in) :: Z, am
-        real(dp), intent(in) :: torque_ntv
+        real(dp), intent(in) :: torque_density_ntv
         real(dp), intent(out) :: polforce, qlheat_e, qlheat_i
         real(dp), intent(out) :: torque_e, torque_i
 
@@ -708,7 +712,7 @@ contains
         ! polforce = torque / mass has units [cm⁻¹·s⁻²].
         ! In compute_dot_params_at_point, polforce is multiplied by Z/(n·g_φφ) to give
         ! angular acceleration [s⁻²] for the toroidal rotation frequency evolution.
-        polforce = (torque_e + torque_i + torque_ntv) / (am * p_mass)
+        polforce = (torque_e + torque_i + torque_density_ntv) / (am * p_mass)
 
         ! Eq. 3: Electron temperature
         ! Complete linearization: δ(E0r·Γ_ql) = E0r·δΓ_ql + δE0r·Γ_ql_frozen

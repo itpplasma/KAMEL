@@ -633,11 +633,11 @@ subroutine read_background_profiles_h5_timeevol(tstep)
         pending_periodic_restart, reset_periodic_restart
     implicit none
     integer, intent(in) :: tstep
-    double precision, allocatable :: Er_dummy(:), Vth_dummy(:)
-    character(1024) :: groupname, candidate
-    character(128) :: mode_groups(3), index_name
-    integer :: lb, ub, field_ub, i, j
-    logical :: found
+    double precision, allocatable :: Er_dummy(:)
+    character(1024) :: groupname, candidate, rb_name
+    character(128) :: mode_groups(3), index_name, rb_index_name
+    integer :: lb, ub, field_ub, rb_ub, i, j
+    logical :: found, rb_found
 
     call log_info('Read time evolved background profiles from hdf5 file')
     call reset_periodic_restart()
@@ -664,6 +664,13 @@ subroutine read_background_profiles_h5_timeevol(tstep)
     end do
     if (.not. found) error stop 'requested time-evolution checkpoint group is absent'
     groupname = candidate
+    ! Boundary grid rb of the stored profiles. It does not change during an evolution.
+    if (j == 1) then
+        rb_name = '/init_params/r'
+    else
+        write(rb_index_name, '(I0)') 5000+tstep
+        rb_name = '/'//trim(mode_groups(i))//'/fort.5000/'//trim(rb_index_name)//'/r'
+    end if
     call read_periodic_checkpoint(h5_id, trim(groupname), m_vals, n_vals, &
         periodic_amplitudes, pending_periodic_restart, found)
     if (found) then
@@ -690,28 +697,37 @@ subroutine read_background_profiles_h5_timeevol(tstep)
         call log_info('restored accepted periodic checkpoint with exact continuation state')
     else
         call h5_open_group(h5_id, trim(groupname), group_id_1)
+        ! n, Vz, Te and Ti live on the cell centers rc (size ub). Vth lives on the
+        ! cell boundaries rb (size ub + 1) and is read with its own grid. The stored
+        ! Er is the rc average of the boundary field, padded to size ub + 1, so only
+        ! Er(1:ub) is used, on rc.
         call h5_get_bounds_1(group_id_1, 'n', lb, ub)
-        allocate(in(ub), iTi(ub), iTe(ub), iVth(ub), iVz(ub), idPhi0(ub))
+        call h5_obj_exists(h5_id, trim(rb_name), rb_found)
+        if (.not. rb_found) then
+            call log_info('missing boundary grid for Vth: '//trim(rb_name))
+            error stop 'legacy checkpoint lacks the boundary grid rb that Vth is stored on'
+        end if
+        call h5_get_bounds_1(h5_id, trim(rb_name), lb, rb_ub)
+        if (rb_ub /= ub + 1) error stop 'legacy checkpoint: expected size(rb) = size(rc) + 1'
+        allocate(in(ub), iTi(ub), iTe(ub), iVth(rb_ub), iVz(ub), idPhi0(ub))
         call h5_get_bounds_1(group_id_1, 'Er', lb, field_ub)
         if (field_ub < ub) error stop 'legacy checkpoint electric field is too short'
         allocate(Er_dummy(field_ub))
         call h5_get_bounds_1(group_id_1, 'Vth', lb, field_ub)
-        if (field_ub < ub) error stop 'legacy checkpoint poloidal velocity is too short'
-        allocate(Vth_dummy(field_ub))
+        if (field_ub /= rb_ub) error stop 'legacy checkpoint: expected size(Vth) = size(rb)'
         call h5_get_double_1(group_id_1, 'n', in)
         call h5_get_double_1(group_id_1, 'Ti', iTi)
         call h5_get_double_1(group_id_1, 'Te', iTe)
-        call h5_get_double_1(group_id_1, 'Vth', Vth_dummy)
+        call h5_get_double_1(group_id_1, 'Vth', iVth)
         call h5_get_double_1(group_id_1, 'Vz', iVz)
         call h5_get_double_1(group_id_1, 'Er', Er_dummy)
-        iVth = Vth_dummy(:ub)
         idPhi0 = Er_dummy(:ub)
         iVz = iVz*rtor
-        allocate(rn(ub))
+        allocate(rn(ub), rVth(rb_ub))
         call h5_get_double_1(group_id_1, 'rc', rn)
+        call h5_get_double_1(h5_id, trim(rb_name), rVth)
         rTi = rn
         rTe = rn
-        rVth = rn
         rVz = rn
         rep = rn
         call h5_close_group(group_id_1)

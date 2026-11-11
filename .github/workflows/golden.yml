@@ -22,10 +22,12 @@ env:
 jobs:
   golden:
     name: golden-record (main)
+    # Full tier: runs in the merge queue; PRs skip it unless labeled full-ci.
+    # Pushes by the merge queue were already checked in the merge group.
     if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
-    runs-on: [self-hosted, itp-ubuntu24]
+      (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'full-ci')) &&
+      !(github.event_name == 'push' && github.actor == 'github-merge-queue[bot]')
+    runs-on: ubuntu-latest
     # Backstop: a hanging build or case (e.g. a non-terminating ported solver)
     # must not tie up a runner for GitHub's 6h default. Two clean ref+cur builds
     # plus the tiny case runs finish in <10 min; 30 leaves generous headroom.
@@ -68,14 +70,14 @@ jobs:
       - name: Run golden-record suite (ref=golden-baseline, cur=HEAD)
         run: test/golden/run_golden.sh golden-baseline ${{ github.sha }}
 
-  # Diagnostic only (continue-on-error), so it stays out of the merge queue,
-  # where its two extra builds would hold the shared runner.
+  # Diagnostic only (continue-on-error): kept out of the merge queue.
   golden-pre-fortnum:
     name: golden-record (pre-fortnum diagnostic)
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
-    runs-on: [self-hosted, itp-ubuntu24]
+      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)) ||
+      contains(github.event.pull_request.labels.*.name, 'full-ci')
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Checkout (full history + tags)

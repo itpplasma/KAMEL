@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  # Pull requests and the merge queue test every change before it reaches main.
   push:
-    branches: [main, fix-ci]
+    branches: [fix-ci]
   pull_request:
     types: [opened, synchronize, reopened, labeled]
   merge_group:
@@ -30,20 +31,11 @@ env:
 
 jobs:
   python-unit:
-    if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
-    runs-on: [self-hosted, itp-ubuntu24]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      # setup-python's pip cache uses lsb_release to distinguish Linux images.
-      - name: Install Python cache dependency
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends lsb-release
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -59,11 +51,8 @@ jobs:
         run: python -m pytest KIM/python/tests/unit
 
   pre-commit:
-    if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Pre-commit
-    runs-on: [self-hosted, itp-ubuntu24]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -82,16 +71,12 @@ jobs:
       - name: Run pre-commit hooks
         run: pre-commit run --all-files --show-diff-on-failure
 
-  # Build and test run in one job per platform. Separate build and test jobs
-  # spent 15-17 min archiving, uploading and restoring the build directory on
-  # Ubuntu, and the macOS test job rebuilt everything anyway.
+  # Build and test run in one job per platform, so the build directory is
+  # never archived, uploaded and restored between jobs.
   test-ubuntu:
-    if: >-
-      github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
     name: Test (Ubuntu)
     needs: pre-commit
-    runs-on: [self-hosted, itp-ubuntu24]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -157,20 +142,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           FULL: ${{ inputs.full }}
+          # Pull requests skip the golden record (run in the merge queue)
+          # unless labeled full-ci.
+          FAST_TIER: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') }}
         run: |
-          if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; then
+          if { [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; } || [ "$FAST_TIER" = true ]; then
             ctest --test-dir build --output-on-failure -LE golden_record
           else
             ctest --test-dir build --output-on-failure
           fi
 
   test-macos-arm64:
-    if: >-
-      github.event_name == 'merge_group' || (github.event_name == 'workflow_dispatch' && !inputs.skip_macos) ||
-      (github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && github.actor != 'github-merge-queue[bot]')
+    if: github.event_name != 'workflow_dispatch' || !inputs.skip_macos
     name: Test (macOS 14 ARM64)
     needs: pre-commit
-    runs-on: [self-hosted, itp-macos]
+    runs-on: macos-14
     env:
       MACOSX_DEPLOYMENT_TARGET: '14.0'
       HOMEBREW_NO_AUTO_UPDATE: '1'
@@ -179,13 +165,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Set up native Python 3.11
-        run: /opt/itp-ci-macos/setup-python.sh '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
       - name: Install dependencies (macOS)
         run: |
-          # Homebrew metadata commands can write locks outside the job sandbox.
-          for formula in \
+          brew install \
             cmake \
             ninja \
             doxygen \
@@ -202,12 +189,7 @@ jobs:
             suite-sparse \
             superlu \
             mpfr \
-            gmp; do
-            test -d "/opt/homebrew/opt/$formula" || {
-              echo "Missing runner dependency: $formula" >&2
-              exit 1
-            }
-          done
+            gmp
           pip install numpy scipy matplotlib h5py f90nml pytest
 
       - name: Cache external dependencies
@@ -218,10 +200,7 @@ jobs:
           restore-keys: |
             external-deps-${{ runner.os }}-${{ runner.arch }}-
 
-      # Two runner instances share the Mac, so each job takes half of it.
       - name: Set parallelism from the CPU budget
-        env:
-          CI_RUNNERS_PER_HOST: '2'
         run: ci/set_parallelism.sh
 
       - name: Build with make
@@ -236,8 +215,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           FULL: ${{ inputs.full }}
+          # Pull requests skip the golden record (run in the merge queue)
+          # unless labeled full-ci.
+          FAST_TIER: ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'full-ci') }}
         run: |
-          if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; then
+          if { [ "$EVENT_NAME" = workflow_dispatch ] && [ "$FULL" != true ]; } || [ "$FAST_TIER" = true ]; then
             ctest --test-dir build --output-on-failure -LE golden_record
           else
             ctest --test-dir build --output-on-failure

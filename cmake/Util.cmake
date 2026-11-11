@@ -12,6 +12,12 @@ function(find_or_fetch DEPENDENCY)
     if(DEFINED ${_DEP_UPPER}_PATH AND EXISTS "${${_DEP_UPPER}_PATH}/CMakeLists.txt")
         set(${DEPENDENCY}_SOURCE_DIR "${${_DEP_UPPER}_PATH}")
         message(STATUS "Using ${DEPENDENCY} from ${${_DEP_UPPER}_PATH} (${_DEP_UPPER}_PATH)")
+    # CMake's standard FetchContent override; the SHA path below would
+    # otherwise ignore it and fetch.
+    elseif(FETCHCONTENT_SOURCE_DIR_${_DEP_UPPER}
+            AND EXISTS "${FETCHCONTENT_SOURCE_DIR_${_DEP_UPPER}}/CMakeLists.txt")
+        set(${DEPENDENCY}_SOURCE_DIR "${FETCHCONTENT_SOURCE_DIR_${_DEP_UPPER}}")
+        message(STATUS "Using ${DEPENDENCY} from ${FETCHCONTENT_SOURCE_DIR_${_DEP_UPPER}} (FETCHCONTENT_SOURCE_DIR_${_DEP_UPPER})")
     else()
         set(REPO_URL https://github.com/itpplasma/${DEPENDENCY}.git)
         # Cache-variable ref override: -DLIBNEO_REF=<branch|tag|sha>

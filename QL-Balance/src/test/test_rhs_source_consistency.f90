@@ -51,7 +51,7 @@ program test_rhs_source_consistency
 
     ! Electron energy row: without anomalous transport and without electron QL heat
     ! flux coefficients, the electron heat flux vanishes and the row reduces to
-    !   dTe/dt = (-Te dn/dt + H_e / (3/2)) / n,  H_e = e E0r Gamma^ql_e,
+    !   dTe/dt = (-Te dn/dt + H_e / (3/2)) / n,  H_e = -e E0r Gamma^ql_e,
     ! so the QL heating can be checked against the particle row.
     dqle21 = 0.0_dp
     dqle22 = 0.0_dp
@@ -250,9 +250,8 @@ contains
     end subroutine reference_torque_rate
 
     subroutine reference_electron_heat_rate(rate_out)
-        !! Electron QL heating density H_e = e E0r Gamma^ql_e on cell centres, with
-        !! the sign convention of the production code (+e E0r Gamma_e; the sign is
-        !! an open physics question and not what this test checks).
+        !! Electron QL heating density H_e = e_e E0r Gamma^ql_e = -e E0r Gamma^ql_e on
+        !! cell centres.
         real(dp), allocatable, intent(out) :: rate_out(:)
         real(dp), allocatable :: heat_b(:)
         real(dp) :: nb, vphib, teb, tib, dn, dte, dti, er, a1e, a2e, gamma_e
@@ -274,7 +273,7 @@ contains
             a1e = dn / nb - 1.5_dp * dte / teb + e_charge * er / teb
             a2e = dte / teb
             gamma_e = -(dqle11(ib) * a1e + dqle12(ib) * a2e) * nb
-            heat_b(ib) = e_charge * er * gamma_e
+            heat_b(ib) = -e_charge * er * gamma_e
         end do
         do ic = 1, npoic
             rate_out(ic) = 0.5_dp * (heat_b(ic) + heat_b(ic + 1))

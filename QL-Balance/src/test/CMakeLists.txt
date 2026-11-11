@@ -207,3 +207,8 @@ foreach(case duplicate shape bparallel)
         COMMAND test_periodic_workflow_validation.x ${case})
     set_tests_properties(test_periodic_workflow_${case} PROPERTIES WILL_FAIL TRUE)
 endforeach()
+
+# Ipar history of TimeEvolution is initialised and records the selected Ipar
+add_executable(test_ipar_history.x test_ipar_history.f90)
+target_link_libraries(test_ipar_history.x PUBLIC ql-balance_lib)
+add_fortran_test(test_ipar_history)

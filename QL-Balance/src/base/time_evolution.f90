@@ -190,17 +190,24 @@ module time_evolution
 
     end subroutine
 
+    !> First and last time index of this run: a restart from a periodic
+    !> checkpoint continues after the steps that were already completed.
+    subroutine time_step_range(first_step, last_step)
+        integer, intent(out) :: first_step, last_step
+
+        first_step = periodic_completed_steps + 1
+        last_step = periodic_completed_steps + Nstorage
+    end subroutine time_step_range
+
     subroutine runTimeEvolution(this)
         class(TimeEvolution_t), intent(inout) :: this
 
-        block
-            integer :: first_step, last_step
-            first_step = periodic_completed_steps+1
-            last_step = periodic_completed_steps+Nstorage
-            do time_ind = first_step, last_step
-                call doStep(this)
-            end do
-        end block
+        integer :: first_step, last_step
+
+        call time_step_range(first_step, last_step)
+        do time_ind = first_step, last_step
+            call doStep(this)
+        end do
     end subroutine runTimeEvolution
 
     subroutine doStep(this, stat)

@@ -80,6 +80,11 @@ add_executable(test_neort_config.x test_neort_config.f90)
 target_link_libraries(test_neort_config.x PUBLIC ql-balance_lib)
 add_fortran_test(test_neort_config)
 
+# Time-step range shared by the time evolution run types
+add_executable(test_time_step_range.x test_time_step_range.f90)
+target_link_libraries(test_time_step_range.x PUBLIC ql-balance_lib)
+add_fortran_test(test_time_step_range)
+
 # KIM adapter module tests (unit tests for adapter helpers and linkage)
 add_executable(test_kim_adapter.x test_kim_adapter.f90)
 target_link_libraries(test_kim_adapter.x PUBLIC ql-balance_lib)

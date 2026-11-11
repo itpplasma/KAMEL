@@ -10,7 +10,7 @@ import numpy as np
 from fieldpy import fieldpy
 
 # sys.path.append(os.path.dirname(__file__) + '/../neo2_for_Er/')
-from neo2_for_Er import neo2_for_Er
+from neo2_for_Er import collect_staged_surfaces, neo2_for_Er
 from scipy.integrate import cumulative_trapezoid, odeint, solve_ivp
 from scipy.interpolate import CubicSpline, interp1d
 
@@ -406,6 +406,11 @@ class Profile_Processor:
 
     def collect_k_profile(self, kpath, fname):
         """Collect the k profile from the NEO-2 output."""
+        if os.path.isfile(os.path.join(kpath, "k_surfaces.dat")):
+            result = collect_staged_surfaces(kpath)
+            np.savetxt(os.path.join(fname, "k.dat"), result)
+            self.k_prof_r, self.k_prof = result.T
+            return
         wd = os.getcwd()
         os.chdir(kpath)
 

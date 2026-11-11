@@ -368,62 +368,30 @@ contains
         end do
     end subroutine prepare_profile_data_for_neort
 
-    !> @brief Read equilibrium data from equilibrium file
-    !> @details Reads equilibrium quantities from the equil_r_q_psi.dat file
-    !>          specified in the balance configuration. The file format is:
-    !>          - Header lines starting with '#' (skipped automatically)
-    !>          - Data columns:
-    !>            r, q, psi_pol, phi_tor, dphi/dpsi, r_geom, V, R_beg, Z_beg, R_min, R_max
-    !>          All arrays are automatically allocated to the correct size based on
-    !>          the number of data lines in the file.
-    !> @param[out] r_eff Effective radius array (column 1, optional, allocatable)
-    !> @param[out] q_prof Safety factor array (column 2, optional, allocatable)
-    !> @param[out] psi_pol Poloidal flux array (column 3, optional, allocatable)
-    !> @param[out] psi_tor Toroidal flux array (column 4, optional, allocatable)
-    !> @param[out] dphi_dpsi dphi/dpsi array (column 5, optional, allocatable)
-    !> @param[out] r_geom Geometric radius array (column 6, optional, allocatable)
-    !> @param[out] V Volume array (column 7, optional, allocatable)
-    !> @param[out] R_beg R beginning array (column 8, optional, allocatable)
-    !> @param[out] Z_beg Z beginning array (column 9, optional, allocatable)
-    !> @param[out] R_min R minimum array (column 10, optional, allocatable)
-    !> @param[out] R_max R maximum array (column 11, optional, allocatable)
-    subroutine read_equil_file(r_eff, q_prof, psi_pol, psi_tor, dphi_dpsi, r_geom, V, R_beg, &
-                               Z_beg, R_min, R_max)
+    !> @brief Read effective radius and toroidal flux from the equilibrium file
+    !> @details Reads the equil_r_q_psi.dat file named by the balance configuration:
+    !>          header lines start with '#', data lines begin with the columns
+    !>          r [cm], q, psi_pol, psi_tor [G cm^2 per radian]. Further columns
+    !>          (7 in equil_profiles.f90, 11 in the profile preprocessor) are ignored.
+    !> @param[out] r_eff Effective radius (column 1), allocated here
+    !> @param[out] psi_tor Toroidal flux (column 4), allocated here
+    subroutine read_equil_file(r_eff, psi_tor)
         use control_mod, only: equil_path
 
-        real(dp), dimension(:), allocatable, intent(out), optional :: r_eff
-        real(dp), dimension(:), allocatable, intent(out), optional :: q_prof
-        real(dp), dimension(:), allocatable, intent(out), optional :: psi_pol
-        real(dp), dimension(:), allocatable, intent(out), optional :: psi_tor
-        real(dp), dimension(:), allocatable, intent(out), optional :: dphi_dpsi
-        real(dp), dimension(:), allocatable, intent(out), optional :: r_geom
-        real(dp), dimension(:), allocatable, intent(out), optional :: V
-        real(dp), dimension(:), allocatable, intent(out), optional :: R_beg
-        real(dp), dimension(:), allocatable, intent(out), optional :: Z_beg
-        real(dp), dimension(:), allocatable, intent(out), optional :: R_min
-        real(dp), dimension(:), allocatable, intent(out), optional :: R_max
+        real(dp), dimension(:), allocatable, intent(out) :: r_eff
+        real(dp), dimension(:), allocatable, intent(out) :: psi_tor
 
         integer :: iunit, ipoi, ios, npoints, nheader
-        real(dp) :: r_val, q_val, psi_pol_val, psi_tor_val, dphi_dpsi_val
-        real(dp) :: r_geom_val, V_val, R_beg_val, Z_beg_val, R_min_val, R_max_val
+        real(dp) :: r_val, q_val, psi_pol_val, psi_tor_val
         character(len=1024) :: errmsg, line
 
-        ! Check that at least one argument is present
-        if (.not. (present(r_eff) .or. present(q_prof) .or. present(psi_pol) .or. &
-                   present(psi_tor) .or. present(dphi_dpsi) .or. present(r_geom) .or. &
-                   present(V) .or. present(R_beg) .or. present(Z_beg) .or. &
-                   present(R_min) .or. present(R_max))) then
-            error stop "read_equil_file: at least one optional argument must be present"
-        end if
-
-        ! Open equilibrium file
         open (newunit=iunit, file=trim(equil_path), status='old', action='read', iostat=ios)
         if (ios /= 0) then
             write (errmsg, '(A,A)') "read_equil_file: cannot open file ", trim(equil_path)
             error stop trim(errmsg)
         end if
 
-        ! Skip all header lines starting with '#' (with optional leading whitespace)
+        ! Skip header lines starting with '#' (with optional leading whitespace)
         nheader = 0
         do
             read (iunit, '(A)', iostat=ios) line
@@ -431,11 +399,8 @@ contains
                 close (iunit)
                 error stop "read_equil_file: error reading file (unexpected end during header)"
             end if
-            ! Remove leading whitespace and check if line starts with '#'
             line = adjustl(line)
-            ! Exit loop when we find a non-empty line that doesn't start with '#'
             if (len_trim(line) > 0 .and. line(1:1) /= '#') then
-                ! This is the first data line, backspace to re-read it
                 backspace (iunit)
                 exit
             end if
@@ -445,8 +410,7 @@ contains
         ! First pass: count the number of data lines
         npoints = 0
         do
-            read (iunit, *, iostat=ios) r_val, q_val, psi_pol_val, psi_tor_val, dphi_dpsi_val, &
-                r_geom_val, V_val, R_beg_val, Z_beg_val, R_min_val, R_max_val
+            read (iunit, *, iostat=ios) r_val, q_val, psi_pol_val, psi_tor_val
             if (ios /= 0) exit
             npoints = npoints + 1
         end do
@@ -456,49 +420,22 @@ contains
             error stop "read_equil_file: no data lines found in file"
         end if
 
-        ! Allocate arrays based on the number of data lines
-        if (present(r_eff)) allocate (r_eff(npoints))
-        if (present(q_prof)) allocate (q_prof(npoints))
-        if (present(psi_pol)) allocate (psi_pol(npoints))
-        if (present(psi_tor)) allocate (psi_tor(npoints))
-        if (present(dphi_dpsi)) allocate (dphi_dpsi(npoints))
-        if (present(r_geom)) allocate (r_geom(npoints))
-        if (present(V)) allocate (V(npoints))
-        if (present(R_beg)) allocate (R_beg(npoints))
-        if (present(Z_beg)) allocate (Z_beg(npoints))
-        if (present(R_min)) allocate (R_min(npoints))
-        if (present(R_max)) allocate (R_max(npoints))
+        allocate (r_eff(npoints), psi_tor(npoints))
 
-        ! Rewind to the beginning of the file for second pass
+        ! Second pass: read and store data
         rewind (iunit)
-
-        ! Skip the known number of header lines
         do ipoi = 1, nheader
             read (iunit, '(A)')
         end do
-
-        ! Second pass: read and store data
         do ipoi = 1, npoints
-            read (iunit, *, iostat=ios) r_val, q_val, psi_pol_val, psi_tor_val, dphi_dpsi_val, &
-                r_geom_val, V_val, R_beg_val, Z_beg_val, R_min_val, R_max_val
+            read (iunit, *, iostat=ios) r_val, q_val, psi_pol_val, psi_tor_val
             if (ios /= 0) then
                 close (iunit)
                 write (errmsg, '(A,I0,A)') "read_equil_file: error reading data line ", ipoi
                 error stop trim(errmsg)
             end if
-
-            ! Store values in arrays if present
-            if (present(r_eff)) r_eff(ipoi) = r_val
-            if (present(q_prof)) q_prof(ipoi) = q_val
-            if (present(psi_pol)) psi_pol(ipoi) = psi_pol_val
-            if (present(psi_tor)) psi_tor(ipoi) = psi_tor_val
-            if (present(dphi_dpsi)) dphi_dpsi(ipoi) = dphi_dpsi_val
-            if (present(r_geom)) r_geom(ipoi) = r_geom_val
-            if (present(V)) V(ipoi) = V_val
-            if (present(R_beg)) R_beg(ipoi) = R_beg_val
-            if (present(Z_beg)) Z_beg(ipoi) = Z_beg_val
-            if (present(R_min)) R_min(ipoi) = R_min_val
-            if (present(R_max)) R_max(ipoi) = R_max_val
+            r_eff(ipoi) = r_val
+            psi_tor(ipoi) = psi_tor_val
         end do
 
         close (iunit)

@@ -14,14 +14,14 @@
     "periodic_modes": 4,
     "periodic_grid_points": 64,
     "profile_linear_q_crossing_cm": 49.76110556110556,
-    "resonance_radius_cm": 49.76199633699633,
+    "resonance_radius_cm": 49.762110697153375,
     "integrated_parallel_current_as_is_statA": {
-      "real": -28640772018993.066,
-      "imag": -42962988621744.55
+      "real": -28660323775212.266,
+      "imag": -42734802162219.51
     },
     "integrated_parallel_current_full_window_statA": {
-      "real": 16522587178351.645,
-      "imag": -95485616988152.4
+      "real": 16286363510806.848,
+      "imag": -94947067100364.25
     }
   },
   "tolerances": {

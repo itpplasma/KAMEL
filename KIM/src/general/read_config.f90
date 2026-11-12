@@ -185,6 +185,12 @@ subroutine kim_read_config
         error stop 'ion_fp_collision_scale must be > 0 for FP collision kernels'
     end if
 
+    ! Only the P1 hat basis is implemented; the electron kernel rejects
+    ! anything else, but only after setup.
+    if (spline_base /= 1) then
+        error stop 'spline_base must be 1: only the P1 hat basis is implemented'
+    end if
+
     select case (trim(ion_collision_model))
     case ('FokkerPlanck')
         continue

@@ -674,4 +674,5 @@ add_test(NAME electron_physical_cells
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_electron_physical_cells.x)
 add_test(NAME electron_physical_cells_unsupported_basis
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_electron_physical_cells.x unsupported_basis)
-set_tests_properties(electron_physical_cells_unsupported_basis PROPERTIES WILL_FAIL TRUE)
+set_tests_properties(electron_physical_cells_unsupported_basis PROPERTIES
+                     PASS_REGULAR_EXPRESSION "Local electron kernel requires P1 hats")

@@ -135,7 +135,8 @@ module rt_electromagnetic_m
         call write_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, &
             kernel_j_phi_llp, kernel_j_B_llp)
 
-        ! Compute mass matrix (needed by calculate_current_density)
+        ! Mass matrix with the Dirichlet boundary row (grid_m%M_mat); the current
+        ! density no longer uses it, but it stays a shared module quantity.
         if (.not. allocated(M_mat)) then
             allocate(M_mat(N, N))
             call calc_mass_matrix(M_mat)

@@ -3,7 +3,7 @@ program test_manufactured_species
     use constants_m, only: e_charge
     use fields_m, only: EBdat_t, postprocess_species_density, calculate_current_density
     use species_m, only: plasma, plasma_t
-    use grid_m, only: xl_grid
+    use grid_m, only: xl_grid, theta_integration
     use kernel_m, only: kernel_spl_t
     use config_m, only: hdf5_output
     use IO_collection_m, only: h5id
@@ -81,6 +81,7 @@ program test_manufactured_species
 
     hdf5_output = .true.
     call h5_create('manufactured-species-density.h5', h5id)
+    theta_integration = 'GaussLegendre'
     call postprocess_species_density(fields, kernel_phi, kernel_B)
     call h5_close(h5id)
     call h5_deinit()
@@ -88,6 +89,22 @@ program test_manufactured_species
     call assert_vector('Z=2 ion Phi plus Br', fields%delta_n_i(:, 1), exact(:, 1))
     call assert_vector('Z=6 ion Phi plus Br', fields%delta_n_i(:, 2), exact(:, 2))
     call assert_vector('physical total charge', fields%rho, charge_sum)
+
+    ! Adaptive theta integration fills only the total kernel: the total
+    ! charge must still be right, and no species density may be produced.
+    deallocate(fields%delta_n_e, fields%delta_n_i, fields%rho)
+    kernel_phi%Kllp_e = (0.0_dp, 0.0_dp)
+    kernel_phi%Kllp_i = (0.0_dp, 0.0_dp)
+    kernel_B%Kllp_e = (0.0_dp, 0.0_dp)
+    kernel_B%Kllp_i = (0.0_dp, 0.0_dp)
+    call h5_create('manufactured-species-density-adaptive.h5', h5id)
+    theta_integration = 'RKF45'
+    call postprocess_species_density(fields, kernel_phi, kernel_B)
+    call h5_close(h5id)
+    call h5_deinit()
+    if (allocated(fields%delta_n_e) .or. allocated(fields%delta_n_i)) &
+        error stop 'Adaptive theta integration must not produce species densities'
+    call assert_vector('adaptive total charge from the total kernel', fields%rho, charge_sum)
     current_exact = current_phi*fields%Phi+current_B*fields%Br
     current_phi_kernel = current_phi*qmass
     current_B_kernel = current_B*qmass

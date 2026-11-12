@@ -520,12 +520,13 @@ module fields_m
     end subroutine
 
     subroutine postprocess_species_density(EBdat, kernel_phi, kernel_B)
-        use grid_m, only: xl_grid
+        use grid_m, only: xl_grid, theta_integration
         use kernel_m, only: kernel_spl_t
         use weak_moments_m, only: weak_moment_projector_t
         use species_m, only: plasma
         use constants_m, only: e_charge
         use IO_collection_m, only: write_complex_profile_abs
+        use logger_m, only: log_warning
         implicit none
         type(EBdat_t), intent(inout) :: EBdat
         type(kernel_spl_t), intent(in) :: kernel_phi, kernel_B
@@ -539,23 +540,41 @@ module fields_m
         if (size(EBdat%r_grid) /= n) error stop 'Density field grid size mismatch'
         if (any(EBdat%r_grid /= xl_grid%xb)) &
             error stop 'Density requires the charge kernel field grid'
-   if (plasma%spec(0)%Zspec >= 0) error stop 'Electron density requires negative charge'
+        ! Validate every species before anything is written.
+        if (plasma%spec(0)%Zspec >= 0) error stop 'Electron density requires negative charge'
+        do sp = 1, plasma%n_species - 1
+            if (plasma%spec(sp)%Zspec == 0) error stop 'Density requires charged species'
+        end do
         call projector%init(EBdat%r_grid)
+
+        ! The total kernel is filled by every theta integration, so the total
+        ! charge density is always available.
+        weak_load = matmul(kernel_phi%Kllp, EBdat%Phi) + matmul(kernel_B%Kllp, EBdat%Br)
+        call projector%project(weak_load, rho_species)
+        EBdat%rho = rho_species
+        call write_complex_profile_abs(EBdat%r_grid, EBdat%rho, n, '/fields/rho', &
+                               'Total charge density from charge kernels', 'statC/cm^3')
+
+        ! Only the GaussLegendre path fills the per-species kernels; the
+        ! adaptive paths leave them zero, which would read as zero density.
+        if (trim(theta_integration) /= 'GaussLegendre') then
+            call log_warning('Species densities need GaussLegendre theta integration; '// &
+                'only /fields/rho is written for '//trim(theta_integration))
+            return
+        end if
+
         weak_load = matmul(kernel_phi%Kllp_e, EBdat%Phi) + &
                     matmul(kernel_B%Kllp_e, EBdat%Br)
         call projector%project(weak_load, rho_species)
-        EBdat%rho = rho_species
         EBdat%delta_n_e = rho_species/(plasma%spec(0)%Zspec*e_charge)
         if (allocated(EBdat%delta_n_i)) deallocate (EBdat%delta_n_i)
         allocate (EBdat%delta_n_i(n, plasma%n_species - 1))
         call write_complex_profile_abs(EBdat%r_grid, EBdat%delta_n_e, n, &
             '/fields/delta_n_e', 'Electron number density from charge kernels', 'cm^-3')
         do sp = 1, plasma%n_species - 1
-           if (plasma%spec(sp)%Zspec == 0) error stop 'Density requires charged species'
             weak_load = matmul(kernel_phi%Kllp_i(:, :, sp), EBdat%Phi) + &
                         matmul(kernel_B%Kllp_i(:, :, sp), EBdat%Br)
             call projector%project(weak_load, rho_species)
-            EBdat%rho = EBdat%rho + rho_species
             EBdat%delta_n_i(:, sp) = rho_species/(plasma%spec(sp)%Zspec*e_charge)
             dataset = '/fields/delta_n_'//trim(plasma%spec(sp)%name)
             if (plasma%n_species > 2) then
@@ -565,8 +584,6 @@ module fields_m
             call write_complex_profile_abs(EBdat%r_grid, EBdat%delta_n_i(:, sp), n, &
                        trim(dataset), 'Ion number density from charge kernels', 'cm^-3')
         end do
-        call write_complex_profile_abs(EBdat%r_grid, EBdat%rho, n, '/fields/rho', &
-                               'Total charge density from charge kernels', 'statC/cm^3')
     end subroutine postprocess_species_density
 
     subroutine calc_ideal_MA_phi(EBdat, kernel_phi, kernel_B)

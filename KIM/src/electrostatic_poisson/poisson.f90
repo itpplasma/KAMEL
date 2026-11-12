@@ -170,7 +170,6 @@ module rt_electrostatic_m
                     EBdat%E_perp_psi(xl_grid%npts_b), &
                     EBdat%r_grid(xl_grid%npts_b), &
                     EBdat%E_perp(xl_grid%npts_b),&
-                    rho(xl_grid%npts_b), &
                     jpar_i(xl_grid%npts_b), &
                     jpar_e(xl_grid%npts_b), &
                     jpar(xl_grid%npts_b))

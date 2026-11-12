@@ -268,7 +268,7 @@ module grid_m
 
     end subroutine grid_generate
 
-    subroutine grid_generate_equidistant(this)
+    subroutine grid_generate_equidistant(this, endpoint_inclusive)
 
         use kim_resonances_m, only: r_res, index_rg_res
         use config_m, only: output_path
@@ -277,21 +277,37 @@ module grid_m
         implicit none
 
         class(grid_type), intent(inout) :: this
+        logical, intent(in), optional :: endpoint_inclusive
 
         real(dp) :: h
         integer :: ipoib, ipb, ipe
         real(dp), dimension(:,:), allocatable :: coef
 
+        if (this%max_val <= this%min_val) &
+            error stop 'Equidistant grid bounds must increase'
         if (allocated(this%xb)) deallocate(this%xb)
         if (allocated(this%xc)) deallocate(this%xc)
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
 
+        if (this%npts_b < 2) error stop 'Equidistant grid needs two nodes'
+        ! Endpoint-exclusive sampling remains the periodic default.
         h = (this%max_val - this%min_val) / this%npts_b
+        if (present(endpoint_inclusive)) then
+            if (endpoint_inclusive) then
+                h = (this%max_val - this%min_val) / (this%npts_b - 1)
+            end if
+        end if
         call log_debug(trim(fmt_val('Equidistant grid spacing h', h, 'cm')))
 
         this%xb(1) = this%min_val
         do ipoib=2, this%npts_b
             this%xb(ipoib) = this%min_val + (ipoib - 1) * h
+        end do
+        if (present(endpoint_inclusive)) then
+            ! Preserve the requested physical endpoint exactly before forming centers.
+            if (endpoint_inclusive) this%xb(this%npts_b) = this%max_val
+        end if
+        do ipoib=2, this%npts_b
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         end do
 

@@ -70,16 +70,23 @@ contains
         complex(dp) :: transverse(0:2,3,3), transverse_swapped(0:2,3,3)
         complex(dp) :: raw(2,2,3,3), raw_swapped(2,2,3,3)
         complex(dp) :: channel_work(2,2,3,3)
+        real(dp) :: bessel_table(0:abs(ell)+3)
+        logical :: table_ready, table_scaled
         integer :: i, j, observation, source
 
         if (vT <= 0.0_dp .or. omega_c <= 0.0_dp .or. &
                 abs(B0) <= tiny(1.0_dp) .or. nu <= 0.0_dp) &
             error stop 'calc_ion_flr_harmonic: invalid physical scale'
 
+        ! The Bessel argument bx is symmetric in source and observation, so
+        ! both orientations share one table of I_n(bx).
+        table_ready = .false.
         call build_transverse_moments(ell, ks_s, kr_s, ks_o, kr_o, vT, &
-            omega_c, omega_signed, c_light, B0, transverse)
+            omega_c, omega_signed, c_light, B0, transverse, &
+            bessel_table, table_ready, table_scaled)
         call build_transverse_moments(ell, ks_o, kr_o, ks_s, kr_s, vT, &
-            omega_c, omega_signed, c_light, B0, transverse_swapped)
+            omega_c, omega_signed, c_light, B0, transverse_swapped, &
+            bessel_table, table_ready, table_scaled)
 
         call build_raw_channels(transverse, fields_s, fields_o, ifunc, nu, raw)
         call build_raw_channels(transverse_swapped, fields_o, fields_s, ifunc, &
@@ -125,11 +132,14 @@ contains
     end subroutine build_raw_channels
 
     subroutine build_transverse_moments(ell, ks_s, kr_s, ks_o, kr_o, vT, &
-            omega_c, omega_signed, c_light, B0, transverse)
+            omega_c, omega_signed, c_light, B0, transverse, &
+            bessel_table, table_ready, table_scaled)
         integer, intent(in) :: ell
         real(dp), intent(in) :: ks_s, kr_s, ks_o, kr_o
         real(dp), intent(in) :: vT, omega_c, omega_signed, c_light, B0
         complex(dp), intent(out) :: transverse(0:2,3,3)
+        real(dp), intent(inout), optional :: bessel_table(0:)
+        logical, intent(inout), optional :: table_ready, table_scaled
 
         type(jet_t) :: w(0:2)
         real(dp) :: inv_b02
@@ -139,7 +149,8 @@ contains
         if (omega_c <= 0.0_dp .or. abs(B0) <= tiny(1.0_dp)) &
             error stop 'build_transverse_moments: invalid magnetic scale'
 
-        call gaussian_bessel_jets(ell, ks_s, kr_s, ks_o, kr_o, vT, omega_c, w)
+        call gaussian_bessel_jets(ell, ks_s, kr_s, ks_o, kr_o, vT, omega_c, w, &
+            bessel_table, table_ready, table_scaled)
         inv_b02 = 1.0_dp/B0**2
 
         do q = 0, 2
@@ -193,10 +204,15 @@ contains
         end select
     end function contract_energy
 
-    subroutine gaussian_bessel_jets(ell, ks_s, kr_s, ks_o, kr_o, vT, omega_c, w)
+    subroutine gaussian_bessel_jets(ell, ks_s, kr_s, ks_o, kr_o, vT, omega_c, w, &
+            bessel_table, table_ready, table_scaled)
         integer, intent(in) :: ell
         real(dp), intent(in) :: ks_s, kr_s, ks_o, kr_o, vT, omega_c
         type(jet_t), intent(out) :: w(0:2)
+        real(dp), intent(inout), optional :: bessel_table(0:)
+        logical, intent(inout), optional :: table_ready, table_scaled
+        real(dp) :: local_table(0:abs(ell)+3)
+        logical :: scaled
 
         type(jet_t) :: bp, bx, phase, damping, il, ilm1
         type(jet_t) :: coeff, term1, term2
@@ -234,16 +250,30 @@ contains
             phase%dso = phase%v*ls*lo
         end if
 
-        if (real(bx%v,dp) > 500.0_dp) then
+        ! Orders ell-3 .. ell+2 enter il, ilm1 and their two derivatives.
+        if (present(bessel_table)) then
+            if (.not. table_ready) then
+                table_scaled = real(bx%v,dp) > 500.0_dp
+                call fill_bessel_table(real(bx%v,dp), table_scaled, bessel_table)
+                table_ready = .true.
+            end if
+            scaled = table_scaled
+            local_table = bessel_table(0:abs(ell)+3)
+        else
+            scaled = real(bx%v,dp) > 500.0_dp
+            call fill_bessel_table(real(bx%v,dp), scaled, local_table)
+        end if
+
+        if (scaled) then
             ! Keep exp(-bPlus) fused with I_n(bCross); evaluating the two
             ! factors separately would produce 0*Inf for valid large FLR.
             damping = jet_constant(1.0_dp)
-            il = jet_scaled_besseli(ell,bp,bx)
-            ilm1 = jet_scaled_besseli(ell-1,bp,bx)
+            il = jet_scaled_besseli(ell,bp,bx,local_table)
+            ilm1 = jet_scaled_besseli(ell-1,bp,bx,local_table)
         else
             damping = jet_exp(jet_scale(bp,-1.0_dp))
-            il = jet_besseli(ell,bx)
-            ilm1 = jet_besseli(ell-1,bx)
+            il = jet_besseli(ell,bx,local_table)
+            ilm1 = jet_besseli(ell-1,bx,local_table)
         end if
         w(0) = jet_mul(phase,jet_mul(damping,il))
 
@@ -393,23 +423,49 @@ contains
         out%dso=out%v*(a%dso+a%ds*a%dobs)
     end function jet_exp
 
-    function jet_scaled_besseli(order,bplus,x) result(out)
+    subroutine fill_bessel_table(x, scaled, table)
+        !! table(n) = I_n(x), or exp(-x) I_n(x) when scaled, for n = 0..ubound.
+        !! Each order is evaluated once instead of once per use. The scaled
+        !! values come from one complex recurrence; the unscaled ones use
+        !! bessel_in per order, which switches to the asymptotic expansion at
+        !! large x where a recurrence would be slower.
+        use fortnum_special_bessel, only: bessel_in
+        use fortnum_special_complex_bessel, only: bessel_i_complex_array
+        use fortnum_status, only: fortnum_status_t, FORTNUM_OK
+        real(dp), intent(in) :: x
+        logical, intent(in) :: scaled
+        real(dp), intent(out) :: table(0:)
+        complex(dp) :: sequence(size(table))
+        type(fortnum_status_t) :: status
+        integer :: n
+
+        if (scaled) then
+            call bessel_i_complex_array(0,size(table),cmplx(x,0.0_dp,dp), &
+                .true.,sequence,status)
+            if (status%code /= FORTNUM_OK) &
+                error stop 'fill_bessel_table: fortnum evaluation failed'
+            table = real(sequence,dp)
+        else
+            do n = 0, ubound(table,1)
+                table(n) = bessel_in(n,x)
+            end do
+        end if
+    end subroutine fill_bessel_table
+
+    function jet_scaled_besseli(order,bplus,x,table) result(out)
         integer, intent(in) :: order
         type(jet_t), intent(in) :: bplus, x
+        real(dp), intent(in) :: table(0:)
         type(jet_t) :: out, scaled, prefactor
-        real(dp) :: xv, f, fp, fpp
+        real(dp) :: f, fp, fpp
 
-        ! fortnum evaluates S_n(x)=exp(-x) I_n(x) directly, uniformly in
-        ! integer order.  Reconstruct exp(-bplus) I_n(x) with the bounded
-        ! factor exp(x-bplus), where bplus >= x for the two-wave geometry.
-        xv = real(x%v,dp)
-        f = scaled_besseli_value(order,xv)
-        fp = 0.5_dp*(scaled_besseli_value(order-1,xv) &
-            + scaled_besseli_value(order+1,xv))-f
-        fpp = 0.25_dp*(scaled_besseli_value(order-2,xv)+2.0_dp*f &
-            + scaled_besseli_value(order+2,xv)) &
-            -(scaled_besseli_value(order-1,xv) &
-            + scaled_besseli_value(order+1,xv))+f
+        ! table holds S_n(x)=exp(-x) I_n(x) (I_{-n}=I_n).  Reconstruct
+        ! exp(-bplus) I_n(x) with the bounded factor exp(x-bplus), where
+        ! bplus >= x for the two-wave geometry.
+        f = table(abs(order))
+        fp = 0.5_dp*(table(abs(order-1))+table(abs(order+1)))-f
+        fpp = 0.25_dp*(table(abs(order-2))+2.0_dp*f+table(abs(order+2))) &
+            -(table(abs(order-1))+table(abs(order+1)))+f
         scaled%v = cmplx(f,0.0_dp,dp)
         scaled%ds = cmplx(fp,0.0_dp,dp)*x%ds
         scaled%dobs = cmplx(fp,0.0_dp,dp)*x%dobs
@@ -419,33 +475,17 @@ contains
         out = jet_mul(prefactor,scaled)
     end function jet_scaled_besseli
 
-    function scaled_besseli_value(order,x) result(value)
-        use fortnum_special_complex_bessel, only: bessel_i_complex_array
-        use fortnum_status, only: fortnum_status_t, FORTNUM_OK
-        integer, intent(in) :: order
-        real(dp), intent(in) :: x
-        real(dp) :: value
-        complex(dp) :: sequence(1)
-        type(fortnum_status_t) :: status
-
-        call bessel_i_complex_array(abs(order),1,cmplx(x,0.0_dp,dp), &
-            .true.,sequence,status)
-        if (status%code /= FORTNUM_OK) &
-            error stop 'scaled_besseli_value: fortnum evaluation failed'
-        value = real(sequence(1),dp)
-    end function scaled_besseli_value
-
-    function jet_besseli(order,x) result(out)
-        use fortnum_special, only: bessel_in
+    function jet_besseli(order,x,table) result(out)
         integer, intent(in) :: order
         type(jet_t), intent(in) :: x
+        real(dp), intent(in) :: table(0:)
         type(jet_t) :: out
-        real(dp) :: xv, f, fp, fpp
+        real(dp) :: f, fp, fpp
 
-        xv = real(x%v,dp)
-        f = bessel_in(order,xv)
-        fp = 0.5_dp*(bessel_in(order-1,xv)+bessel_in(order+1,xv))
-        fpp = 0.25_dp*(bessel_in(order-2,xv)+2.0_dp*f+bessel_in(order+2,xv))
+        ! table holds I_n(x) (I_{-n}=I_n).
+        f = table(abs(order))
+        fp = 0.5_dp*(table(abs(order-1))+table(abs(order+1)))
+        fpp = 0.25_dp*(table(abs(order-2))+2.0_dp*f+table(abs(order+2)))
         out%v = cmplx(f,0.0_dp,dp)
         out%ds = cmplx(fp,0.0_dp,dp)*x%ds
         out%dobs = cmplx(fp,0.0_dp,dp)*x%dobs

@@ -1,7 +1,8 @@
 module time_evolution_ntv
     use iso_fortran_env, only: dp => real64
     use time_evolution, only: TimeEvolution_t
-    use neort_lib
+    use neort_lib, only: transport_data_t, equilibrium_t, neort_init, neort_get_equilibrium, &
+                         neort_prepare_splines, neort_compute_at_s
 
     implicit none
 
@@ -45,6 +46,7 @@ contains
         real(dp), dimension(:, :), allocatable :: s_splined, r_splined
         real(dp) :: s_min, s_max
         type(meta_config_neort_t) :: meta_config
+        type(equilibrium_t) :: equil
         integer :: s_size
 
         character(len=*), parameter :: balance_config_file = "balance_conf.nml"
@@ -74,13 +76,17 @@ contains
         allocate (profile_data(s_size, 2))
         allocate (transport_data(s_size))
 
+        ! NEO-RT initialization
+        call neort_init(meta_config%config, meta_config%boozer_file, meta_config%boozer_pert_file)
+        call neort_get_equilibrium(equil)
+
         ! Prepare grid splines for NEO-RT
         call read_equil_file(r_eff=r_eff, psi_tor=psi_tor)
         ! The s(r) spline must not extrapolate: NEO-RT needs s inside [0, 1].
         if (rmin < minval(r_eff) .or. rsepar > maxval(r_eff)) error stop &
             "TimeEvolutionNTV: the equilibrium file must cover rmin..rsepar"
         allocate (s_tor_equil(size(psi_tor)))
-        call calculate_s_tor(s_tor_equil, psi_tor)
+        call calculate_s_tor(s_tor_equil, psi_tor, equil%toroidal_flux_boundary)
 
         ! Find s values corresponding to rmin and rsepar by splining s(r)
         allocate (s_of_r_coeffs(size(r_eff) - 1, 5))
@@ -89,6 +95,10 @@ contains
         s_splined = spline_val(s_of_r_coeffs, [rmin, rsepar])
         s_min = s_splined(1, 1)
         s_max = s_splined(2, 1)
+        if (s_min <= 0.0_dp .or. s_max > 1.0_dp .or. s_min >= s_max) then
+            print *, "NEO-RT s range from rmin and rsepar: ", s_min, s_max
+            error stop "TimeEvolutionNTV: rmin and rsepar must map to 0 < s <= 1"
+        end if
 
         ! Create an equidistant grid in s
         call calculate_coarse_s_tor(s_tor, s_min, s_max, s_size)
@@ -102,9 +112,6 @@ contains
         am2 = am
         Z1 = Z_i
         Z2 = Z_i
-
-        ! NEO-RT initialization
-        call neort_init(meta_config%config, meta_config%boozer_file, meta_config%boozer_pert_file)
 
         deallocate (r_eff)
         deallocate (psi_tor)

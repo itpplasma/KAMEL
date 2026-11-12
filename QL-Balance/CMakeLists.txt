@@ -163,17 +163,9 @@ set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
 # fortnum C ABI header (fortnum.h) for vel_integral.cpp.
 target_include_directories(ql-balance_lib PUBLIC ${fortnum_SOURCE_DIR}/include)
 
-set(BUILD_TESTING OFF)
-
-set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "Disable libneo tests" FORCE)
-set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "Disable libneo tests" FORCE)
-
-
-# Only fetch libneo if not already available (prevents duplicate targets)
-if(NOT TARGET LIBNEO::polylag)
-    find_or_fetch(libneo)
-endif()
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/../libneo/include)
+itp_add_dependency(libneo REF ${KAMEL_LIBNEO_REF} TARGET LIBNEO::polylag)
+FetchContent_GetProperties(libneo)
+include_directories(${libneo_BINARY_DIR}/include)
 
 add_dependencies(ql-balance_lib sparse)
 

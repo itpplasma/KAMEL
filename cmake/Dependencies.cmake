@@ -3,6 +3,8 @@
 
 # Set up module path for fetch modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(${CMAKE_SOURCE_DIR}/cmake/ItpDeps.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/DependencyPins.cmake)
 
 # Core dependencies
 include(FetchLapack)
@@ -10,21 +12,15 @@ include(FetchSuiteSparse)
 include(FetchSUNDIALS)
 include(FetchFortnum)
 
-include(FetchContent)
 if(NOT TARGET fortio)
     if(APPLE)
         execute_process(COMMAND xcrun --show-sdk-path OUTPUT_VARIABLE _kamel_sdk
                         OUTPUT_STRIP_TRAILING_WHITESPACE)
         set(ZLIB_INCLUDE_DIR "${_kamel_sdk}/usr/include" CACHE PATH "" FORCE)
     endif()
-    set(_KAMEL_BUILD_TESTING_SAVED ${BUILD_TESTING})
-    set(BUILD_TESTING OFF)
-    FetchContent_Declare(
-        fortio
+    itp_add_dependency(fortio REF ${KAMEL_FORTIO_REF}
         GIT_REPOSITORY https://github.com/lazy-fortran/fortio.git
-        GIT_TAG 11afd0bd1af0c99ea4e9a1c0df683dbdcc299b69
-    )
-    FetchContent_MakeAvailable(fortio)
+        TARGET fortio)
     if(APPLE AND TARGET ZLIB::ZLIB)
         get_target_property(_zlib_real ZLIB::ZLIB ALIASED_TARGET)
         if(NOT _zlib_real)
@@ -38,7 +34,6 @@ if(NOT TARGET fortio)
             endif()
         endif()
     endif()
-    set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})
 endif()
 
 # QL-Balance sparse module (shared dependency)
@@ -55,6 +50,3 @@ set_target_properties(sparse PROPERTIES LINKER_LANGUAGE Fortran
 target_link_libraries(sparse PUBLIC SuiteSparse::umfpack_wrappers SuiteSparse::umfpack)
 # Make module directory available
 target_include_directories(sparse PUBLIC "${QLBALANCE_BASE}")
-
-# Utility macros
-include(Util)

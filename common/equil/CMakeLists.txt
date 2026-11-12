@@ -7,25 +7,9 @@
 # - Magnetic axis finding
 # - Safety factor q, flux coordinates, and profile computation
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
-include(Util)
-
-# Disable libneo tests - they are not built (EXCLUDE_FROM_ALL) but would be registered with CTest
-# Must also temporarily disable BUILD_TESTING because libneo overrides LIBNEO_BUILD_TESTING with it
-set(LIBNEO_BUILD_TESTING OFF CACHE BOOL "Disable libneo tests" FORCE)
-set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "Disable libneo tests" FORCE)
-set(LIBNEO_ENABLE_GOLDEN_TESTS OFF CACHE BOOL "Disable libneo golden tests" FORCE)
-set(_KAMEL_BUILD_TESTING_SAVED ${BUILD_TESTING})
-set(BUILD_TESTING OFF)
-
-# Only fetch libneo if not already available (prevents duplicate targets)
-if(NOT TARGET LIBNEO::magfie)
-    set(LIBNEO_REF "d03789a1fef15e188752614328dd50ea9854919f" CACHE STRING "libneo revision")
-    find_or_fetch(libneo)
-endif()
-
-# Restore BUILD_TESTING for KAMEL's own tests
-set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})
+# ItpDeps adds libneo without its tests.
+itp_add_dependency(libneo REF ${KAMEL_LIBNEO_REF} TARGET LIBNEO::magfie)
+FetchContent_GetProperties(libneo)
 
 set(EQUIL_MODULE_DIR ${CMAKE_BINARY_DIR}/modules/equil)
 file(MAKE_DIRECTORY ${EQUIL_MODULE_DIR})
@@ -52,11 +36,11 @@ set_target_properties(kamel_equil PROPERTIES
     LINKER_LANGUAGE Fortran
 )
 
-# Include directories - libneo modules are in the build/common/equil/libneo directory
+# libneo puts its Fortran modules in include/ of its build folder.
 target_include_directories(kamel_equil
     PUBLIC
         ${EQUIL_MODULE_DIR}
-        ${CMAKE_CURRENT_BINARY_DIR}/libneo/include
+        ${libneo_BINARY_DIR}/include
 )
 
 # Link libneo magfie for equilibrium field functionality

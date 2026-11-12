@@ -95,6 +95,12 @@ add_fortran_test(test_hdf5_diagnostic_writers)
 set_tests_properties(test_hdf5_diagnostic_writers PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 
+add_executable(test_output_streaming.x test_output_streaming.f90)
+target_link_libraries(test_output_streaming.x PUBLIC ql-balance_lib)
+add_fortran_test(test_output_streaming)
+set_tests_properties(test_output_streaming PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+
 add_executable(test_periodic_embedding.x test_periodic_embedding.f90)
 target_link_libraries(test_periodic_embedding.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_embedding)

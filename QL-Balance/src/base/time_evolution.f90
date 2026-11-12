@@ -904,7 +904,7 @@ module time_evolution
         allocate(dqle22_res_time(history_size))
         allocate(dae22_res_time(history_size))
         allocate(bif_criterion(history_size))
-        allocate(Ipar_time(history_size))
+        allocate(Ipar_time(history_size), source=(0.0d0, 0.0d0))
         allocate(T_tot_phi_e(history_size))
         allocate(T_tot_phi_i(history_size))
 
@@ -1197,7 +1197,7 @@ module time_evolution
     subroutine interp_Br_Dql_at_resonance_timeevol
 
         use PolyLagrangeInterpolation
-        use grid_mod, only: npoib, r_resonant, rb, dqle22, dae22
+        use grid_mod, only: npoib, r_resonant, rb, dqle22, dae22, Ipar
         use wave_code_data, only: antenna_factor, Br
 
         implicit none
@@ -1221,6 +1221,9 @@ module time_evolution
         ! save the time for the improved stopping criterion
         br_abs_time(time_ind) = time
         br_abs_antenna_factor(time_ind) = antenna_factor
+        ! Shielding current of the last get_dql (unit antenna factor), as
+        ! used by compute_antenna_factor_from_Ipar.
+        Ipar_time(time_ind) = Ipar
 
     end subroutine
 

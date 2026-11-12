@@ -233,6 +233,7 @@ module time_evolution
 
         call get_dql
         call compute_antenna_factor_from_Ipar
+        call record_parallel_current_history
         call rescale_transp_coeffs_by_ant_fac
         call interp_Br_Dql_at_resonance_timeevol
         call determine_Dql_diagnostic
@@ -885,6 +886,14 @@ module time_evolution
 
     end subroutine
 
+    subroutine record_parallel_current_history
+        !! Store the integrated parallel current that get_dql selected for the
+        !! antenna-factor normalisation (same quantity as the stellarator path).
+        use grid_mod, only: Ipar
+
+        Ipar_time(time_ind) = Ipar
+    end subroutine record_parallel_current_history
+
     subroutine alloc_Br_Dqle_for_timeevol
 
         use grid_mod, only: T_tot_phi_e, T_tot_phi_i
@@ -905,6 +914,7 @@ module time_evolution
         allocate(dae22_res_time(history_size))
         allocate(bif_criterion(history_size))
         allocate(Ipar_time(history_size))
+        Ipar_time = (0.0_dp, 0.0_dp)
         allocate(T_tot_phi_e(history_size))
         allocate(T_tot_phi_i(history_size))
 

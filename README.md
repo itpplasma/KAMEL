@@ -86,9 +86,11 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-To select a libneo branch, tag, or commit, pass `LIBNEO_REF=<ref>` to `make`
-or `-DLIBNEO_REF=<ref>` to CMake. To use a local libneo checkout, use
-`LIBNEO_PATH=<dir>` or `-DLIBNEO_PATH=<dir>`.
+Dependency commits are pinned in `cmake/DependencyPins.cmake` and added
+through [ItpDeps](https://github.com/itpplasma/cmake-deps). To build another
+libneo branch, tag, or commit, pass `LIBNEO_REF=<ref>` to `make` or
+`-DITP_LIBNEO_REF=<ref>` to CMake. To use a local libneo checkout, use
+`LIBNEO_PATH=<dir>` or `-DFETCHCONTENT_SOURCE_DIR_LIBNEO=<dir>`.
 
 ## Run
 

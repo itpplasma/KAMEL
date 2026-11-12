@@ -3,6 +3,8 @@
 
 # Set up module path for fetch modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(${CMAKE_SOURCE_DIR}/cmake/ItpDeps.cmake)
+include(${CMAKE_SOURCE_DIR}/cmake/DependencyPins.cmake)
 
 # Core dependencies
 include(FetchLapack)
@@ -10,21 +12,15 @@ include(FetchSuiteSparse)
 include(FetchSUNDIALS)
 include(FetchFortnum)
 
-include(FetchContent)
 if(NOT TARGET fortio)
     if(APPLE)
         execute_process(COMMAND xcrun --show-sdk-path OUTPUT_VARIABLE _kamel_sdk
                         OUTPUT_STRIP_TRAILING_WHITESPACE)
         set(ZLIB_INCLUDE_DIR "${_kamel_sdk}/usr/include" CACHE PATH "" FORCE)
     endif()
-    set(_KAMEL_BUILD_TESTING_SAVED ${BUILD_TESTING})
-    set(BUILD_TESTING OFF)
-    FetchContent_Declare(
-        fortio
+    itp_add_dependency(fortio REF ${KAMEL_FORTIO_REF}
         GIT_REPOSITORY https://github.com/lazy-fortran/fortio.git
-        GIT_TAG 11afd0bd1af0c99ea4e9a1c0df683dbdcc299b69
-    )
-    FetchContent_MakeAvailable(fortio)
+        TARGET fortio)
     if(APPLE AND TARGET ZLIB::ZLIB)
         get_target_property(_zlib_real ZLIB::ZLIB ALIASED_TARGET)
         if(NOT _zlib_real)
@@ -38,7 +34,6 @@ if(NOT TARGET fortio)
             endif()
         endif()
     endif()
-    set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})
 endif()
 
 # QL-Balance sparse module (shared dependency)
@@ -56,28 +51,7 @@ target_link_libraries(sparse PUBLIC SuiteSparse::umfpack_wrappers SuiteSparse::u
 # Make module directory available
 target_include_directories(sparse PUBLIC "${QLBALANCE_BASE}")
 
-# Utility macros
-include(Util)
-
-# NEO-RT's standalone mode adds libneo unconditionally.  Configure it before
-# KAMEL's other libneo consumers so the whole build shares one libneo target
-# namespace instead of trying to add a second copy later.
-#
-# That shared libneo must be KAMEL's validated pin, not NEO-RT's own: NEO-RT
-# resolves libneo through ItpDeps, which honours ITP_LIBNEO_REF. common/equil
-# reuses the same LIBNEO_REF when it fetches libneo itself.
-set(LIBNEO_REF "d03789a1fef15e188752614328dd50ea9854919f" CACHE STRING "libneo revision")
-set(ITP_LIBNEO_REF "${LIBNEO_REF}" CACHE STRING "libneo revision for ItpDeps consumers")
-# Pin NEO-RT like libneo, so an unchanged KAMEL commit always builds the same
-# NEO-RT (find_or_fetch reads <NAME>_REF).
-set(NEO-RT_REF "6a1d8d3e1db3269e2ef7bf1c48036ad44b341130" CACHE STRING "NEO-RT revision")
-set(NEORT_BUILD_TESTING OFF CACHE BOOL "Build tests for NEO-RT" FORCE)
-set(_KAMEL_BUILD_TESTING_SAVED ${BUILD_TESTING})
-set(BUILD_TESTING OFF)
-if(DEFINED LIBNEO_PATH AND EXISTS "${LIBNEO_PATH}/CMakeLists.txt")
-    get_filename_component(_KAMEL_LIBNEO_PATH "${LIBNEO_PATH}" ABSOLUTE
-        BASE_DIR "${CMAKE_SOURCE_DIR}")
-    set(FETCHCONTENT_SOURCE_DIR_LIBNEO "${_KAMEL_LIBNEO_PATH}")
-endif()
-find_or_fetch(neo-rt)
-set(BUILD_TESTING ${_KAMEL_BUILD_TESTING_SAVED})
+# NEO-RT (NTV torque in QL-Balance).
+itp_add_dependency(neo_rt REF ${KAMEL_NEO_RT_REF}
+    GIT_REPOSITORY https://github.com/itpplasma/NEO-RT.git
+    TARGET neo_rt)

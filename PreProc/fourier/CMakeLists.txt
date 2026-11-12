@@ -14,17 +14,13 @@ set(lib ${CMAKE_CURRENT_BINARY_DIR}/lib/)
 
 set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
-include(Util)
-
-# Only fetch libneo if not already available (prevents duplicate targets)
-if(NOT TARGET LIBNEO::magfie)
-    find_or_fetch(libneo)
-    include_directories(${CMAKE_CURRENT_BINARY_DIR}/libneo/include)
-else()
-    # Use libneo from common/equil when building as part of KAMEL
-    include_directories(${CMAKE_BINARY_DIR}/common/equil/libneo/include)
+if(FOURIER_STANDALONE)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/ItpDeps.cmake)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/DependencyPins.cmake)
 endif()
+itp_add_dependency(libneo REF ${KAMEL_LIBNEO_REF} TARGET LIBNEO::magfie)
+FetchContent_GetProperties(libneo)
+include_directories(${libneo_BINARY_DIR}/include)
 
 # Source files - equilibrium tracing (mag, rhs1, RK4D) now comes from kamel_equil
 set(source_files
@@ -50,7 +46,7 @@ if(TARGET kamel_equil)
         LIBNEO::magfie
     )
     target_include_directories(fouriermodes PUBLIC
-        ${CMAKE_BINARY_DIR}/common/equil/libneo/include
+        ${libneo_BINARY_DIR}/include
         ${KAMEL_EQUIL_INCLUDE_DIRS}
     )
 else()

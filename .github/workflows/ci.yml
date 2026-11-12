@@ -30,6 +30,9 @@ env:
   OMP_NUM_THREADS: '1'
 
 jobs:
+  itpdeps-copy:
+    uses: itpplasma/cmake-deps/.github/workflows/check-copy.yml@v1
+
   python-unit:
     runs-on: ubuntu-latest
 

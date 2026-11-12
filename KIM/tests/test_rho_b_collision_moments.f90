@@ -2,7 +2,8 @@ program test_rho_b_collision_moments
     use KIM_kinds_m, only: dp
     use species_m, only: plasma_t
     use constants_m, only: sol
-    use config_m, only: artificial_debye_case
+    use config_m, only: artificial_debye_case, resolved_electron_ifunc_conservation_model, &
+        IFUNC_MODEL_ENERGY
     use flr2_fourier_kernel_m, only: core_rho_B_sp
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     implicit none
@@ -55,6 +56,7 @@ program test_rho_b_collision_moments
         if (info /= 0) error stop 'Hermite oracle solve failed'
         if (.not. all(is_finite_complex(rhs))) error stop 'Nonfinite Hermite oracle solution'
         call getIfunc_model(x1, x2, model, moments)
+        resolved_electron_ifunc_conservation_model = model
         if (.not. all(is_finite_complex(moments))) error stop 'Nonfinite collision moments'
         if (abs(rhs(1, 1)-moments(0, 1)) > 1.0e-10_dp) error stop 1
         if (abs(rhs(1, 2)-moments(0, 3)) > 1.0e-10_dp) error stop 2
@@ -76,6 +78,24 @@ program test_rho_b_collision_moments
         end if
     end do
     print *, 'PASS: raw rho-B source moments for number-only and conserving collisions'
+
+    ! Energy conservation at x2 = 0 and small x1, near a resonant surface:
+    ! particle conservation gives I01 = 1/(i x1), and I03 = I12 = I21 =
+    ! (1 + i x2 I02)/(i x1) = 1/(i x1). getIfunc's I03 is inaccurate here, so
+    ! the response must come out right only through I21.
+    resolved_electron_ifunc_conservation_model = IFUNC_MODEL_ENERGY
+    call getIfunc_model(1.0e-4_dp, 0.0_dp, IFUNC_MODEL_ENERGY, moments)
+    background%spec(0)%I01(1, 0) = moments(0, 1)
+    background%spec(0)%I21(1, 0) = moments(2, 1)
+    background%spec(0)%I03(1, 0) = moments(0, 3)
+    expected = -(1.5_dp/(imaginary*1.0e-4_dp))/sol
+    actual = core_rho_B_sp(background, 0, 0.0_dp, 0.0_dp, 1)
+    print '(a,es10.2,a,es10.2)', '  small x1: |I03 - 1/(i x1)|/|1/(i x1)| =', &
+        abs(moments(0, 3)*imaginary*1.0e-4_dp - 1.0_dp), &
+        '  rho-B response rel. error =', abs(actual/expected - 1.0_dp)
+    if (abs(actual/expected - 1.0_dp) > 1.0e-8_dp) &
+        error stop 'rho-B response is inaccurate at small x1 with energy conservation'
+    print *, 'PASS: rho-B response uses the accurate moment at small x1'
 
 contains
 

@@ -394,9 +394,10 @@ contains
     end function core_rho_B_sp
 
     complex(dp) function core_rho_B_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) result(G)
-        ! Density observes u^0 and the magnetic temperature source contains u^3.
-        ! Use I03 directly: I03=I21 requires energy conservation and fails for
-        ! every model without it (number-only and number+momentum).
+        ! Density observes u^0 and the magnetic temperature source contains u^3,
+        ! so the moment is I03. With energy conservation I03 = I21, and I21 is
+        ! then preferred: getIfunc's I03 loses accuracy at small x1 with x2 ~ 0,
+        ! where I21 stays exact. Without energy conservation I03 /= I21.
         ! Per-species rho-B core (SIGNED FP term) parameterized by the FLR
         ! argument pair (b_+, b_x). Single home for the rho-B integrand math:
         ! the diagonal integrand calls it with bplus=bcross=b, and the fused
@@ -422,10 +423,24 @@ contains
                         sI0 * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-bplus)) &
                         + plasma_in%spec(sp)%A2(j) * bcross * sIm1 &
                     )&
-                    + 0.5d0 * plasma_in%spec(sp)%I03(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
+                    + 0.5d0 * rho_B_source_moment(plasma_in, sp, j) &
+                        * plasma_in%spec(sp)%A2(j) * sI0 &
                 )
         end if
     end function core_rho_B_sp_bessel
+
+    complex(dp) function rho_B_source_moment(plasma_in, sp, j) result(moment)
+        ! The u^3 source moment of the rho-B kernel; see core_rho_B_sp_bessel.
+        use config_m, only: ifunc_model_conserves_energy
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+
+        if (ifunc_model_conserves_energy(sp)) then
+            moment = plasma_in%spec(sp)%I21(j, 0)
+        else
+            moment = plasma_in%spec(sp)%I03(j, 0)
+        end if
+    end function rho_B_source_moment
 
     complex(dp) function core_rho_Bparallel_sp(plasma_in, sp, kr_observation, &
                                                kr_source, j) result(G)

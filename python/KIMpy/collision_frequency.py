@@ -7,10 +7,16 @@ to a dict with ``n`` and ``T`` (arrays or scalars) and, for ions, ``Zi`` and
 
 import numpy as np
 
+# KiLCA's convention (KiLCA/background/background_data_m.f90). The ion
+# coefficients are the electron ones scaled by the mass ratio: like particles
+# 5.8e-6 sqrt(m_e/m_p) = 1.4e-7, slow heavy field particles 7.7e-6 sqrt(m_e/m_p)
+# = 1.8e-7, ions on electrons 5.8e-6 m_e/m_p = 3.2e-9. Unlike ion pairs keep
+# the heavy-field coefficient, which is not validated for lighter field ions.
 NU_LIKE_ELECTRON = 5.8e-6
 NU_ELECTRON_ION = 7.7e-6
-NU_ION_ION = 1.8e-7
-NU_ION_ELECTRON = 1.8e-7
+NU_LIKE_ION = 1.4e-7
+NU_HEAVY_FIELD_ION = 1.8e-7
+NU_ION_ELECTRON = 3.2e-9
 
 
 def electron_coulomb_logs(n_e, T_e):
@@ -48,23 +54,26 @@ def collision_frequencies(spec_dat, ion_species):
         nu["e"] = (
             nu["e"] + NU_ELECTRON_ION * electrons["T"] ** -1.5 * ion["n"] * log_ei * ion["Zi"] ** 2
         )
+        # Ions on electrons: momentum exchange suppressed by m_e/m_i,
+        # with Lambda_ie = Lambda_ei.
         nu[test] = (
             NU_ION_ELECTRON
-            * ion["Ai"] ** (-1 / 2)
-            * ion["T"] ** (-3 / 2)
             * electrons["n"]
-            * ion["Zi"] ** 2
             * log_ei
+            * ion["Zi"] ** 2
+            / ion["Ai"]
+            / (np.sqrt(electrons["T"]) * ion["T"])
         )
         for field in ion_species:
             partner = spec_dat[field]
+            coefficient = NU_LIKE_ION if field == test else NU_HEAVY_FIELD_ION
             nu[test] = nu[test] + (
-                NU_ION_ION
-                * ion["Ai"] ** -0.5
-                * ion["T"] ** -1.5
+                coefficient
                 * partner["n"]
                 * ion["Zi"] ** 2
                 * partner["Zi"] ** 2
                 * ion_ion_coulomb_log(ion, partner)
+                / np.sqrt(ion["Ai"])
+                / ion["T"] ** 1.5
             )
     return nu

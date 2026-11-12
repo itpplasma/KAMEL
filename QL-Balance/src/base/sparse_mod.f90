@@ -114,9 +114,32 @@ MODULE sparse_mod
 
   ! helper
   PRIVATE find_unit
+  PRIVATE check_umfpack_status
 
 
 CONTAINS
+
+  !-------------------------------------------------------------------------------
+  ! stops on UMFPACK errors and singular matrices (status 1), reports other
+  ! warnings only when sparse_talk is set; stage is 'symbolic', 'numeric' or 'solve'
+  SUBROUTINE check_umfpack_status(info, stage)
+    REAL(kind=dp), DIMENSION(:), INTENT(in) :: info
+    CHARACTER(len=*), INTENT(in) :: stage
+
+    INTEGER :: status
+
+    status = NINT(info(1))
+    IF (status .LT. 0) THEN
+       PRINT *, 'UMFPACK error in ', stage, ' stage, status = ', status
+       ERROR STOP 'UMFPACK error'
+    ELSE IF (status .EQ. 1) THEN
+       PRINT *, 'UMFPACK singular matrix in ', stage, ' stage, status = ', status
+       ERROR STOP 'UMFPACK singular matrix'
+    ELSE IF (status .GT. 1 .AND. sparse_talk) THEN
+       PRINT *, 'UMFPACK warning in ', stage, ' stage, status = ', status
+    END IF
+  END SUBROUTINE check_umfpack_status
+  !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
   ! finds free unit
@@ -1125,6 +1148,7 @@ CONTAINS
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        !pre-order and symbolic analysis
        CALL umf4sym (n, n, Ap, Ai, val, symbolic, control, info_suitesparse)
+       CALL check_umfpack_status(info_suitesparse, 'symbolic')
        IF (sparse_talk) THEN
           IF (info_suitesparse(1) .EQ. 0) THEN
           ELSE
@@ -1133,6 +1157,7 @@ CONTAINS
        ENDIF
 
        CALL umf4num (Ap, Ai, val, symbolic, numeric, control, info_suitesparse)
+       CALL check_umfpack_status(info_suitesparse, 'numeric')
 
        IF (sparse_talk) THEN
           IF (info_suitesparse(1) .EQ. 0) THEN
@@ -1151,6 +1176,7 @@ CONTAINS
        ELSE !or without (=3)) iterative refinement
           CALL umf4sol (sys, x, b, numeric, control, info_suitesparse) !without iterative refinement
        END IF
+       CALL check_umfpack_status(info_suitesparse, 'solve')
        b=x !store solution under b
 
        IF (sparse_talk) THEN
@@ -1231,6 +1257,7 @@ CONTAINS
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        !pre-order and symbolic analysis
        CALL umf4zsym (n, n, Ap, Ai, valx, valz, symbolic, control, info_suitesparse)
+       CALL check_umfpack_status(info_suitesparse, 'symbolic')
 
        IF (sparse_talk) THEN
           IF (info_suitesparse(1) .EQ. 0) THEN
@@ -1254,6 +1281,7 @@ CONTAINS
        ENDIF
 
        CALL umf4znum (Ap, Ai, valx, valz, symbolic, numeric, control, info_suitesparse)
+       CALL check_umfpack_status(info_suitesparse, 'numeric')
 
        IF (sparse_talk) THEN
           IF (info_suitesparse(1) .EQ. 0) THEN
@@ -1287,6 +1315,7 @@ CONTAINS
           CALL umf4zsol (sys, xx, xz, bx, bz, numeric, control, &
                info_suitesparse) !without iterative refinement
        END IF
+       CALL check_umfpack_status(info_suitesparse, 'solve')
 
        b=CMPLX(xx,xz, kind=kind(0d0)) !store solution under b
 
@@ -1368,6 +1397,7 @@ CONTAINS
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        !pre-order and symbolic analysis
        CALL umf4sym (n, n, Ap, Ai, val, symbolic, control, info_suitesparse)
+       CALL check_umfpack_status(info_suitesparse, 'symbolic')
        IF (sparse_talk) THEN
           IF (info_suitesparse(1) .EQ. 0) THEN
           ELSE
@@ -1376,6 +1406,7 @@ CONTAINS
        ENDIF
 
        CALL umf4num (Ap, Ai, val, symbolic, numeric, control, info_suitesparse)
+       CALL check_umfpack_status(info_suitesparse, 'numeric')
 
        IF (sparse_talk) THEN
           IF (info_suitesparse(1) .EQ. 0) THEN
@@ -1395,6 +1426,7 @@ CONTAINS
           ELSE !or without (=3)) iterative refinement
              CALL umf4sol (sys, x, bloc, numeric, control, info_suitesparse) !without iterative refinement
           END IF
+          CALL check_umfpack_status(info_suitesparse, 'solve')
 
           IF (sparse_talk) THEN
              IF (info_suitesparse(1) .EQ. 0) THEN
@@ -1480,6 +1512,7 @@ CONTAINS
     IF (iopt_in .EQ. 0 .OR. iopt_in .EQ. 1) THEN
        !pre-order and symbolic analysis
        CALL umf4zsym (n, n, Ap, Ai, valx, valz, symbolic, control, info_suitesparse)
+       CALL check_umfpack_status(info_suitesparse, 'symbolic')
 
        IF (sparse_talk) THEN
           IF (info_suitesparse(1) .EQ. 0) THEN
@@ -1504,6 +1537,7 @@ CONTAINS
        ENDIF
 
        CALL umf4znum (Ap, Ai, valx, valz, symbolic, numeric, control, info_suitesparse)
+       CALL check_umfpack_status(info_suitesparse, 'numeric')
 
        IF (sparse_talk) THEN
           IF (info_suitesparse(1) .EQ. 0) THEN
@@ -1540,6 +1574,7 @@ CONTAINS
              CALL umf4zsol (sys, xx, xz, blocx, blocz, numeric,&
                   control, info_suitesparse) !without iterative refinement
           END IF
+          CALL check_umfpack_status(info_suitesparse, 'solve')
 
           IF (sparse_talk) THEN
              IF (info_suitesparse(1) .EQ. 0) THEN

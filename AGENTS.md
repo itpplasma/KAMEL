@@ -223,9 +223,3 @@ Output written to `Er_no_Vpol.dat` (without poloidal rotation contribution).
   experimental input, or comparison tolerance. Require an explicit reviewed contract and
   independent reference values before implementing a scientific conversion.
 - Preparation/import operations must not launch the solver or overwrite an existing destination.
-
-## Known Issues
-
-### Stale `forces_nl` in `rhs_balance` Jacobian probing (QL-Balance)
-
-In `rhs_balance_m.f90`, the `rhs_balance` subroutine computes `forces_nl` in a pre-loop over all boundary points but only retains the value from the last point (`ipoi = npoib`). This stale value is then reused for all boundary points inside the Jacobian probing loop (lines ~280-283), producing incorrect nonlinear QL fluxes for the torque computation at interior boundary points. The impact is limited to the Jacobian accuracy for the implicit solver and may cause slower convergence or subtle inaccuracies in the nonlinear torque terms during probing.

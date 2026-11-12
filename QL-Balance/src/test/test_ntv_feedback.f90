@@ -15,6 +15,7 @@ program test_ntv_feedback
     real(dp), dimension(3) :: r, s_tor
     real(dp), dimension(3, 2) :: profile_a, profile_b, profile_repeat
     real(dp) :: expected_mach, vth_ion
+    real(dp), parameter :: R0_boozer = 169.0_dp  ! differs from rtor on purpose
 
     num_failed = 0
     call setup_fixture()
@@ -22,23 +23,23 @@ program test_ntv_feedback
     params(2, :) = 1.0e4_dp
     call compute_unsmoothed_radial_electric_field(params, E_r_a)
     Ercov = -huge(1.0_dp)
-    call prepare_profile_data_for_neort(profile_a, r, s_tor)
+    call prepare_profile_data_for_neort(profile_a, r, s_tor, R0_boozer)
 
     vth_ion = sqrt(2.0_dp*params(4, 1)/(am*p_mass))
     do i = 1, size(r)
-        expected_mach = c*E_r_a(i)/(r(i)*btor/qsaf(i))*rtor/vth_ion
+        expected_mach = c*E_r_a(i)/(r(i)*btor/qsaf(i))*R0_boozer/vth_ion
         call assert_equal(profile_a(i, 2), expected_mach, "Mach from accepted E_r")
     end do
 
     Ercov = huge(1.0_dp)
-    call prepare_profile_data_for_neort(profile_repeat, r, s_tor)
+    call prepare_profile_data_for_neort(profile_repeat, r, s_tor, R0_boozer)
     do i = 1, size(r)
         call assert_equal(profile_repeat(i, 2), profile_a(i, 2), "global Ercov independence")
     end do
 
     params(2, :) = 2.0e4_dp
     call compute_unsmoothed_radial_electric_field(params, E_r_b)
-    call prepare_profile_data_for_neort(profile_b, r, s_tor)
+    call prepare_profile_data_for_neort(profile_b, r, s_tor, R0_boozer)
     do i = 1, size(r)
         call assert_equal(E_r_b(i), 2.0_dp*E_r_a(i), "immediate E_r update")
         call assert_equal(profile_b(i, 2), 2.0_dp*profile_a(i, 2), "immediate Mach update")
@@ -46,7 +47,7 @@ program test_ntv_feedback
 
     params(2, :) = -1.0e4_dp
     call compute_unsmoothed_radial_electric_field(params, E_r_b)
-    call prepare_profile_data_for_neort(profile_b, r, s_tor)
+    call prepare_profile_data_for_neort(profile_b, r, s_tor, R0_boozer)
     do i = 1, size(r)
         call assert_equal(profile_b(i, 2), -profile_a(i, 2), "Mach sign")
     end do

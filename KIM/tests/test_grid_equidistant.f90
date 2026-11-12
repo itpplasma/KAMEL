@@ -67,6 +67,14 @@ program test_grid_equidistant
         call g%grid_generate_equidistant(endpoint_inclusive=.true.)
         call report('closed interval reaches both bounds', &
             g%xb(1) == lower .and. g%xb(npts) == upper, all_passed)
+        ! The integral checks below hold on any mesh with the right endpoints;
+        ! only this one rejects, e.g., h = (b-a)/N with a stretched last cell.
+        uniform = .true.
+        do i = 2, npts
+            if (abs((g%xb(i) - g%xb(i-1)) - (upper - lower)/real(npts - 1, dp)) &
+                    > tol*max(1.0_dp, upper - lower)) uniform = .false.
+        end do
+        call report('closed interval has uniform spacing (b-a)/(N-1)', uniform, all_passed)
         integral = sum(g%xb(2:)-g%xb(:npts-1))
         call report('integrated constant over declared interval', &
             abs(integral-(upper-lower)) < tol, all_passed)

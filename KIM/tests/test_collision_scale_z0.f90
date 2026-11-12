@@ -22,7 +22,7 @@ program test_collision_scale_z0
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     use KIM_kinds_m, only: dp
     use constants_m, only: com_unit
-    use species_m, only: plasma, plasma_t, init_electron_species, &
+    use species_m, only: plasma, plasma_t, init_electron_species, init_hydrogen_species, &
                          init_deuterium_species, calculate_plasma_backs, &
                          interpolate_plasma_backs, compute_rg_cell_centers, &
                          calculate_thermodynamic_forces_and_susc
@@ -38,6 +38,7 @@ program test_collision_scale_z0
     call test_harmonic_detuning_uses_local_grid_values()
     call test_collision_scale_reaches_production_paths()
     call test_collisions_off_reaches_derived_quantities()
+    call test_ion_collisions_independent_of_species_order()
 
     print *, 'All tests PASSED'
     stop 0
@@ -314,20 +315,25 @@ contains
         lee = 23.5d0 - log(sqrt(1.0d13)/1.0d3**1.25d0) &
             - sqrt(1.0d-5 + (log(1.0d3) - 2.0d0)**2/16.0d0)
         lei = 24.0d0 - log(sqrt(1.0d13)/1.0d3)
-        expected_nue = real(5.8e-6, dp)*1.0d13*lee/1.0d3**1.5d0 &
+        expected_nue = 5.8d-6*1.0d13*lee/1.0d3**1.5d0 &
             + 7.7d-6*1.0d13*lei/1.0d3**1.5d0
         call require_close(nu_base(0), expected_nue, &
                            'default scale preserves the electron collision formula')
 
-        ! Deuterium at T_i = 800 eV: ion-electron plus like-ion collisions, the
-        ! latter with the NRL like-ion logarithm 23 - ln(T^-3/2 sqrt(2 n)).
+        ! Deuterium (A = 2) at T_i = 800 eV with T_e = 1 keV and n = 1e13 cm^-3,
+        ! in KiLCA's convention (KiLCA/background/background_data_m.f90):
+        !   like ions        1.4e-7 n Z^4 Lambda_ii A^-1/2 T_i^-3/2,
+        !   ions on electrons 3.2e-9 n Z^2 Lambda_ie / (A T_e^1/2 T_i),
+        ! with the NRL like-ion logarithm 23 - ln(T^-3/2 sqrt(2 n)) and
+        ! Lambda_ie = Lambda_ei.
         lii = 23.0d0 - log(sqrt(2.0d13)/8.0d2**1.5d0)
-        expected_nui = 1.8d-7/sqrt(2.0d0)/8.0d2**1.5d0*1.0d13*(lei + lii)
-        if (abs(nu_base(1) - expected_nui) > 1.0d-6*expected_nui) then
+        expected_nui = 1.4d-7*1.0d13*lii/sqrt(2.0d0)/8.0d2**1.5d0 &
+            + 3.2d-9*1.0d13*lei/(2.0d0*sqrt(1.0d3)*8.0d2)
+        if (abs(nu_base(1) - expected_nui) > 1.0d-12*expected_nui) then
             print *, 'FAIL: ion collision frequency'
             print *, '  got  = ', nu_base(1)
             print *, '  want = ', expected_nui
-            error stop 'ion collision frequency does not use the NRL ion-ion logarithm'
+            error stop 'ion collision frequency does not follow the KiLCA rates'
         end if
 
         do sp = 0, 1
@@ -387,5 +393,78 @@ contains
         collisions_off = .false.
         print *, 'PASS: collisions_off reaches nu and z0 without singular FP inputs'
     end subroutine test_collisions_off_reaches_derived_quantities
+
+    subroutine build_two_ion_plasma(template, deuterium_first)
+        ! Electrons plus deuterium and hydrogen with distinct densities and
+        ! temperatures; deuterium_first selects the order of the two ions.
+        type(plasma_t), intent(out) :: template
+        logical, intent(in) :: deuterium_first
+        integer, parameter :: n = 4
+        integer :: sp, d, h
+
+        d = merge(1, 2, deuterium_first)
+        h = 3 - d
+        template%n_species = 3
+        template%grid_size = n
+        allocate(template%spec(0:2))
+        call init_electron_species(template%spec(0))
+        call init_deuterium_species(template%spec(d))
+        call init_hydrogen_species(template%spec(h))
+        allocate(template%r_grid(n), template%ks(n), template%kp(n), &
+                 template%om_E(n), template%B0(n), template%q(n), &
+                 template%dqdr(n), template%Er(n))
+        do sp = 0, 2
+            allocate(template%spec(sp)%n(n), template%spec(sp)%dndr(n), &
+                     template%spec(sp)%T(n), template%spec(sp)%dTdr(n))
+            template%spec(sp)%dndr = -1.0d11
+            template%spec(sp)%dTdr = -1.0d1
+        end do
+
+        template%r_grid = [10.0d0, 20.0d0, 30.0d0, 40.0d0]
+        template%kp = [3.0d-3, 2.0d-3, 1.0d-3, 5.0d-4]
+        template%om_E = [9.3d4, 8.0d4, 7.0d4, 6.0d4]
+        template%ks = 1.0d-2
+        template%B0 = 2.0d4
+        template%q = 1.5d0
+        template%dqdr = 1.0d-2
+        template%Er = 0.0d0
+        template%spec(0)%n = 1.0d13
+        template%spec(0)%T = 1.0d3
+        template%spec(d)%n = 7.0d12
+        template%spec(d)%T = 8.0d2
+        template%spec(h)%n = 3.0d12
+        template%spec(h)%T = 6.0d2
+    end subroutine build_two_ion_plasma
+
+    subroutine test_ion_collisions_independent_of_species_order()
+        ! Each ion species collides with every ion species, so its collision
+        ! frequency must not depend on where it appears in the species list.
+        type(plasma_t) :: template
+        real(dp) :: nu_d_first(2), nu_h_first(2)
+
+        number_of_ion_species = 2
+        rescale_density = .false.
+        ion_flr_scale_factor = 1.0d0
+        collision_frequency_scale = 1.0d0
+        collisions_off = .false.
+
+        call build_two_ion_plasma(template, .true.)
+        plasma = template
+        call calculate_plasma_backs(plasma)
+        nu_d_first = [plasma%spec(1)%nu(2), plasma%spec(2)%nu(2)]
+
+        call build_two_ion_plasma(template, .false.)
+        plasma = template
+        call calculate_plasma_backs(plasma)
+        nu_h_first = [plasma%spec(2)%nu(2), plasma%spec(1)%nu(2)]
+
+        call require_close(nu_h_first(1), nu_d_first(1), &
+                           'deuterium nu independent of species order')
+        call require_close(nu_h_first(2), nu_d_first(2), &
+                           'hydrogen nu independent of species order')
+
+        number_of_ion_species = 1
+        print *, 'PASS: ion collision frequencies independent of species order'
+    end subroutine test_ion_collisions_independent_of_species_order
 
 end program test_collision_scale_z0

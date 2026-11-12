@@ -461,6 +461,15 @@ target_link_libraries(test_ion_coulomb_log KIM_lib kilca_lib lapack cerf fortnum
 add_test(NAME test_ion_coulomb_log
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_ion_coulomb_log.x)
 
+add_executable(test_scaled_besseli_large_x
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_scaled_besseli_large_x.f90)
+set_target_properties(test_scaled_besseli_large_x PROPERTIES
+                      OUTPUT_NAME test_scaled_besseli_large_x.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_scaled_besseli_large_x KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_scaled_besseli_large_x
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_scaled_besseli_large_x.x)
+
 add_executable(test_fp_harmonic_prefactors
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_fp_harmonic_prefactors.f90)
 set_target_properties(test_fp_harmonic_prefactors PROPERTIES

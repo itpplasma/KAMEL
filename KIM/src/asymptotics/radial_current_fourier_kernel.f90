@@ -15,6 +15,7 @@ module radial_current_fourier_kernel_m
     public :: radial_flr_coefficients
     public :: scaled_bessel_harmonic
     public :: hatG_jrad_phi, hatG_jrad_br, hatG_jrad_phi_br, hatG_jrad_bparallel
+    public :: jrad_bessel_tables
     public :: hatG_jrad_phi_harmonic, hatG_jrad_br_harmonic
     public :: hatG_jrad_bparallel_harmonic
     public :: hatG_jrad_phi_harmonic_sp, hatG_jrad_br_harmonic_sp
@@ -55,7 +56,7 @@ contains
     end function hatG_jrad_br
 
     subroutine hatG_jrad_phi_br(plasma_in, kr_response, kr_source, j, &
-        phi_kernel, br_kernel, cutoff)
+        phi_kernel, br_kernel, cutoff, tables)
         !> hatG_jrad_phi and hatG_jrad_br in one pass: both share the FLR
         !> coefficients and the phase, which dominate the cost. Sums run in the
         !> same order as the separate functions, so the results are identical.
@@ -67,19 +68,28 @@ contains
         integer, intent(in) :: j
         complex(dp), intent(out) :: phi_kernel, br_kernel
         integer, intent(in), optional :: cutoff
+        !> Optional per-species Bessel tables from jrad_bessel_tables, which
+        !> depend only on |k_r| and |k_r'| and can be shared between pairs.
+        real(dp), intent(in), optional :: tables(0:, 0:)
         integer :: ell, harmonic_cutoff, sp
         complex(dp) :: phi_harmonic, br_harmonic, phase, o0, o2, w0, w2
+        logical :: collisionless(0:plasma_in%n_species - 1), phase_ready
 
         harmonic_cutoff = checked_harmonic_cutoff(cutoff)
+        do sp = 0, plasma_in%n_species - 1
+            collisionless(sp) = use_collisionless_ion(sp)
+        end do
         phi_kernel = (0.0_dp, 0.0_dp)
         br_kernel = (0.0_dp, 0.0_dp)
         do ell = -harmonic_cutoff, harmonic_cutoff
             phi_harmonic = (0.0_dp, 0.0_dp)
             br_harmonic = (0.0_dp, 0.0_dp)
+            ! The phase depends on ell, k and r only; evaluate it once per ell.
+            phase_ready = .false.
             do sp = 0, plasma_in%n_species - 1
                 if (turn_off_electrons .and. sp == 0) cycle
                 if (turn_off_ions .and. sp >= 1) cycle
-                if (use_collisionless_ion(sp)) then
+                if (collisionless(sp)) then
                     phi_harmonic = phi_harmonic + collisionless_jrad_phi_harmonic_sp( &
                         plasma_in, sp, ell, kr_response, kr_source, j)
                     br_harmonic = br_harmonic + collisionless_jrad_br_harmonic_sp( &
@@ -88,10 +98,20 @@ contains
                 end if
                 if (artificial_debye_case /= 0 .and. artificial_debye_case /= 2) cycle
                 call check_harmonic_is_available(plasma_in, sp, ell)
-                call radial_flr_coefficients(ell, plasma_in%ks(j), kr_source, &
-                    plasma_in%ks(j), kr_response, plasma_in%spec(sp)%rho_L(j), &
-                    plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), o0, o2, w0, w2)
-                phase = radial_kernel_phase(ell, kr_response, kr_source, plasma_in%ks(j), j)
+                if (present(tables)) then
+                    call radial_flr_coefficients(ell, plasma_in%ks(j), kr_source, &
+                        plasma_in%ks(j), kr_response, plasma_in%spec(sp)%rho_L(j), &
+                        plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), o0, o2, w0, w2, &
+                        tables(:, sp))
+                else
+                    call radial_flr_coefficients(ell, plasma_in%ks(j), kr_source, &
+                        plasma_in%ks(j), kr_response, plasma_in%spec(sp)%rho_L(j), &
+                        plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), o0, o2, w0, w2)
+                end if
+                if (.not. phase_ready) then
+                    phase = radial_kernel_phase(ell, kr_response, kr_source, plasma_in%ks(j), j)
+                    phase_ready = .true.
+                end if
                 phi_harmonic = phi_harmonic + (-phase &
                     * plasma_in%spec(sp)%vT(j)**2 * plasma_in%ks(j) &
                     / (plasma_in%spec(sp)%lambda_D(j)**2 * plasma_in%spec(sp)%nu(j)) &
@@ -476,13 +496,14 @@ contains
     end function scaled_bessel_harmonic
 
     subroutine radial_flr_coefficients(ell, ks, kr, ksp, krp, rho_l, a1, a2, &
-        o0, o2, w0, w2)
+        o0, o2, w0, w2, table)
         !> Evaluate the phase-stripped coefficients with one (O) and two (W)
         !> radial-velocity insertions. The arguments before rho_l are the
         !> source and response perpendicular wave vectors, respectively.
         integer, intent(in) :: ell
         real(dp), intent(in) :: ks, kr, ksp, krp, rho_l, a1, a2
         complex(dp), intent(out) :: o0, o2, w0, w2
+        real(dp), intent(in), optional :: table(0:)
         type(flr_jet_t) :: a0_jet, a2_jet
         real(dp) :: kperp, kperp_p
 
@@ -504,20 +525,44 @@ contains
             return
         end if
 
-        call ordinary_coefficient_jets(ell, ks, kr, ksp, krp, rho_l, a1, a2, &
-            a0_jet, a2_jet)
+        if (present(table)) then
+            call ordinary_coefficient_jets(ell, ks, kr, ksp, krp, rho_l, a1, a2, &
+                a0_jet, a2_jet, table)
+        else
+            call ordinary_coefficient_jets_own_table(ell, ks, kr, ksp, krp, rho_l, a1, a2, &
+                a0_jet, a2_jet)
+        end if
         call apply_radial_operators(ell, kr, krp, kperp, kperp_p, a0_jet, o0, w0)
         call apply_radial_operators(ell, kr, krp, kperp, kperp_p, a2_jet, o2, w2)
     end subroutine radial_flr_coefficients
 
-    subroutine ordinary_coefficient_jets(ell, ks, kr, ksp, krp, rho_l, a1, a2, &
+    subroutine ordinary_coefficient_jets_own_table(ell, ks, kr, ksp, krp, rho_l, a1, a2, &
         a0_jet, a2_jet)
+        !> ordinary_coefficient_jets with its own Bessel table. The automatic
+        !> array lives here so the shared-table path allocates nothing.
         integer, intent(in) :: ell
         real(dp), intent(in) :: ks, kr, ksp, krp, rho_l, a1, a2
         type(flr_jet_t), intent(out) :: a0_jet, a2_jet
+        real(dp) :: table(0:abs(ell)+3), rho_l_squared, kperp, kperp_p
+
+        rho_l_squared = rho_l**2
+        kperp = hypot(ks, kr)
+        kperp_p = hypot(ksp, krp)
+        call fill_scaled_bessel_table(0.5_dp * rho_l_squared * (kperp**2 + kperp_p**2), &
+            rho_l_squared * kperp * kperp_p, table)
+        call ordinary_coefficient_jets(ell, ks, kr, ksp, krp, rho_l, a1, a2, &
+            a0_jet, a2_jet, table)
+    end subroutine ordinary_coefficient_jets_own_table
+
+    subroutine ordinary_coefficient_jets(ell, ks, kr, ksp, krp, rho_l, a1, a2, &
+        a0_jet, a2_jet, table)
+        integer, intent(in) :: ell
+        real(dp), intent(in) :: ks, kr, ksp, krp, rho_l, a1, a2
+        type(flr_jet_t), intent(out) :: a0_jet, a2_jet
+        !> exp(-b_plus) I_n(b_cross) for n = 0..|ell|+3 (fill_scaled_bessel_table).
+        real(dp), intent(in) :: table(0:)
         type(flr_jet_t) :: bplus, bcross, gamma, lambda, gradient_factor
         real(dp) :: kperp, kperp_p, rho_l_squared
-        real(dp) :: table(0:abs(ell)+3)
 
         rho_l_squared = rho_l**2
         kperp = hypot(ks, kr)
@@ -533,7 +578,6 @@ contains
         bcross%mixed = rho_l_squared * ks * ksp / (kperp * kperp_p)
 
         ! Orders ell-3 .. ell+2 enter gamma, lambda and their derivatives.
-        call fill_scaled_bessel_table(bplus%value, bcross%value, table)
         gamma = scaled_bessel_jet(ell, bplus, bcross, table)
         lambda = multiply_jets(bcross, scaled_bessel_jet(ell - 1, bplus, bcross, table))
 
@@ -546,13 +590,39 @@ contains
         a2_jet = scale_jet(gamma, 0.5_dp * a2)
     end subroutine ordinary_coefficient_jets
 
+    subroutine jrad_bessel_tables(plasma_in, kr_response, kr_source, j, tables)
+        !> Scaled Bessel tables of the radial-current jets for every species,
+        !> tables(n, sp) = exp(-b_plus) I_n(b_cross), n = 0..ubound(tables, 1).
+        !> b_plus and b_cross follow ordinary_coefficient_jets and depend only
+        !> on |k_r| and |k_r'|, so one table serves every sign combination.
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp), intent(in) :: kr_response, kr_source
+        integer, intent(in) :: j
+        real(dp), intent(out) :: tables(0:, 0:)
+        real(dp) :: rho_l_squared, kperp, kperp_p
+        integer :: sp
+
+        kperp = hypot(plasma_in%ks(j), kr_source)
+        kperp_p = hypot(plasma_in%ks(j), kr_response)
+        do sp = 0, ubound(tables, 2)
+            rho_l_squared = plasma_in%spec(sp)%rho_L(j)**2
+            call fill_scaled_bessel_table(0.5_dp * rho_l_squared * (kperp**2 + kperp_p**2), &
+                rho_l_squared * kperp * kperp_p, tables(:, sp))
+        end do
+    end subroutine jrad_bessel_tables
+
     subroutine fill_scaled_bessel_table(bplus, bcross, table)
         !> table(n) = scaled_bessel_harmonic(n, bplus, bcross) for n = 0..ubound,
         !> so each order is evaluated once instead of once per use.
+        use constants_m, only: flr_damping_cutoff
         real(dp), intent(in) :: bplus, bcross
         real(dp), intent(out) :: table(0:)
         integer :: n
 
+        if (bplus - bcross > flr_damping_cutoff) then
+            table = 0.0_dp
+            return
+        end if
         do n = 0, ubound(table, 1)
             table(n) = scaled_bessel_harmonic(n, bplus, bcross)
         end do

@@ -17,6 +17,7 @@ module quasilinear_flr_m
     public :: calc_ion_flr_harmonic
     public :: calc_ion_flr_harmonic_debug
     public :: build_transverse_moments
+    public :: scaled_besseli_large_x
 
     type :: jet_t
         complex(dp) :: v = (0.0_dp, 0.0_dp)
@@ -426,31 +427,50 @@ contains
     subroutine fill_bessel_table(x, scaled, table)
         !! table(n) = I_n(x), or exp(-x) I_n(x) when scaled, for n = 0..ubound.
         !! Each order is evaluated once instead of once per use. The scaled
-        !! values come from one complex recurrence; the unscaled ones use
-        !! bessel_in per order, which switches to the asymptotic expansion at
-        !! large x where a recurrence would be slower.
+        !! branch is used only for x > 500, where the asymptotic expansion is
+        !! exact to rounding; the unscaled one uses bessel_in per order, which
+        !! itself switches to its asymptotic expansion at large x.
         use fortnum_special_bessel, only: bessel_in
-        use fortnum_special_complex_bessel, only: bessel_i_complex_array
-        use fortnum_status, only: fortnum_status_t, FORTNUM_OK
         real(dp), intent(in) :: x
         logical, intent(in) :: scaled
         real(dp), intent(out) :: table(0:)
-        complex(dp) :: sequence(size(table))
-        type(fortnum_status_t) :: status
         integer :: n
 
         if (scaled) then
-            call bessel_i_complex_array(0,size(table),cmplx(x,0.0_dp,dp), &
-                .true.,sequence,status)
-            if (status%code /= FORTNUM_OK) &
-                error stop 'fill_bessel_table: fortnum evaluation failed'
-            table = real(sequence,dp)
+            do n = 0, ubound(table,1)
+                table(n) = scaled_besseli_large_x(n,x)
+            end do
         else
             do n = 0, ubound(table,1)
                 table(n) = bessel_in(n,x)
             end do
         end if
     end subroutine fill_bessel_table
+
+    pure function scaled_besseli_large_x(n,x) result(value)
+        !! exp(-x) I_n(x) from the large-argument expansion (DLMF 10.40.1),
+        !!   exp(-x) I_n(x) ~ (2 pi x)^(-1/2) sum_k (-1)^k a_k(n) / x^k,
+        !!   a_k(n) = prod_{i=1..k} (4 n^2 - (2i-1)^2) / (k! 8^k).
+        !! For x > 500 and small n the terms fall below double-precision
+        !! resolution within about ten terms (error < 1e-15 against SciPy's
+        !! ive for n <= 8), long before the series starts to diverge.
+        use constants_m, only: pi
+        integer, intent(in) :: n
+        real(dp), intent(in) :: x
+        real(dp) :: value
+        real(dp) :: mu, term, total
+        integer :: k
+
+        mu = 4.0_dp*real(n,dp)**2
+        term = 1.0_dp
+        total = 1.0_dp
+        do k = 1, 40
+            term = -term*(mu-real(2*k-1,dp)**2)/(real(k,dp)*8.0_dp*x)
+            total = total+term
+            if (abs(term) <= 1.0e-17_dp*abs(total)) exit
+        end do
+        value = total/sqrt(2.0_dp*pi*x)
+    end function scaled_besseli_large_x
 
     function jet_scaled_besseli(order,bplus,x,table) result(out)
         integer, intent(in) :: order

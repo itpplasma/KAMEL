@@ -113,13 +113,15 @@ module species_m
 
     pure elemental function ion_ion_coulomb_log(Z_a, A_a, n_a, T_a, Z_b, A_b, n_b, T_b) &
             result(log_lambda)
+        ! NRL Plasma Formulary (2019), p. 34, mixed ion-ion collisions;
+        ! n in cm^-3, T in eV, A the mass number.
 
         integer, intent(in) :: Z_a, A_a, Z_b, A_b
         real(dp), intent(in) :: n_a, T_a, n_b, T_b
         real(dp) :: log_lambda
 
         log_lambda = 23.0d0 - log(Z_a * Z_b * (A_a + A_b) / (T_a * A_b + T_b * A_a) &
-                                  * (n_a * Z_a**2 / T_a + n_b * Z_b**2) / T_b)
+                                  * sqrt(n_a * Z_a**2 / T_a + n_b * Z_b**2 / T_b))
 
     end function ion_ion_coulomb_log
 

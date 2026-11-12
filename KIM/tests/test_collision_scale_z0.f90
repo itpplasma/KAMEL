@@ -295,7 +295,7 @@ contains
         real(dp) :: nu_base(0:1), nu_scaled(0:1)
         real(dp) :: x1_base(0:1), x1_scaled(0:1)
         real(dp) :: x2_base(0:1), x2_scaled(0:1)
-        real(dp) :: lee, lei, expected_nue
+        real(dp) :: lee, lei, lii, expected_nue, expected_nui
         complex(dp) :: z0_base(0:1), z0_scaled(0:1)
         integer :: sp
 
@@ -318,6 +318,17 @@ contains
             + 7.7d-6*1.0d13*lei/1.0d3**1.5d0
         call require_close(nu_base(0), expected_nue, &
                            'default scale preserves the electron collision formula')
+
+        ! Deuterium at T_i = 800 eV: ion-electron plus like-ion collisions, the
+        ! latter with the NRL like-ion logarithm 23 - ln(T^-3/2 sqrt(2 n)).
+        lii = 23.0d0 - log(sqrt(2.0d13)/8.0d2**1.5d0)
+        expected_nui = 1.8d-7/sqrt(2.0d0)/8.0d2**1.5d0*1.0d13*(lei + lii)
+        if (abs(nu_base(1) - expected_nui) > 1.0d-6*expected_nui) then
+            print *, 'FAIL: ion collision frequency'
+            print *, '  got  = ', nu_base(1)
+            print *, '  want = ', expected_nui
+            error stop 'ion collision frequency does not use the NRL ion-ion logarithm'
+        end if
 
         do sp = 0, 1
             call require_close(nu_scaled(sp), scale*nu_base(sp), &

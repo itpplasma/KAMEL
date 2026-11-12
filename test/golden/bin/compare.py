@@ -56,6 +56,26 @@ _LINEAR_PROFILE_QUANTITIES = [
 _TIME_STEPS = range(9)
 
 
+# Time-series and scalar-history datasets written by the TimeEvolution run
+# directly under the mode group. Their length depends on the number of time
+# steps taken, so they are compared as whole arrays (shape mismatch fails).
+# Ipar is deliberately absent: Ipar_time is allocated but never assigned in the
+# TimeEvolution path, so the written values are uninitialized memory.
+_TIME_SERIES_QUANTITIES = [
+    "br_abs_time",  # simulation time at each step
+    "br_vac_res",  # |Br_vac| at the resonance
+    "br_abs_antenna_factor",  # antenna factor history
+    "br_abs_res",  # |Br| at the resonance
+    "dqle22_res_time",  # D^ql_e22 at the resonance
+    "dae22_res_time",
+    "bifurcation_criterion",
+    "br_formfactor",  # complex
+    "timstep_evol.dat",  # (3, n_steps): step index, time step, time
+    "T_tot_phi_e",  # total toroidal torque history
+    "T_tot_phi_i",
+]
+
+
 def _build_quantities_list() -> list[QuantitySpec]:
     """Build the full list of quantities to compare."""
     quantities = [
@@ -76,6 +96,9 @@ def _build_quantities_list() -> list[QuantitySpec]:
     for t in (1000, 1008):
         for q in ("Te", "Ti", "n", "Er"):
             quantities.append(QuantitySpec(f"/f_6_2/KinProfiles/{t}/{q}"))
+
+    for q in _TIME_SERIES_QUANTITIES:
+        quantities.append(QuantitySpec(f"/f_6_2/{q}"))
 
     return quantities
 
@@ -128,6 +151,44 @@ def compare_arrays(
     return passed, max_abs_diff, max_rel_diff
 
 
+def _compare_compound(
+    spec: QuantitySpec, golden_arr: NDArray, actual_arr: NDArray
+) -> ComparisonResult:
+    """Compare compound-typed datasets (e.g. complex stored as re/im) field by field."""
+    if golden_arr.shape != actual_arr.shape or golden_arr.dtype.names != actual_arr.dtype.names:
+        return ComparisonResult(
+            path=spec.path,
+            passed=False,
+            golden_shape=golden_arr.shape,
+            actual_shape=actual_arr.shape,
+            error_message=(
+                f"Shape/field mismatch: golden {golden_arr.shape} {golden_arr.dtype.names} "
+                f"vs actual {actual_arr.shape} {actual_arr.dtype.names}"
+            ),
+        )
+    passed = True
+    max_abs: float | None = 0.0
+    max_rel: float | None = 0.0
+    for name in golden_arr.dtype.names:
+        ok, a, r = compare_arrays(golden_arr[name], actual_arr[name], spec.rtol, spec.atol)
+        passed = passed and ok
+        max_abs = max(max_abs, a or 0.0)
+        max_rel = max(max_rel, r or 0.0)
+    return ComparisonResult(
+        path=spec.path,
+        passed=passed,
+        max_abs_diff=max_abs,
+        max_rel_diff=max_rel,
+        golden_shape=golden_arr.shape,
+        actual_shape=actual_arr.shape,
+        error_message=(
+            None
+            if passed
+            else f"Values differ beyond tolerance (rtol={spec.rtol}, atol={spec.atol})"
+        ),
+    )
+
+
 def compare_quantity(
     golden_file: h5py.File,
     actual_file: h5py.File,
@@ -148,6 +209,9 @@ def compare_quantity(
     if isinstance(golden_data, h5py.Dataset):
         golden_arr = golden_data[:]
         actual_arr = actual_data[:]
+
+        if golden_arr.dtype.names or actual_arr.dtype.names:
+            return _compare_compound(spec, golden_arr, actual_arr)
 
         if golden_arr.shape != actual_arr.shape:
             return ComparisonResult(

@@ -71,7 +71,7 @@ module kim_wave_code_adapter_m
     type(kim_solver_t) :: kim_handle
 
     !! Actual KIM field grid boundary radius (xl_grid%xb(N)).
-    !! This may differ from r_plas due to non-equidistant grid construction.
+    !! Normal KIM grids end exactly at r_plas; the value is read from the grid.
     !! Used for vacuum continuation cutoff and Br boundary condition.
     real(8) :: kim_r_boundary = 0.0d0
 
@@ -243,7 +243,7 @@ contains
         if (kim_hdf5_output) call deinitialize_hdf5_output()
         kim_hdf5_output = .false.
 
-        ! Store actual KIM grid boundary (may differ from r_plas).
+        ! Store the KIM grid boundary, which equals r_plas.
         kim_r_boundary = kim_xl_grid%xb(kim_xl_grid%npts_b)
 
         if (.not. kim_profiles_from_balance) then
@@ -1113,7 +1113,7 @@ contains
     subroutine kim_check_domain_consistency()
         !! Set KIM Br boundary condition from KiLCA vacuum solution
         !! at the actual KIM grid boundary (kim_r_boundary = xl_grid%xb(N)),
-        !! which may differ from r_plas due to non-equidistant grid construction.
+        !! which equals r_plas for normal KIM grids.
         !! Uses linear interpolation on the balance grid to get vacuum Br
         !! at exactly kim_r_boundary.
         use wave_code_data, only: dim_r, r, vac_cd_ptr

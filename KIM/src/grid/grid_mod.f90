@@ -230,6 +230,11 @@ module grid_m
         if (.not. ieee_is_finite(path_sum)) error stop 'Adaptive path must be finite'
         if (next >= this%max_val) then
             next = this%max_val
+        else if (this%max_val - next < 0.5_dp*increment) then
+            ! Do not leave a final cell shorter than half the local step: a
+            ! sliver next to the boundary node makes the last stiffness rows
+            ! ill-conditioned. Merge it, so the last cell spans 0.5 to 1.5 steps.
+            next = this%max_val
         else
             ! Bound accumulated coordinate and positive-path summation roundoff.
             ! This is not a forward-error bound for the nonlinear spacing monitor.

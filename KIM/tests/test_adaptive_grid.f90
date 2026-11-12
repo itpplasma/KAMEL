@@ -176,7 +176,7 @@ contains
             -61.45547565601116_dp, 0.0_dp, &
             -61.45547565601116_dp, -3.0_dp], [2, 3])
         integer :: b, j
-        real(dp) :: a, z, expected_h, expected_remainder
+        real(dp) :: a, z, expected_h
 
         ampl_res = 0.0_dp
         hrmax_scaling = 1.0_dp
@@ -197,21 +197,44 @@ contains
             end do
         end do
 
-        ! A small but resolved remainder is physical and must survive endpoint closure.
+        ! A remainder shorter than half a step merges into the last cell; a
+        ! longer one stays a cell of its own. Step h = (z-a)/(nominal+f), so
+        ! nominal steps leave the remainder f*h.
         nominal = 16
         a = bounds(1, 1)
         z = bounds(2, 1)
-        hrmax_scaling = real(nominal, dp)/(real(nominal, dp) + 1.0e-8_dp)
-        call grid%grid_init(nominal, a, z, 'resolved-small-terminal')
-        call grid%grid_generate()
-        call geometry(a, z, nominal)
-        call expect(grid%npts_b == nominal + 2, 'Retain a resolved short final cell')
-        expected_remainder = (z - a)*1.0e-8_dp/(real(nominal, dp) + 1.0e-8_dp)
-        call expect(abs(grid%xb(grid%npts_b) - grid%xb(grid%npts_c) &
-            - expected_remainder) < 1.0e-5_dp*expected_remainder, &
-            'Resolved short final cell has its analytic constant-monitor width')
+        call check_terminal_remainder(a, z, 1.0e-8_dp, nominal + 1, &
+            'Merge a roundoff-sized remainder into the last cell')
+        call check_terminal_remainder(a, z, 0.3_dp, nominal + 1, &
+            'Merge a remainder shorter than half a step into the last cell')
+        call check_terminal_remainder(a, z, 0.7_dp, nominal + 2, &
+            'Keep a remainder longer than half a step as its own cell')
         hrmax_scaling = 1.0_dp
     end subroutine flat_monitor_oracles
+
+    subroutine check_terminal_remainder(a, z, fraction, expected_points, label)
+        real(dp), intent(in) :: a, z, fraction
+        integer, intent(in) :: expected_points
+        character(*), intent(in) :: label
+        real(dp) :: step, last_cell, expected_last
+
+        hrmax_scaling = real(nominal, dp)/(real(nominal, dp) + fraction)
+        call grid%grid_init(nominal, a, z, 'terminal-remainder')
+        call grid%grid_generate()
+        call geometry(a, z, nominal)
+        call expect(grid%npts_b == expected_points, label)
+        step = (z - a)/(real(nominal, dp) + fraction)
+        last_cell = grid%xb(grid%npts_b) - grid%xb(grid%npts_b - 1)
+        if (expected_points == nominal + 1) then
+            expected_last = (1.0_dp + fraction)*step
+        else
+            expected_last = fraction*step
+        end if
+        call expect(abs(last_cell - expected_last) < 1.0e-9_dp*step, &
+            label//': analytic constant-monitor width')
+        call expect(minval(grid%xb(2:) - grid%xb(:grid%npts_c)) &
+            >= 0.5_dp*step*(1.0_dp - 1.0e-12_dp), label//': no cell below half a step')
+    end subroutine check_terminal_remainder
 
     subroutine gaussian_density(a, b)
         real(dp), intent(in) :: a, b

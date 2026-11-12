@@ -243,12 +243,8 @@ module time_evolution
             call writefort9999(dqle11_prev, dqli11_prev)
         end if
 
-        if (.true.) then
-            call hold_prev_transp_coeffs
-            params_begbeg = params
-        else
-            call redoTimeStep
-        end if
+        call hold_prev_transp_coeffs
+        params_begbeg = params
 
         iredo = 0
         do ! redo step loop

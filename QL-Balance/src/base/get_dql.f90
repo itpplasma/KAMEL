@@ -137,19 +137,17 @@ subroutine get_dql
     end do
 
     ! Smooth input for KILCA
-    if (.true.) then
-        allocate (dummy(npoib), row_buffer(npoib))
-        do ieq = 1, nbaleqs
-            row_buffer = ddr_params_nl(ieq, :)
-            call smooth_array_gauss(npoib, mwind, row_buffer, dummy)
-            ddr_params_nl(ieq, :) = dummy
-            row_buffer = params_b(ieq, :)
-            call smooth_array_gauss(npoib, mwind, row_buffer, dummy)
-            params_b(ieq, :) = dummy
-        end do
-        deallocate (row_buffer)
-        deallocate (dummy)
-    end if
+    allocate (dummy(npoib), row_buffer(npoib))
+    do ieq = 1, nbaleqs
+        row_buffer = ddr_params_nl(ieq, :)
+        call smooth_array_gauss(npoib, mwind, row_buffer, dummy)
+        ddr_params_nl(ieq, :) = dummy
+        row_buffer = params_b(ieq, :)
+        call smooth_array_gauss(npoib, mwind, row_buffer, dummy)
+        params_b(ieq, :) = dummy
+    end do
+    deallocate (row_buffer)
+    deallocate (dummy)
 
     ! Compute radial electric field:
     Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
@@ -238,26 +236,18 @@ subroutine get_dql
         write(*,*) '================================================='
         write(*,*) ''
 
-        ! TODO: add switch to choose calculation of collisionless transport coefficients.
-        if (.false.) then
-            call calc_transport_coeffs_collisionless(npoib, vT_e, de11, de12, de22)
-            de21 = de12
-            call calc_transport_coeffs_collisionless(npoib, vT_i, di11, di12, di22)
-            di21 = di12
+        ! Electrons retain the established drift-kinetic Heyn/Markl
+        ! coefficients. The ion model is selectable for periodic KIM so
+        ! both formalisms can be compared using the same physical fields.
+        call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
+        if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()) then
+            call select_periodic_ion_transport(i_mn, vT_i, nu_i, ion_tensor)
+            di11 = ion_tensor(1, 1, :)
+            di12 = ion_tensor(1, 2, :)
+            di21 = ion_tensor(2, 1, :)
+            di22 = ion_tensor(2, 2, :)
         else
-            ! Electrons retain the established drift-kinetic Heyn/Markl
-            ! coefficients. The ion model is selectable for periodic KIM so
-            ! both formalisms can be compared using the same physical fields.
-            call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
-            if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()) then
-                call select_periodic_ion_transport(i_mn, vT_i, nu_i, ion_tensor)
-                di11 = ion_tensor(1, 1, :)
-                di12 = ion_tensor(1, 2, :)
-                di21 = ion_tensor(2, 1, :)
-                di22 = ion_tensor(2, 2, :)
-            else
-                call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
-            end if
+            call calc_transport_coeffs_ornuhl(npoib, vT_i, nu_i, di11, di12, di21, di22)
         end if
 
         if (misalign_diffusion .eqv. .true.) then
@@ -529,29 +519,6 @@ subroutine interp_rb_at_r0(func, r0, func_res)
     call plag_coeff(nlagr, nder, r0, rb(ind_begin_interp:ind_end_interp), coef)
 
     func_res = sum(coef(0,:) * func(ind_begin_interp:ind_end_interp))
-
-end subroutine
-
-subroutine get_Brvac(brvac_interp)
-
-    use PolyLagrangeInterpolation
-    use grid_mod, only: rb, npoib, r_resonant
-    use QLBalance_kinds, only: dp
-    use h5mod
-    use wave_code_data, only: Br
-
-    implicit none
-
-    integer :: ibrabsres, ind_begin_interp, ind_end_interp
-    complex(dp), intent(out) :: brvac_interp
-
-    if (.not. allocated(coef)) allocate(coef(0:nder,nlagr))
-
-    call binsrc(rb, 1, npoib, r_resonant(1), ibrabsres)
-    call get_ind_Lagr_interp(ibrabsres, ind_begin_interp, ind_end_interp)
-    call plag_coeff(nlagr, nder, r_resonant(1), rb(ind_begin_interp:ind_end_interp), coef)
-
-    brvac_interp = sum(coef(0,:) * abs(Br(ind_begin_interp:ind_end_interp)))
 
 end subroutine
 

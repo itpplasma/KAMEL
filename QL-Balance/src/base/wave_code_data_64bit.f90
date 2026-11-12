@@ -206,51 +206,6 @@ end subroutine
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-subroutine save_wave_code_data()
-
-    use wave_code_data;
-
-    implicit none
-
-    integer :: k
-    character(64) :: string
-    character(16) :: ind_str
-    integer :: width
-
-    if (flre_call_ind > 0) then
-        width = log10(real(flre_call_ind)) + 1
-    else
-        width = 1
-    end if
-
-    write (unit=ind_str, fmt='(I8)') width
-    write (unit=ind_str, fmt=*) trim(ind_str)
-    write (unit=string, fmt='(A5,I'//ind_str//',A4)') 'back_', flre_call_ind, '.dat'
-    open (10, file=trim(string))
-    write (unit=string, fmt='(A5,I'//ind_str//',A4)') 'misc_', flre_call_ind, '.dat'
-    open (20, file=trim(string))
-    write (unit=string, fmt='(A7,I'//ind_str//',A4)') 'fields_', flre_call_ind, '.dat'
-    open (30, file=trim(string));
-
-    do k = 1, dim_r
-
-        write (10, *) r(k), q(k), n(k), Ti(k), Te(k), Vth(k), Vz(k), dPhi0(k)
-        write (20, *) r(k), kp(k), ks(k), B0t(k), B0z(k), B0(k), om_E(k)
-        write (30, *) r(k), real(Er(k)), aimag(Er(k)), real(Es(k)), aimag(Es(k)), &
-            real(Ep(k)), aimag(Ep(k)), real(Et(k)), aimag(Et(k)), &
-            real(Ez(k)), aimag(Ez(k)), real(Br(k)), aimag(Br(k)), &
-            real(Bs(k)), aimag(Bs(k)), real(Bp(k)), aimag(Bp(k)), &
-            real(Bt(k)), aimag(Bt(k)), real(Bz(k)), aimag(Bz(k))
-    end do
-
-    close (10)
-    close (20)
-    close (30)
-
-end subroutine
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
 subroutine update_background_files(path)
 
     use wave_code_data;

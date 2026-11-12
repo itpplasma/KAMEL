@@ -37,7 +37,7 @@ program test_frozen_fourier_gyroaverage
             local%spec(sp)%nu(1), local%spec(sp)%vT(1), &
             local%spec(sp)%omega_c(1), local%spec(sp)%lambda_D(1), &
             local%spec(sp)%rho_L(1), local%spec(sp)%I01(1, 0:0), &
-            local%spec(sp)%I21(1, 0:0))
+            local%spec(sp)%I21(1, 0:0), local%spec(sp)%I03(1, 0:0))
     end do
     do ib = 1, size(b_values)
         coarse = velocity_gyroaverage(b_values(ib), 16384)
@@ -103,6 +103,7 @@ program test_frozen_fourier_gyroaverage
                     error stop 'Independent particle conservation identity failed'
                 local%spec(sp)%I01(1, 0) = moments(0, 1)
                 local%spec(sp)%I21(1, 0) = moments(2, 1)
+                local%spec(sp)%I03(1, 0) = moments(0, 3)
                 do ib = 1, size(b_values)
                     do orientation = 1, 3
                         do ks_sign = -1, 1, 2

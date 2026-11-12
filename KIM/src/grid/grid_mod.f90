@@ -3,6 +3,7 @@ module grid_m
     use KIM_kinds_m, only: dp
 
     implicit none
+    private :: adaptive_next_node
 
     real(dp) :: r_min
     real(dp) :: r_plas
@@ -143,6 +144,8 @@ module grid_m
 
     subroutine grid_init(this, npts, min_val, max_val, name)
 
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+
         implicit none
 
         class(grid_type), intent(inout) :: this
@@ -151,8 +154,19 @@ module grid_m
         real(dp), intent(in) :: min_val, max_val
         character(len=*), intent(in) :: name
 
-        real(dp) :: x_current, x_next
-        real(dp) :: recnsp
+        real(dp) :: x_current, path_sum
+
+        if (npts < 2) error stop 'Adaptive grid needs two nominal nodes'
+        if (.not. ieee_is_finite(min_val)) error stop 'Adaptive lower bound must be finite'
+        if (.not. ieee_is_finite(max_val)) error stop 'Adaptive upper bound must be finite'
+        if (max_val <= min_val) error stop 'Adaptive grid bounds must increase'
+        if (.not. ieee_is_finite(width_res)) error stop 'Adaptive width must be finite'
+        if (width_res <= 0.0_dp) error stop 'Adaptive width must be positive'
+        if (.not. ieee_is_finite(ampl_res)) error stop 'Adaptive amplitude must be finite'
+        if (ampl_res <= -1.0_dp) error stop 'Adaptive spacing factor must be positive'
+        if (.not. ieee_is_finite(hrmax_scaling)) &
+            error stop 'Adaptive spacing scale must be finite'
+        if (hrmax_scaling <= 0.0_dp) error stop 'Adaptive spacing scale must be positive'
 
         this%npts = npts
         this%npts_b = npts
@@ -175,21 +189,69 @@ module grid_m
         !end if
 
         this%hrmax = hrmax_scaling * (this%max_val - this%min_val) / (this%npts_b)
+        if (.not. ieee_is_finite(this%hrmax)) error stop 'Adaptive spacing must be finite'
+        if (this%hrmax <= 0.0_dp) error stop 'Adaptive spacing must be positive'
 
         this%npts_b = 1
         x_current = this%min_val
+        path_sum = 0.0_dp
 
         do while(x_current .lt. this%max_val)
-            call kim_recnsplit(x_current, recnsp)
-            x_next = x_current + this%hrmax / recnsp
-            call kim_recnsplit(x_next, recnsp)
-            x_current = 0.5d0 * (x_next + x_current + this%hrmax / recnsp)
+            x_current = adaptive_next_node(this, x_current, this%npts_b, path_sum)
             this%npts_b = this%npts_b + 1
         enddo
 
         this%npts_c = this%npts_b - 1
 
     end subroutine
+
+    function adaptive_next_node(this, current, nsteps, path_sum) result(next)
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        implicit none
+        class(grid_type), intent(in) :: this
+        real(dp), intent(in) :: current
+        integer, intent(in) :: nsteps
+        real(dp), intent(inout) :: path_sum
+        real(dp) :: next, factor, step, increment, gamma, unit_roundoff, allowance
+
+        call kim_recnsplit(current, factor)
+        if (.not. ieee_is_finite(factor)) error stop 'Adaptive factor must be finite'
+        if (factor <= 0.0_dp) error stop 'Adaptive factor must be positive'
+        step = this%hrmax/factor
+        next = current + step
+        if (.not. ieee_is_finite(next)) error stop 'Adaptive predictor must be finite'
+        call kim_recnsplit(next, factor)
+        if (.not. ieee_is_finite(factor)) error stop 'Adaptive factor must be finite'
+        if (factor <= 0.0_dp) error stop 'Adaptive factor must be positive'
+        increment = 0.5_dp*(step + this%hrmax/factor)
+        next = current + increment
+        if (.not. ieee_is_finite(next)) error stop 'Adaptive node must be finite'
+        path_sum = path_sum + increment
+        if (.not. ieee_is_finite(path_sum)) error stop 'Adaptive path must be finite'
+        if (next >= this%max_val) then
+            next = this%max_val
+        else if (this%max_val - next < 0.5_dp*increment) then
+            ! Do not leave a final cell shorter than half the local step: a
+            ! sliver next to the boundary node makes the last stiffness rows
+            ! ill-conditioned. Merge it, so the last cell spans 0.5 to 1.5 steps.
+            next = this%max_val
+        else
+            ! Bound accumulated coordinate and positive-path summation roundoff.
+            ! This is not a forward-error bound for the nonlinear spacing monitor.
+            unit_roundoff = 0.5_dp*epsilon(1.0_dp)
+            gamma = (2.0_dp*real(nsteps, dp) + 6.0_dp)*unit_roundoff
+            if (gamma >= 1.0_dp) error stop 'Adaptive roundoff bound is unresolved'
+            gamma = gamma/(1.0_dp - gamma)
+            allowance = gamma*abs(this%min_val) + gamma*path_sum &
+                + 2.0_dp*spacing(max(abs(this%min_val), abs(this%max_val)))
+            if (this%max_val - next <= allowance) then
+                if (allowance >= sqrt(epsilon(1.0_dp))*increment) &
+                    error stop 'Adaptive terminal cell is numerically unresolved'
+                next = this%max_val
+            end if
+        end if
+        if (next <= current) error stop 'Adaptive grid cannot make positive progress'
+    end function adaptive_next_node
 
     subroutine grid_generate(this)
 
@@ -201,10 +263,9 @@ module grid_m
 
         class(grid_type), intent(inout) :: this
 
-        real(dp) :: x_current, x_next
+        real(dp) :: x_current, path_sum
         integer :: ipoib, ipb, ipe
         real(dp), dimension(:,:), allocatable :: coef
-        real(dp) :: recnsp
 
         if (allocated(this%xb)) deallocate(this%xb)
         if (allocated(this%xc)) deallocate(this%xc)
@@ -213,16 +274,21 @@ module grid_m
 
 
         x_current = this%min_val
+        path_sum = 0.0_dp
         this%xb(1) = x_current
 
         do ipoib=2, this%npts_b
-            call kim_recnsplit(x_current, recnsp)
-            x_next = x_current + this%hrmax / recnsp
-            call kim_recnsplit(x_next, recnsp)
-            x_current = 0.5d0 * (x_next + x_current + this%hrmax / recnsp)
+            x_current = adaptive_next_node(this, x_current, ipoib - 1, path_sum)
             this%xb(ipoib) = x_current
-            this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
+            this%xc(ipoib-1) = this%xb(ipoib-1) &
+                + 0.5_dp*(this%xb(ipoib) - this%xb(ipoib-1))
+            if (this%xc(ipoib-1) <= this%xb(ipoib-1)) &
+                error stop 'Adaptive cell center must be inside its cell'
+            if (this%xc(ipoib-1) >= this%xb(ipoib)) &
+                error stop 'Adaptive cell center must be inside its cell'
         enddo
+        if (this%xb(this%npts_b) /= this%max_val) &
+            error stop 'Adaptive grid changed after node counting'
 
         ! call ensure_node_at_r_res(this)
 
@@ -268,7 +334,7 @@ module grid_m
 
     end subroutine grid_generate
 
-    subroutine grid_generate_equidistant(this)
+    subroutine grid_generate_equidistant(this, endpoint_inclusive)
 
         use kim_resonances_m, only: r_res, index_rg_res
         use config_m, only: output_path
@@ -277,21 +343,37 @@ module grid_m
         implicit none
 
         class(grid_type), intent(inout) :: this
+        logical, intent(in), optional :: endpoint_inclusive
 
         real(dp) :: h
         integer :: ipoib, ipb, ipe
         real(dp), dimension(:,:), allocatable :: coef
 
+        if (this%max_val <= this%min_val) &
+            error stop 'Equidistant grid bounds must increase'
         if (allocated(this%xb)) deallocate(this%xb)
         if (allocated(this%xc)) deallocate(this%xc)
         allocate(this%xb(this%npts_b), this%xc(this%npts_c))
 
+        if (this%npts_b < 2) error stop 'Equidistant grid needs two nodes'
+        ! Endpoint-exclusive sampling remains the periodic default.
         h = (this%max_val - this%min_val) / this%npts_b
+        if (present(endpoint_inclusive)) then
+            if (endpoint_inclusive) then
+                h = (this%max_val - this%min_val) / (this%npts_b - 1)
+            end if
+        end if
         call log_debug(trim(fmt_val('Equidistant grid spacing h', h, 'cm')))
 
         this%xb(1) = this%min_val
         do ipoib=2, this%npts_b
             this%xb(ipoib) = this%min_val + (ipoib - 1) * h
+        end do
+        if (present(endpoint_inclusive)) then
+            ! Preserve the requested physical endpoint exactly before forming centers.
+            if (endpoint_inclusive) this%xb(this%npts_b) = this%max_val
+        end if
+        do ipoib=2, this%npts_b
             this%xc(ipoib-1) = 0.5 * (this%xb(ipoib-1) + this%xb(ipoib))
         end do
 

@@ -395,8 +395,8 @@ contains
 
     complex(dp) function core_rho_B_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) result(G)
         ! Density observes u^0 and the magnetic temperature source contains u^3.
-        ! Use I03 directly: I03=I21 requires energy conservation and does not
-        ! hold for the supported number-only OU comparison model.
+        ! Use I03 directly: I03=I21 requires energy conservation and fails for
+        ! every model without it (number-only and number+momentum).
         ! Per-species rho-B core (SIGNED FP term) parameterized by the FLR
         ! argument pair (b_+, b_x). Single home for the rho-B integrand math:
         ! the diagonal integrand calls it with bplus=bcross=b, and the fused

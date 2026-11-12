@@ -204,25 +204,33 @@ module FP_kernel_plasma_prefacs_m
     end function FP_G3_rho_phi
 
 
-    function FP_G1_rho_B(j, spec, mphi) result(val)
+    function FP_G1_rho_B(j, spec, mphi, species_index) result(val)
+        ! The u^3 source moment is I03; with energy conservation I03 = I21 and
+        ! I21 is used because getIfunc evaluates it accurately at small x1 with
+        ! x2 ~ 0, where I03 loses accuracy (see core_rho_B_sp_bessel).
 
         use species_m, only: species_t
         use KIM_kinds_m, only: dp
+        use config_m, only: ifunc_model_conserves_energy
 
         implicit none
 
-        integer, intent(in) :: j, mphi
+        integer, intent(in) :: j, mphi, species_index
         type(species_t), intent(in) :: spec
         complex(dp) :: val
-        complex(dp) :: I01, I03
+        complex(dp) :: I01, source_moment
         real(dp) :: A1, A2
 
         A1 = spec%A1_cc(j)
         A2 = spec%A2_cc(j)
         I01 = spec%I01_cc(j, mphi)
-        I03 = spec%I03_cc(j, mphi)
+        if (ifunc_model_conserves_energy(species_index)) then
+            source_moment = spec%I21_cc(j, mphi)
+        else
+            source_moment = spec%I03_cc(j, mphi)
+        end if
 
-        val = (I01 * (A1 + A2 * (1.0d0 - mphi)) + 0.5d0 * A2 * I03) &
+        val = (I01 * (A1 + A2 * (1.0d0 - mphi)) + 0.5d0 * A2 * source_moment) &
             * FP_kappa_rho_B(j, spec)
 
     end function

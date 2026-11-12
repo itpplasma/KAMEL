@@ -168,7 +168,7 @@ module kernel_m
                     pref_rho_phi_g2(sigma+1, j, mphi) = FP_G2_rho_phi(j, plasma%spec(sigma), mphi)
                     pref_rho_phi_g3(sigma+1, j, mphi) = FP_G3_rho_phi(j, plasma%spec(sigma), mphi)
 
-                    pref_rho_B_g1(sigma+1, j, mphi) = FP_G1_rho_B(j, plasma%spec(sigma), mphi)
+                    pref_rho_B_g1(sigma+1, j, mphi) = FP_G1_rho_B(j, plasma%spec(sigma), mphi, sigma)
                     pref_rho_B_g2(sigma+1, j, mphi) = FP_G2_rho_B(j, plasma%spec(sigma), mphi)
                     pref_rho_B_g3(sigma+1, j, mphi) = FP_G3_rho_B(j, plasma%spec(sigma), mphi)
 

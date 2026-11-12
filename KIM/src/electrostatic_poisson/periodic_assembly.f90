@@ -73,7 +73,7 @@ contains
         use grid_m, only: rg_grid
         use collisionless_fourier_kernel_m, only: configured_hatG_all
         use constants_m, only: pi
-        use radial_current_fourier_kernel_m, only: hatG_jrad_phi, hatG_jrad_br
+        use radial_current_fourier_kernel_m, only: hatG_jrad_phi_br
 
         type(plasma_t), intent(in) :: plasma
         real(dp), intent(in) :: L
@@ -89,7 +89,7 @@ contains
         integer :: N, dim, m_row, m_col, im, imp, j
         real(dp) :: k_m, k_mp, weight
         complex(dp) :: acc_phi, acc_B, acc_jphi, acc_jB, acc_jrphi, acc_jrB
-        complex(dp) :: point_phi, point_B, point_jphi, point_jB
+        complex(dp) :: point_phi, point_B, point_jphi, point_jB, point_jrphi, point_jrB
         complex(dp) :: acc_jphi_species(0:plasma%n_species - 1)
         complex(dp) :: acc_jB_species(0:plasma%n_species - 1)
         complex(dp) :: point_jphi_species(0:plasma%n_species - 1)
@@ -147,7 +147,7 @@ contains
         !$omp private(m_col, k_mp, imp, m_row, k_m, im, j, &
         !$omp         acc_phi, acc_B, acc_jphi, acc_jB, acc_jrphi, acc_jrB, &
         !$omp         acc_jphi_species, acc_jB_species, acc_phi_species, acc_B_species, &
-        !$omp         point_phi, point_B, point_jphi, point_jB, &
+        !$omp         point_phi, point_B, point_jphi, point_jB, point_jrphi, point_jrB, &
         !$omp         point_jphi_species, point_jB_species, point_phi_species, point_B_species)
         do m_col = -M, M
             k_mp = k_of_m(m_col, L)
@@ -189,8 +189,9 @@ contains
                     acc_jphi = acc_jphi + point_jphi
                     acc_jB   = acc_jB   + point_jB
                     if (want_radial_current) then
-                        acc_jrphi = acc_jrphi + hatG_jrad_phi(plasma, k_m, k_mp, j)
-                        acc_jrB = acc_jrB + hatG_jrad_br(plasma, k_m, k_mp, j)
+                        call hatG_jrad_phi_br(plasma, k_m, k_mp, j, point_jrphi, point_jrB)
+                        acc_jrphi = acc_jrphi + point_jrphi
+                        acc_jrB = acc_jrB + point_jrB
                     end if
                 end do
 

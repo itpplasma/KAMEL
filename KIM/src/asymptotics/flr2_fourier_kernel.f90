@@ -11,6 +11,8 @@ module flr2_fourier_kernel_m
     public :: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
     public :: core_rho_phi_sp, core_rho_B_sp
     public :: core_j_phi_sp, core_j_B_sp
+    public :: core_rho_phi_sp_bessel, core_rho_B_sp_bessel
+    public :: core_j_phi_sp_bessel, core_j_B_sp_bessel
     public :: core_rho_Bparallel_sp, core_j_Bparallel_sp
     public :: scaled_bessel_pair
     public :: flr_arg_pair_sp
@@ -219,6 +221,21 @@ contains
     end function hatG_j_B
 
     complex(dp) function core_j_phi_sp(plasma_in, sp, bplus, bcross, j) result(G)
+        ! Evaluates the Bessel pair itself; see core_j_phi_sp_bessel.
+        use config_m, only: artificial_debye_case
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: bplus, bcross
+        real(dp) :: sI0, sIm1
+
+        sI0 = 0.0_dp
+        sIm1 = 0.0_dp
+        if (artificial_debye_case == 0 .or. artificial_debye_case == 2) &
+            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+        G = core_j_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1)
+    end function core_j_phi_sp
+
+    complex(dp) function core_j_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) result(G)
         ! Per-species j-Phi core (FP only, NO Debye term) parameterized by the
         ! FLR argument pair (b_+, b_x). Shares the skeleton of core_rho_phi_sp;
         ! only the moment pair and the prefactor differ.
@@ -238,13 +255,13 @@ contains
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: bplus, bcross
-        real(dp) :: ks, sI0, sIm1
+        real(dp), intent(in) :: sI0, sIm1
+        real(dp) :: ks
 
         G = (0.0_dp, 0.0_dp)
         ks = plasma_in%ks(j)
 
         if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
-            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
             G = 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 &
                 * com_unit * plasma_in%spec(sp)%vT(j)**3.0d0 * ks &
                 / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * &
@@ -256,9 +273,24 @@ contains
                     + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
                 )
         end if
-    end function core_j_phi_sp
+    end function core_j_phi_sp_bessel
 
     complex(dp) function core_j_B_sp(plasma_in, sp, bplus, bcross, j) result(G)
+        ! Evaluates the Bessel pair itself; see core_j_B_sp_bessel.
+        use config_m, only: artificial_debye_case
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: bplus, bcross
+        real(dp) :: sI0, sIm1
+
+        sI0 = 0.0_dp
+        sIm1 = 0.0_dp
+        if (artificial_debye_case == 0 .or. artificial_debye_case == 2) &
+            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+        G = core_j_B_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1)
+    end function core_j_B_sp
+
+    complex(dp) function core_j_B_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) result(G)
         ! Per-species j-B core (SIGNED FP term, NO Debye) parameterized by the
         ! FLR argument pair (b_+, b_x). Carries the leading minus, so callers
         ! accumulate with '+'.
@@ -276,12 +308,11 @@ contains
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: bplus, bcross
-        real(dp) :: sI0, sIm1
+        real(dp), intent(in) :: sI0, sIm1
 
         G = (0.0_dp, 0.0_dp)
 
         if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
-            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
             G = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 &
                 * plasma_in%spec(sp)%vT(j)**4.0d0 &
                 / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * &
@@ -293,9 +324,24 @@ contains
                     + 0.5d0 * plasma_in%spec(sp)%I13(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
                 )
         end if
-    end function core_j_B_sp
+    end function core_j_B_sp_bessel
 
     complex(dp) function core_rho_phi_sp(plasma_in, sp, bplus, bcross, j) result(G)
+        ! Evaluates the Bessel pair itself; see core_rho_phi_sp_bessel.
+        use config_m, only: artificial_debye_case
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: bplus, bcross
+        real(dp) :: sI0, sIm1
+
+        sI0 = 0.0_dp
+        sIm1 = 0.0_dp
+        if (artificial_debye_case == 0 .or. artificial_debye_case == 2) &
+            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+        G = core_rho_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1)
+    end function core_rho_phi_sp
+
+    complex(dp) function core_rho_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) result(G)
         ! Per-species rho-Phi core (Debye + FP) parameterized by the FLR
         ! argument pair (b_+, b_x). This is the single home for the rho-Phi
         ! integrand math: the diagonal integrand calls it with bplus=bcross=b,
@@ -308,7 +354,8 @@ contains
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: bplus, bcross
-        real(dp) :: ks, sI0, sIm1
+        real(dp), intent(in) :: sI0, sIm1
+        real(dp) :: ks
 
         G = (0.0_dp, 0.0_dp)
         ks = plasma_in%ks(j)
@@ -318,7 +365,6 @@ contains
         end if
 
         if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
-            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
             G = G + 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 &
                 * com_unit * plasma_in%spec(sp)%vT(j)**2.0d0 * ks &
                 / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j)) * &
@@ -330,9 +376,24 @@ contains
                     + 0.5d0 * plasma_in%spec(sp)%I20(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
                 )
         end if
-    end function core_rho_phi_sp
+    end function core_rho_phi_sp_bessel
 
     complex(dp) function core_rho_B_sp(plasma_in, sp, bplus, bcross, j) result(G)
+        ! Evaluates the Bessel pair itself; see core_rho_B_sp_bessel.
+        use config_m, only: artificial_debye_case
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: bplus, bcross
+        real(dp) :: sI0, sIm1
+
+        sI0 = 0.0_dp
+        sIm1 = 0.0_dp
+        if (artificial_debye_case == 0 .or. artificial_debye_case == 2) &
+            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+        G = core_rho_B_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1)
+    end function core_rho_B_sp
+
+    complex(dp) function core_rho_B_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) result(G)
         ! Per-species rho-B core (SIGNED FP term) parameterized by the FLR
         ! argument pair (b_+, b_x). Single home for the rho-B integrand math:
         ! the diagonal integrand calls it with bplus=bcross=b, and the fused
@@ -346,12 +407,11 @@ contains
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: bplus, bcross
-        real(dp) :: sI0, sIm1
+        real(dp), intent(in) :: sI0, sIm1
 
         G = (0.0_dp, 0.0_dp)
 
         if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then
-            call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
             G = G - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0 * plasma_in%spec(sp)%vT(j)**3.0d0 &
                 / (plasma_in%spec(sp)%omega_c(j) * plasma_in%spec(sp)%nu(j) * sol) * &
                 (&
@@ -362,7 +422,7 @@ contains
                     + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
                 )
         end if
-    end function core_rho_B_sp
+    end function core_rho_B_sp_bessel
 
     complex(dp) function core_rho_Bparallel_sp(plasma_in, sp, kr_observation, &
                                                kr_source, j) result(G)

@@ -151,8 +151,11 @@ contains
         use config_m, only: collisionless_kpar_epsilon, ion_collision_model, &
             turn_off_electrons, turn_off_ions
         use constants_m, only: com_unit, pi
+        use config_m, only: artificial_debye_case
         use flr2_fourier_kernel_m, only: flr_arg_pair_sp, core_rho_phi_sp, &
-            core_rho_B_sp, core_j_phi_sp, core_j_B_sp
+            core_rho_B_sp, core_j_phi_sp, core_j_B_sp, scaled_bessel_pair, &
+            core_rho_phi_sp_bessel, core_rho_B_sp_bessel, core_j_phi_sp_bessel, &
+            core_j_B_sp_bessel
         use grid_m, only: rg_grid
 
         type(plasma_t), intent(in) :: plasma_in
@@ -160,7 +163,7 @@ contains
         real(dp), intent(in) :: kr, krp
         complex(dp), intent(out) :: rho_phi, rho_B, j_phi, j_B
 
-        real(dp) :: bplus, bcross
+        real(dp) :: bplus, bcross, sI0, sIm1
         complex(dp) :: phase
 
         rho_phi = (0.0_dp, 0.0_dp)
@@ -173,14 +176,19 @@ contains
         phase = exp(-com_unit * (kr - krp) * rg_grid%xb(j))
         select case (trim(ion_collision_model))
         case ('FokkerPlanck')
+            ! The four cores share one Bessel pair.
             call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
-            rho_phi = core_rho_phi_sp(plasma_in, sp, bplus, bcross, j) &
+            sI0 = 0.0_dp
+            sIm1 = 0.0_dp
+            if (artificial_debye_case == 0 .or. artificial_debye_case == 2) &
+                call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+            rho_phi = core_rho_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) &
                 / (8.0_dp * pi**2)
-            rho_B = core_rho_B_sp(plasma_in, sp, bplus, bcross, j) &
+            rho_B = core_rho_B_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) &
                 / (8.0_dp * pi**2)
-            j_phi = core_j_phi_sp(plasma_in, sp, bplus, bcross, j) &
+            j_phi = core_j_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) &
                 / (8.0_dp * pi**2)
-            j_B = core_j_B_sp(plasma_in, sp, bplus, bcross, j) &
+            j_B = core_j_B_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) &
                 / (8.0_dp * pi**2)
         case ('collisionless')
             if (collisionless_kpar_epsilon <= 0.0_dp) then

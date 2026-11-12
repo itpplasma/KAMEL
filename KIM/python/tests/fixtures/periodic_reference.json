@@ -16,12 +16,12 @@
     "profile_linear_q_crossing_cm": 49.76110556110556,
     "resonance_radius_cm": 49.76199633699633,
     "integrated_parallel_current_as_is_statA": {
-      "real": -32288615352346.457,
-      "imag": -37361743309858.055
+      "real": -35066230922191.227,
+      "imag": -32239002032558.85
     },
     "integrated_parallel_current_full_window_statA": {
-      "real": 12540891251720.65,
-      "imag": -90205340656075.39
+      "real": 9568625087891.889,
+      "imag": -85376568365921.56
     }
   },
   "tolerances": {

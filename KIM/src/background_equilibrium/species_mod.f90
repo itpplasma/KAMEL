@@ -111,6 +111,20 @@ module species_m
 
     end function scale_fp_collision_frequency
 
+    pure elemental function ion_ion_coulomb_log(Z_a, A_a, n_a, T_a, Z_b, A_b, n_b, T_b) &
+            result(log_lambda)
+        ! NRL Plasma Formulary (2019), p. 34, mixed ion-ion collisions;
+        ! n in cm^-3, T in eV, A the mass number.
+
+        integer, intent(in) :: Z_a, A_a, Z_b, A_b
+        real(dp), intent(in) :: n_a, T_a, n_b, T_b
+        real(dp) :: log_lambda
+
+        log_lambda = 23.0d0 - log(Z_a * Z_b * (A_a + A_b) / (T_a * A_b + T_b * A_a) &
+                                  * sqrt(n_a * Z_a**2 / T_a + n_b * Z_b**2 / T_b))
+
+    end function ion_ion_coulomb_log
+
     subroutine evaluate_susceptibility(x1, x2, conservation_model, symbI)
         ! Markl et al., Nucl. Fusion 63 (2023) 126007, appendix A:
         ! use the collisionless moments once the collisional W2_arr
@@ -647,12 +661,11 @@ module species_m
                                 plasma_in%spec(sp)%Zspec**2 * Lei(sp,i)
 
                 do sp_col=sp, number_of_ion_species
-                    ! Coulomb logarithm ions - ions'
-                    Lii(sp, sp_col, i) = 23.0d0 - log(plasma_in%spec(sp)%Zspec * plasma_in%spec(sp_col)%Zspec &
-                                        * (plasma_in%spec(sp)%Aspec + plasma_in%spec(sp_col)%Aspec)&
-                                        / (plasma_in%spec(sp)%T(i) * plasma_in%spec(sp_col)%Aspec + plasma_in%spec(sp_col)%T(i) * plasma_in%spec(sp)%Aspec)&
-                                        * (plasma_in%spec(sp)%n(i) * plasma_in%spec(sp)%Zspec**2 / plasma_in%spec(sp)%T(i) &
-                                        + plasma_in%spec(sp_col)%n(i) * plasma_in%spec(sp_col)%Zspec**2) / plasma_in%spec(sp_col)%T(i))
+                    Lii(sp, sp_col, i) = ion_ion_coulomb_log( &
+                        plasma_in%spec(sp)%Zspec, plasma_in%spec(sp)%Aspec, &
+                        plasma_in%spec(sp)%n(i), plasma_in%spec(sp)%T(i), &
+                        plasma_in%spec(sp_col)%Zspec, plasma_in%spec(sp_col)%Aspec, &
+                        plasma_in%spec(sp_col)%n(i), plasma_in%spec(sp_col)%T(i))
                     ! Collision frequency ions - ions'
                     nui(sp, i) = nui(sp, i) + 1.8d-7 * plasma_in%spec(sp_col)%n(i) * plasma_in%spec(sp)%Zspec**2 &
                                     * plasma_in%spec(sp_col)%Zspec**2 * Lii(sp, sp_col, i) * plasma_in%spec(sp)%Aspec**(-1.0/2.0)&

@@ -453,6 +453,14 @@ target_link_libraries(test_collision_scale_z0 KIM_lib kilca_lib lapack cerf fort
 add_test(NAME test_collision_scale_z0
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_collision_scale_z0.x)
 
+add_executable(test_ion_coulomb_log ${CMAKE_SOURCE_DIR}/KIM/tests/test_ion_coulomb_log.f90)
+set_target_properties(test_ion_coulomb_log PROPERTIES
+                      OUTPUT_NAME test_ion_coulomb_log.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_ion_coulomb_log KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_ion_coulomb_log
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_ion_coulomb_log.x)
+
 add_executable(test_fp_harmonic_prefactors
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_fp_harmonic_prefactors.f90)
 set_target_properties(test_fp_harmonic_prefactors PROPERTIES

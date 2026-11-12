@@ -159,18 +159,24 @@ module rt_electrostatic_periodic_m
         ! BEFORE the kernel takes its real part, retaining complex interference.
         ! Each ordered pair is included once; no additional Fourier weight or
         ! factor of two belongs on the kernel's Hermitianized quadratic form.
+        ! The Hermitianized pair tensor satisfies T(o,s) = T(s,o)^T, so each
+        ! unordered pair is evaluated once and contributes T + T^T.
         x1 = kpar*vti/nui
         do ell = -mphi_max, mphi_max
             x2 = -(om_e+real(ell,dp)*omega_ci-omega_mode)/nui
             call evaluate_susceptibility(x1, x2, resolved_ion_ifunc_conservation_model, moments)
             do observation = 1, size(phi_m)
                 if (all(fields(:,observation) == (0.0_dp,0.0_dp))) cycle
-                do source = 1, size(phi_m)
+                do source = observation, size(phi_m)
                     if (all(fields(:,source) == (0.0_dp,0.0_dp))) cycle
                     call calc_ion_flr_harmonic(ell, ks, kr(source), ks, kr(observation), &
                         vti, abs(omega_ci), omega_ci, sol, b0, nui, fields(:,source), &
                         fields(:,observation), moments, pair_tensor)
-                    tensor = tensor + pair_tensor
+                    if (source == observation) then
+                        tensor = tensor + pair_tensor
+                    else
+                        tensor = tensor + pair_tensor + transpose(pair_tensor)
+                    end if
                 end do
             end do
         end do
@@ -622,6 +628,9 @@ module rt_electrostatic_periodic_m
             allocate(EBdat%D_ion(2, 2, size(dPhi)))
             EBdat%D_ion = 0.0_dp
             if (.not. turn_off_ions) then
+                ! Radial points are independent and each writes only D_ion(:,:,i),
+                ! so the result does not depend on the thread count.
+                !$omp parallel do schedule(dynamic) default(shared) private(i, sp, tensor_local)
                 do i = 1, size(dPhi)
                     do sp = 1, plasma%n_species - 1
                         call compute_periodic_ion_tensor_spectrum( &
@@ -632,6 +641,7 @@ module rt_electrostatic_periodic_m
                         EBdat%D_ion(:, :, i) = EBdat%D_ion(:, :, i) + tensor_local
                     end do
                 end do
+                !$omp end parallel do
             end if
         end if
         EBdat%jpar   = jpar

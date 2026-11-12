@@ -14,7 +14,7 @@ module radial_current_fourier_kernel_m
 
     public :: radial_flr_coefficients
     public :: scaled_bessel_harmonic
-    public :: hatG_jrad_phi, hatG_jrad_br, hatG_jrad_bparallel
+    public :: hatG_jrad_phi, hatG_jrad_br, hatG_jrad_phi_br, hatG_jrad_bparallel
     public :: hatG_jrad_phi_harmonic, hatG_jrad_br_harmonic
     public :: hatG_jrad_bparallel_harmonic
     public :: hatG_jrad_phi_harmonic_sp, hatG_jrad_br_harmonic_sp
@@ -53,6 +53,61 @@ contains
                 kr_response, kr_source, j)
         end do
     end function hatG_jrad_br
+
+    subroutine hatG_jrad_phi_br(plasma_in, kr_response, kr_source, j, &
+        phi_kernel, br_kernel, cutoff)
+        !> hatG_jrad_phi and hatG_jrad_br in one pass: both share the FLR
+        !> coefficients and the phase, which dominate the cost. Sums run in the
+        !> same order as the separate functions, so the results are identical.
+        use config_m, only: artificial_debye_case, turn_off_electrons, turn_off_ions
+        use constants_m, only: com_unit, sol
+
+        type(plasma_t), intent(in) :: plasma_in
+        real(dp), intent(in) :: kr_response, kr_source
+        integer, intent(in) :: j
+        complex(dp), intent(out) :: phi_kernel, br_kernel
+        integer, intent(in), optional :: cutoff
+        integer :: ell, harmonic_cutoff, sp
+        complex(dp) :: phi_harmonic, br_harmonic, phase, o0, o2, w0, w2
+
+        harmonic_cutoff = checked_harmonic_cutoff(cutoff)
+        phi_kernel = (0.0_dp, 0.0_dp)
+        br_kernel = (0.0_dp, 0.0_dp)
+        do ell = -harmonic_cutoff, harmonic_cutoff
+            phi_harmonic = (0.0_dp, 0.0_dp)
+            br_harmonic = (0.0_dp, 0.0_dp)
+            do sp = 0, plasma_in%n_species - 1
+                if (turn_off_electrons .and. sp == 0) cycle
+                if (turn_off_ions .and. sp >= 1) cycle
+                if (use_collisionless_ion(sp)) then
+                    phi_harmonic = phi_harmonic + collisionless_jrad_phi_harmonic_sp( &
+                        plasma_in, sp, ell, kr_response, kr_source, j)
+                    br_harmonic = br_harmonic + collisionless_jrad_br_harmonic_sp( &
+                        plasma_in, sp, ell, kr_response, kr_source, j)
+                    cycle
+                end if
+                if (artificial_debye_case /= 0 .and. artificial_debye_case /= 2) cycle
+                call check_harmonic_is_available(plasma_in, sp, ell)
+                call radial_flr_coefficients(ell, plasma_in%ks(j), kr_source, &
+                    plasma_in%ks(j), kr_response, plasma_in%spec(sp)%rho_L(j), &
+                    plasma_in%spec(sp)%A1(j), plasma_in%spec(sp)%A2(j), o0, o2, w0, w2)
+                phase = radial_kernel_phase(ell, kr_response, kr_source, plasma_in%ks(j), j)
+                phi_harmonic = phi_harmonic + (-phase &
+                    * plasma_in%spec(sp)%vT(j)**2 * plasma_in%ks(j) &
+                    / (plasma_in%spec(sp)%lambda_D(j)**2 * plasma_in%spec(sp)%nu(j)) &
+                    * (o0 * plasma_in%spec(sp)%I00(j, ell) &
+                    + o2 * plasma_in%spec(sp)%I02(j, ell)))
+                br_harmonic = br_harmonic + (-com_unit &
+                    * phase &
+                    * plasma_in%spec(sp)%vT(j)**3 &
+                    / (plasma_in%spec(sp)%lambda_D(j)**2 * plasma_in%spec(sp)%nu(j) * sol) &
+                    * (o0 * plasma_in%spec(sp)%I01(j, ell) &
+                    + o2 * plasma_in%spec(sp)%I03(j, ell)))
+            end do
+            phi_kernel = phi_kernel + phi_harmonic
+            br_kernel = br_kernel + br_harmonic
+        end do
+    end subroutine hatG_jrad_phi_br
 
     complex(dp) function hatG_jrad_bparallel(plasma_in, kr_response, kr_source, j, &
         cutoff) result(kernel)
@@ -387,7 +442,7 @@ contains
         !> modified Bessel function. Integer-order symmetry is applied before
         !> the large-argument expansion.
         use constants_m, only: pi
-        use fortnum_special, only: bessel_in
+        use fortnum_special_bessel, only: bessel_in
 
         integer, intent(in) :: ell
         real(dp), intent(in) :: bplus, bcross
@@ -462,6 +517,7 @@ contains
         type(flr_jet_t), intent(out) :: a0_jet, a2_jet
         type(flr_jet_t) :: bplus, bcross, gamma, lambda, gradient_factor
         real(dp) :: kperp, kperp_p, rho_l_squared
+        real(dp) :: table(0:abs(ell)+3)
 
         rho_l_squared = rho_l**2
         kperp = hypot(ks, kr)
@@ -476,8 +532,10 @@ contains
         bcross%response = rho_l_squared * ksp * kperp / kperp_p
         bcross%mixed = rho_l_squared * ks * ksp / (kperp * kperp_p)
 
-        gamma = scaled_bessel_jet(ell, bplus, bcross)
-        lambda = multiply_jets(bcross, scaled_bessel_jet(ell - 1, bplus, bcross))
+        ! Orders ell-3 .. ell+2 enter gamma, lambda and their derivatives.
+        call fill_scaled_bessel_table(bplus%value, bcross%value, table)
+        gamma = scaled_bessel_jet(ell, bplus, bcross, table)
+        lambda = multiply_jets(bcross, scaled_bessel_jet(ell - 1, bplus, bcross, table))
 
         gradient_factor%value = a1 + (1.0_dp - bplus%value - real(ell, dp)) * a2
         gradient_factor%source = -a2 * bplus%source
@@ -488,20 +546,29 @@ contains
         a2_jet = scale_jet(gamma, 0.5_dp * a2)
     end subroutine ordinary_coefficient_jets
 
-    function scaled_bessel_jet(ell, bplus, bcross) result(jet)
+    subroutine fill_scaled_bessel_table(bplus, bcross, table)
+        !> table(n) = scaled_bessel_harmonic(n, bplus, bcross) for n = 0..ubound,
+        !> so each order is evaluated once instead of once per use.
+        real(dp), intent(in) :: bplus, bcross
+        real(dp), intent(out) :: table(0:)
+        integer :: n
+
+        do n = 0, ubound(table, 1)
+            table(n) = scaled_bessel_harmonic(n, bplus, bcross)
+        end do
+    end subroutine fill_scaled_bessel_table
+
+    function scaled_bessel_jet(ell, bplus, bcross, table) result(jet)
         integer, intent(in) :: ell
         type(flr_jet_t), intent(in) :: bplus, bcross
+        real(dp), intent(in) :: table(0:)
         type(flr_jet_t) :: jet
         real(dp) :: centre, first_derivative, second_derivative
 
-        centre = scaled_bessel_harmonic(ell, bplus%value, bcross%value)
-        first_derivative = 0.5_dp * &
-            (scaled_bessel_harmonic(ell - 1, bplus%value, bcross%value) &
-            + scaled_bessel_harmonic(ell + 1, bplus%value, bcross%value))
+        centre = table(abs(ell))
+        first_derivative = 0.5_dp * (table(abs(ell - 1)) + table(abs(ell + 1)))
         second_derivative = 0.25_dp * &
-            (scaled_bessel_harmonic(ell - 2, bplus%value, bcross%value) &
-            + 2.0_dp * centre &
-            + scaled_bessel_harmonic(ell + 2, bplus%value, bcross%value))
+            (table(abs(ell - 2)) + 2.0_dp * centre + table(abs(ell + 2)))
 
         jet%value = centre
         jet%source = -bplus%source * centre + bcross%source * first_derivative

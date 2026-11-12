@@ -1,6 +1,6 @@
 program test_neort_grid
     use iso_fortran_env, only: dp => real64
-    use neort_interface, only: read_equil_file
+    use neort_interface, only: calculate_s_tor, read_equil_file
     use control_mod, only: equil_path
 
     implicit none
@@ -9,6 +9,7 @@ program test_neort_grid
     integer :: num_failed
 
     num_failed = 0
+    call test_s_is_flux_over_boundary_flux()
     call test_equil_file_with_seven_columns()
 
     if (num_failed > 0) then
@@ -18,6 +19,19 @@ program test_neort_grid
     print *, "ALL TESTS PASSED"
 
 contains
+
+    subroutine test_s_is_flux_over_boundary_flux()
+        ! The first surface of an equilibrium file is not the axis and its last
+        ! surface is not the Boozer boundary: s must be psi_tor / psi_boundary.
+        real(dp), dimension(3) :: psi_tor, s_tor
+
+        psi_tor = [0.5_dp, 2.0_dp, 3.0_dp]
+        call calculate_s_tor(s_tor, psi_tor, psi_tor_boundary=-4.0_dp)
+
+        call assert_equal(s_tor(1), 0.125_dp, "s of first surface")
+        call assert_equal(s_tor(2), 0.5_dp, "s of middle surface")
+        call assert_equal(s_tor(3), 0.75_dp, "s of last surface")
+    end subroutine test_s_is_flux_over_boundary_flux
 
     subroutine test_equil_file_with_seven_columns()
         ! Only r and psi_tor are needed; both the 7-column writer in

@@ -51,6 +51,10 @@ program test_neort_config
     meta_config%antenna_factor_exponent = -1.0_dp
     call assert_true(len_trim(meta_config_neort_problem(meta_config)) > 0, &
                      "negative exponent reported")
+    meta_config%antenna_factor_exponent = 1.0_dp
+    meta_config%config%bfac = 2.0_dp
+    call assert_true(len_trim(meta_config_neort_problem(meta_config)) > 0, &
+                     "scaled Boozer field reported")
 
     open (newunit=iunit, file=nml_file, status="old")
     close (iunit, status="delete")

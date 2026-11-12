@@ -180,6 +180,8 @@ contains
             problem = "NEORT: antenna_factor_exponent must not be negative"
         else if (meta_config%amount_of_s < 2) then
             problem = "NEORT: amount_of_s must be at least 2"
+        else if (meta_config%config%bfac /= 1.0_dp) then
+            problem = "NEORT: bfac must be 1 (equilibrium file flux is unscaled)"
         end if
     end function meta_config_neort_problem
 
@@ -451,15 +453,16 @@ contains
         close (iunit)
     end subroutine read_equil_file
 
-    subroutine calculate_s_tor(s_tor, psi_tor)
+    !> @brief Normalized toroidal flux s = psi_tor / psi_tor(boundary)
+    !> @details Both fluxes are per radian. The boundary flux is the one NEO-RT
+    !>          reports for its Boozer file, so s agrees with NEO-RT's own s label;
+    !>          its sign depends on the Boozer orientation and is dropped.
+    subroutine calculate_s_tor(s_tor, psi_tor, psi_tor_boundary)
         real(dp), dimension(:), intent(out) :: s_tor
         real(dp), dimension(:), intent(in) :: psi_tor
+        real(dp), intent(in) :: psi_tor_boundary
 
-        real(dp) :: psi_tor_min, psi_tor_max
-
-        psi_tor_min = psi_tor(1)
-        psi_tor_max = psi_tor(size(psi_tor))
-        s_tor = (psi_tor - psi_tor_min) / (psi_tor_max - psi_tor_min)
+        s_tor = abs(psi_tor / psi_tor_boundary)
     end subroutine calculate_s_tor
 
     subroutine calculate_coarse_s_tor(s_tor, s_min, s_max, npoints)

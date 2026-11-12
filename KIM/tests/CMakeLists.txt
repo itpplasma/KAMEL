@@ -2,6 +2,63 @@
 # carried transitively by kilca_lib's PUBLIC link interface, so no per-target
 # OpenMP linkage is needed here.
 
+add_executable(test_frozen_fourier_gyroaverage
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_frozen_fourier_gyroaverage.f90)
+set_target_properties(test_frozen_fourier_gyroaverage PROPERTIES
+                      OUTPUT_NAME test_frozen_fourier_gyroaverage.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_frozen_fourier_gyroaverage
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_frozen_fourier_gyroaverage
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_frozen_fourier_gyroaverage.x)
+
+add_executable(test_adaptive_grid test_adaptive_grid.f90)
+target_link_libraries(test_adaptive_grid KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_adaptive_grid COMMAND test_adaptive_grid)
+# Each rejection case must stop with its own message, not with any failure.
+foreach(case_and_message
+        "nan_min|Adaptive lower bound must be finite"
+        "nan_max|Adaptive upper bound must be finite"
+        "unordered|Adaptive grid bounds must increase"
+        "one_node|Adaptive grid needs two nominal nodes"
+        "nan_width|Adaptive width must be finite"
+        "zero_width|Adaptive width must be positive"
+        "nan_amplitude|Adaptive amplitude must be finite"
+        "nonpositive_factor|Adaptive spacing factor must be positive"
+        "nan_scale|Adaptive spacing scale must be finite"
+        "zero_scale|Adaptive spacing scale must be positive"
+        "stalled|Adaptive terminal cell is numerically unresolved")
+    string(REPLACE "|" ";" case_parts "${case_and_message}")
+    list(GET case_parts 0 invalid_grid)
+    list(GET case_parts 1 expected_message)
+    add_test(NAME test_adaptive_grid_${invalid_grid}
+             COMMAND test_adaptive_grid ${invalid_grid})
+    set_tests_properties(test_adaptive_grid_${invalid_grid}
+                        PROPERTIES PASS_REGULAR_EXPRESSION "${expected_message}" TIMEOUT 10)
+endforeach()
+
+add_executable(test_ampere_operator
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_operator.f90)
+target_link_libraries(test_ampere_operator KIM_lib)
+add_test(NAME test_ampere_operator COMMAND test_ampere_operator)
+
+add_executable(test_weak_moments
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_weak_moments.f90)
+target_link_libraries(test_weak_moments KIM_lib)
+add_test(NAME test_weak_moments COMMAND test_weak_moments)
+
+add_executable(test_species_density ${CMAKE_SOURCE_DIR}/KIM/tests/test_species_density.f90)
+target_link_libraries(test_species_density KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_species_density COMMAND test_species_density)
+set_tests_properties(test_species_density PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable(test_manufactured_species
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_manufactured_species.f90)
+target_link_libraries(test_manufactured_species
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_manufactured_species COMMAND test_manufactured_species)
+
 # Optional: build QUADPACK/RKF45 integration comparison test
 add_executable(test_integration_methods ${CMAKE_SOURCE_DIR}/KIM/tests/test_integration_methods.f90)
 set_target_properties(test_integration_methods PROPERTIES
@@ -470,6 +527,13 @@ target_link_libraries(test_scaled_besseli_large_x KIM_lib kilca_lib lapack cerf 
 add_test(NAME test_scaled_besseli_large_x
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_scaled_besseli_large_x.x)
 
+add_executable(test_ampere_coupling ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_coupling.f90)
+set_target_properties(test_ampere_coupling PROPERTIES
+                      OUTPUT_NAME test_ampere_coupling.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_ampere_coupling KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_ampere_coupling COMMAND ${CMAKE_BINARY_DIR}/tests/test_ampere_coupling.x)
+
 add_executable(test_fp_harmonic_prefactors
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_fp_harmonic_prefactors.f90)
 set_target_properties(test_fp_harmonic_prefactors PROPERTIES
@@ -643,3 +707,26 @@ add_test(NAME test_periodic_convergence
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_convergence.x)
 set_tests_properties(test_periodic_convergence PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+add_executable(test_rho_b_collision_moments test_rho_b_collision_moments.f90)
+set_target_properties(test_rho_b_collision_moments PROPERTIES
+    OUTPUT_NAME test_rho_b_collision_moments.x
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_rho_b_collision_moments
+    KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_rho_b_collision_moments
+    COMMAND ${CMAKE_BINARY_DIR}/tests/test_rho_b_collision_moments.x)
+
+add_executable(test_electron_physical_cells
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_electron_physical_cells.f90)
+set_target_properties(test_electron_physical_cells PROPERTIES
+                      OUTPUT_NAME test_electron_physical_cells.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_electron_physical_cells
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME electron_physical_cells
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_electron_physical_cells.x)
+add_test(NAME electron_physical_cells_unsupported_basis
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_electron_physical_cells.x unsupported_basis)
+set_tests_properties(electron_physical_cells_unsupported_basis PROPERTIES
+                     PASS_REGULAR_EXPRESSION "Local electron kernel requires P1 hats")

@@ -60,6 +60,9 @@ ion_ifunc_conservation_model = 3       ! N+E+P: conserve ion parallel momentum
 - k_space_dim ... integer, dimension of the k space
 - l_space_dim ... integer, dimension of the spline space
 - rg_space_dim ... integer, number of r_g grid points (cell boundaries)
+   With "equidistant" spacing the grid has exactly this many points, from r_min to r_plas
+   inclusive, so the spacing is (r_plas - r_min)/(rg_space_dim - 1); the same holds for
+   l_space_dim.
  - grid_spacing_rg ... string, r_g grid spacing: "equidistant", "non-equidistant", or "adaptive"
  - grid_spacing_xl ... string, x_l grid spacing: "equidistant", "non-equidistant", or "adaptive"
 - num_gengrid_points ... integer, minimal number of grid points in the l grid

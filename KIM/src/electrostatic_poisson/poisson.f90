@@ -57,7 +57,8 @@ module rt_electrostatic_m
         use poisson_solver_m, only: solve_poisson
         use config_m, only: output_path, collision_model, calculate_asymptotics, hdf5_output
         use fields_m, only: EBdat, postprocess_electric_field,&
-                            calculate_charge_density, calculate_current_density, calc_ideal_MA_phi
+            calculate_charge_density, calculate_current_density, calc_ideal_MA_phi, &
+            postprocess_species_density
         use KIM_kinds_m, only: dp
         use setup_m, only: btor
 
@@ -169,7 +170,6 @@ module rt_electrostatic_m
                     EBdat%E_perp_psi(xl_grid%npts_b), &
                     EBdat%r_grid(xl_grid%npts_b), &
                     EBdat%E_perp(xl_grid%npts_b),&
-                    rho(xl_grid%npts_b), &
                     jpar_i(xl_grid%npts_b), &
                     jpar_e(xl_grid%npts_b), &
                     jpar(xl_grid%npts_b))
@@ -218,10 +218,7 @@ module rt_electrostatic_m
 
 
             call postprocess_electric_field(EBdat)
-
-            call calculate_charge_density(rho, EBdat)
-            call write_complex_profile_abs(xl_grid%xb, rho, xl_grid%npts_b, "/fields/rho", &
-                'Charge density perturbation rho calculated from Poisson solution', 'statC/cm^3')
+            call postprocess_species_density(EBdat, kernel_rho_phi_llp, kernel_rho_B_llp)
 
             if (calculate_asymptotics .eqv. .true.) then
                 call calc_flr2_asymptotic_Phi_MA(plasma, EBdat)

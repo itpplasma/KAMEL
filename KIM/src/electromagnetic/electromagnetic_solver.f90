@@ -49,13 +49,15 @@ module rt_electromagnetic_m
         use poisson_solver_m, only: prepare_Laplace_matrix
         use config_m, only: output_path, collision_model
         use fields_m, only: EBdat, postprocess_electric_field, &
-                            calculate_charge_density, calculate_current_density
+            postprocess_species_density, calculate_current_density
         use ampere_matrices_m, only: interpolate_equil_to_xl
+        use ampere_operator_m, only: assemble_ampere_weak, add_ampere_current_coupling
         use setup_m, only: m_mode, n_mode, R0, Br_boundary_re, Br_boundary_im, bc_type
         use constants_m, only: pi, sol, com_unit
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use logger_m, only: log_info, log_debug, log_error
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         use kim_diagnostics_m, only: compute_and_write_diagnostics
         use wavenumber_geometry_m, only: perpendicular_wavenumber
 
@@ -80,12 +82,11 @@ module rt_electromagnetic_m
         real(dp), allocatable :: ks_xl(:)
         complex(dp), allocatable :: alpha(:)
 
-        complex(dp), allocatable :: jpar(:), jpar_sp(:), rho(:)
+        complex(dp), allocatable :: jpar(:), jpar_sp(:)
         complex(dp) :: Br_boundary
         integer :: sp
 
         integer :: N, i, j
-        real(dp) :: hL, hR
         character(8) :: date
         character(10) :: time
         character(5) :: zone
@@ -134,7 +135,8 @@ module rt_electromagnetic_m
         call write_kernels(kernel_rho_phi_llp, kernel_rho_B_llp, &
             kernel_j_phi_llp, kernel_j_B_llp)
 
-        ! Compute mass matrix (needed by calculate_current_density)
+        ! Mass matrix with the Dirichlet boundary row (grid_m%M_mat); the current
+        ! density no longer uses it, but it stays a shared module quantity.
         if (.not. allocated(M_mat)) then
             allocate(M_mat(N, N))
             call calc_mass_matrix(M_mat)
@@ -149,16 +151,9 @@ module rt_electromagnetic_m
             alpha(i) = com_unit * ks_xl(i)
         end do
 
-        ! Build laplace_perp: nabla^2_perp = d^2/dr^2 + (1/r)d/dr - ks^2
+        ! Weak unweighted dr moments, consistent with the current kernels.
         allocate(laplace_perp(N, N))
-        laplace_perp = 0.0d0
-        do i = 2, N-1
-            hL = xl_grid%xb(i) - xl_grid%xb(i-1)
-            hR = xl_grid%xb(i+1) - xl_grid%xb(i)
-            laplace_perp(i,i-1) = 1.0d0 / hL - 1.0d0 / (xl_grid%xb(i) * (hL + hR))
-            laplace_perp(i,i)   = -(1.0d0 / hL + 1.0d0 / hR) - ks_xl(i)**2
-            laplace_perp(i,i+1) = 1.0d0 / hR + 1.0d0 / (xl_grid%xb(i) * (hL + hR))
-        end do
+        call assemble_ampere_weak(xl_grid%xb, ks_xl, laplace_perp)
 
         ! Assemble Poisson LHS block: A_Phi = Delta + 4*pi * K_rho_phi
         allocate(A_Phi(N, N))
@@ -183,10 +178,8 @@ module rt_electromagnetic_m
 
         ! Bottom-right: laplace_perp + (4*pi/c) * K_j_B * D_alpha
         A_block(N+1:2*N, N+1:2*N) = cmplx(laplace_perp, 0.0d0, dp)
-        do j = 1, N
-            A_block(N+1:2*N, N+j) = A_block(N+1:2*N, N+j) &
-                + 4.0d0 * pi / sol * kernel_j_B_llp%Kllp(1:N, j) * alpha(j)
-        end do
+        call add_ampere_current_coupling(A_block(N+1:2*N, N+1:2*N), &
+            kernel_j_B_llp%Kllp, alpha)
 
         ! --- Boundary conditions ---
 
@@ -240,6 +233,10 @@ module rt_electromagnetic_m
         if (lapack_info /= 0) then
             write(lbuf, '(A,I0)') 'ZGESV failed with info = ', lapack_info
             call log_error(trim(lbuf))
+        end if
+        if (.not. all(ieee_is_finite(real(b_block, dp))) .or. &
+                .not. all(ieee_is_finite(aimag(b_block)))) then
+            call log_error('Coupled Poisson-Ampere solution is not finite')
         end if
         write(lbuf, '(A,I0,A)') '  ZGESV solve succeeded (2N = ', 2*N, ')'
         call log_info(trim(lbuf))
@@ -303,10 +300,7 @@ module rt_electromagnetic_m
         ! Electric field postprocessing
         call postprocess_electric_field(EBdat)
 
-        ! Charge density
-        call calculate_charge_density(rho, EBdat)
-        call write_complex_profile_abs(xl_grid%xb, rho, N, "/fields/rho", &
-            'Charge density from self-consistent solve', 'statC/cm^3')
+        call postprocess_species_density(EBdat, kernel_rho_phi_llp, kernel_rho_B_llp)
 
         ! Scalar diagnostics: D_ql,e22 at the resonant surface and
         ! integrated parallel currents (no-op if outputs disabled)

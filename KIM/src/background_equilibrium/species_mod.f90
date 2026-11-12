@@ -98,6 +98,19 @@ module species_m
     !> about them (which would create a circular module dependency).
     integer, save, public :: profiles_generation = 0
 
+    ! Collision-frequency coefficients in KiLCA's convention
+    ! (KiLCA/background/background_data_m.f90), n in cm^-3 and T in eV.
+    ! The ion coefficients are the electron ones scaled by the mass ratio:
+    ! like particles 5.8e-6 sqrt(m_e/m_p) = 1.4e-7, slow heavy field particles
+    ! 7.7e-6 sqrt(m_e/m_p) = 1.8e-7, ions on electrons 5.8e-6 m_e/m_p = 3.2e-9.
+    ! Unlike ion pairs keep the heavy-field coefficient; that choice is not
+    ! validated for a test ion on lighter field ions.
+    real(dp), parameter :: nu_like_electron_coef = 5.8d-6
+    real(dp), parameter :: nu_electron_ion_coef = 7.7d-6
+    real(dp), parameter :: nu_like_ion_coef = 1.4d-7
+    real(dp), parameter :: nu_heavy_field_ion_coef = 1.8d-7
+    real(dp), parameter :: nu_ion_electron_coef = 3.2d-9
+
     contains
 
     pure function scale_fp_collision_frequency(nu, species_index, ion_scale) result(scaled_nu)
@@ -646,30 +659,32 @@ module species_m
             ! Coulomb logarithm
             Lee(i) = 23.5d0 - log(sqrt(plasma_in%spec(0)%n(i)) / plasma_in%spec(0)%T(i)**1.25d0) - &
                 sqrt(1d-5 + (log(plasma_in%spec(0)%T(i)) -2.0d0)**2.0d0 / 16.0d0)
-            nue(i) = 5.8e-6 * plasma_in%spec(0)%n(i) * Lee(i) / plasma_in%spec(0)%T(i)**(1.5d0)
+            nue(i) = nu_like_electron_coef * plasma_in%spec(0)%n(i) * Lee(i) / plasma_in%spec(0)%T(i)**(1.5d0)
             Lei(:, i) = 24.0d0 - log(sqrt(plasma_in%spec(0)%n(i)) / plasma_in%spec(0)%T(i))
         end do
 
         do sp=1, number_of_ion_species
             do i=1, plasma_in%grid_size
-                ! Coulomb logarithm electrons ions (= ions electrons)
+                nue(i) = nue(i) + nu_electron_ion_coef * plasma_in%spec(sp)%n(i) * Lei(sp, i) &
+                    * plasma_in%spec(sp)%Zspec**2 / plasma_in%spec(0)%T(i)**(1.5d0)
 
+                ! Ions on electrons: momentum exchange suppressed by m_e/m_i,
+                ! with Lambda_ie = Lambda_ei.
+                nui(sp, i) = nu_ion_electron_coef * plasma_in%spec(0)%n(i) * Lei(sp, i) &
+                    * plasma_in%spec(sp)%Zspec**2 / plasma_in%spec(sp)%Aspec &
+                    / (sqrt(plasma_in%spec(0)%T(i)) * plasma_in%spec(sp)%T(i))
 
-                nue(i) = nue(i) + 7.7d-6 * plasma_in%spec(sp)%n(i) * Lei(sp, i) * plasma_in%spec(sp)%Zspec**2 / plasma_in%spec(0)%T(i)**(1.5d0)
-
-                nui(sp, i) = 1.8d-7 * plasma_in%spec(sp)%Aspec**(-1.0/2.0) * plasma_in%spec(sp)%T(i)**(-3.0/2.0) * plasma_in%spec(0)%n(i) * &
-                                plasma_in%spec(sp)%Zspec**2 * Lei(sp,i)
-
-                do sp_col=sp, number_of_ion_species
+                do sp_col=1, number_of_ion_species
                     Lii(sp, sp_col, i) = ion_ion_coulomb_log( &
                         plasma_in%spec(sp)%Zspec, plasma_in%spec(sp)%Aspec, &
                         plasma_in%spec(sp)%n(i), plasma_in%spec(sp)%T(i), &
                         plasma_in%spec(sp_col)%Zspec, plasma_in%spec(sp_col)%Aspec, &
                         plasma_in%spec(sp_col)%n(i), plasma_in%spec(sp_col)%T(i))
-                    ! Collision frequency ions - ions'
-                    nui(sp, i) = nui(sp, i) + 1.8d-7 * plasma_in%spec(sp_col)%n(i) * plasma_in%spec(sp)%Zspec**2 &
-                                    * plasma_in%spec(sp_col)%Zspec**2 * Lii(sp, sp_col, i) * plasma_in%spec(sp)%Aspec**(-1.0/2.0)&
-                                    * plasma_in%spec(sp)%T(i)**(-3.0/2.0)
+                    nui(sp, i) = nui(sp, i) &
+                        + merge(nu_like_ion_coef, nu_heavy_field_ion_coef, sp_col == sp) &
+                        * plasma_in%spec(sp_col)%n(i) * plasma_in%spec(sp)%Zspec**2 &
+                        * plasma_in%spec(sp_col)%Zspec**2 * Lii(sp, sp_col, i) &
+                        / sqrt(real(plasma_in%spec(sp)%Aspec, dp)) / plasma_in%spec(sp)%T(i)**1.5d0
                 end do
             end do
         end do

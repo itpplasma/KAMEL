@@ -263,8 +263,9 @@ contains
     !> @param[out] profile_data 2D array (nflux, 2) for NEO-RT profile input:
     !>             Column 1: normalized toroidal flux s [dimensionless]
     !>             Column 2: toroidal Mach number M_t [dimensionless]
-    subroutine prepare_profile_data_for_neort(profile_data, r, s_tor)
-        use baseparam_mod, only: am, btor, c, p_mass, rtor
+    !> @param[in] R0 major radius NEO-RT uses to turn M_t back into Omega_tE [cm]
+    subroutine prepare_profile_data_for_neort(profile_data, r, s_tor, R0)
+        use baseparam_mod, only: am, btor, c, p_mass
         use grid_mod, only: rb, rc
         use plasma_parameters, only: params, qsaf
         use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
@@ -319,6 +320,7 @@ contains
         real(dp), dimension(:, :), intent(out) :: profile_data
         real(dp), dimension(:), intent(in) :: r
         real(dp), dimension(:), intent(in) :: s_tor
+        real(dp), intent(in) :: R0
 
         real(dp) :: E_r, T_i, m_i, vth, dpsi_pol_dr, Omega_tE, M_t
         real(dp), dimension(:), allocatable :: E_r_boundary
@@ -372,8 +374,9 @@ contains
 
             ! Calculate toroidal Mach number (ExB Mach number) [Albert2016 below (57)]
             ! Source detail: Albert2016, PDF p. 16, text following Eq. (57).
-            ! rtor is the major radius (R)
-            M_t = Omega_tE * rtor / vth
+            ! NEO-RT reconstructs Omega_tE = vth * M_t / R0 with its own R0
+            ! from the Boozer file, so the same R0 must be used here.
+            M_t = Omega_tE * R0 / vth
 
             ! Column 2: toroidal Mach number M_t
             profile_data(i, 2) = M_t

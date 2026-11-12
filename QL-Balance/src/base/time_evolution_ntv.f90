@@ -26,6 +26,7 @@ module time_evolution_ntv
     real(dp) :: antenna_factor_exponent
 
     ! from NEO-RT
+    type(equilibrium_t) :: equil
     type(transport_data_t), dimension(:), allocatable :: transport_data
 
 contains
@@ -46,7 +47,6 @@ contains
         real(dp), dimension(:, :), allocatable :: s_splined, r_splined
         real(dp) :: s_min, s_max
         type(meta_config_neort_t) :: meta_config
-        type(equilibrium_t) :: equil
         integer :: s_size
 
         character(len=*), parameter :: balance_config_file = "balance_conf.nml"
@@ -163,7 +163,7 @@ contains
         s_size = size(s_tor)
 
         call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
-        call prepare_profile_data_for_neort(profile_data, r, s_tor)
+        call prepare_profile_data_for_neort(profile_data, r, s_tor, equil%major_radius)
         call neort_prepare_splines(s_size, am1, am2, Z1, Z2, plasma_data, profile_data)
 
         ! Initialize progress tracking

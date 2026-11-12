@@ -7,10 +7,10 @@ unexport LIBNEO_REF LIBNEO_PATH
 
 _LIBNEO_DEFS :=
 ifeq ($(origin LIBNEO_REF),command line)
-  _LIBNEO_DEFS += -DLIBNEO_REF=$(LIBNEO_REF)
+  _LIBNEO_DEFS += -DITP_LIBNEO_REF=$(LIBNEO_REF)
 endif
 ifeq ($(origin LIBNEO_PATH),command line)
-  _LIBNEO_DEFS += -DLIBNEO_PATH=$(LIBNEO_PATH)
+  _LIBNEO_DEFS += -DFETCHCONTENT_SOURCE_DIR_LIBNEO=$(LIBNEO_PATH)
 endif
 
 .PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install ctest golden pytest

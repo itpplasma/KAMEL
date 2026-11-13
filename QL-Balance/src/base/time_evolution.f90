@@ -90,7 +90,7 @@ module time_evolution
         use periodic_checkpoint_m, only: pending_periodic_restart, reset_periodic_restart
         use kim_wave_code_adapter_m, only: kim_periodic_mode_selected
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
-            compute_antenna_factor_from_Ipar
+            compute_antenna_factor_from_Ipar, scale_ntv_torque_by_antenna_factor
         use grid_mod, only: mwind, rmax, rmin, set_boundary_condition, npoib, rb
         use baseparam_mod, only: dperp, tol_max
         use QLbalance_diag, only: write_diag, write_diag_b
@@ -182,6 +182,7 @@ module time_evolution
             call get_dql
             call compute_antenna_factor_from_Ipar
             call rescale_transp_coeffs_by_ant_fac
+            call scale_ntv_torque_by_antenna_factor(antenna_factor_max)
         end if
         call write_periodic_workflow_provenance
         call hold_prev_transp_coeffs
@@ -190,17 +191,24 @@ module time_evolution
 
     end subroutine
 
+    !> First and last time index of this run: a restart from a periodic
+    !> checkpoint continues after the steps that were already completed.
+    subroutine time_step_range(first_step, last_step)
+        integer, intent(out) :: first_step, last_step
+
+        first_step = periodic_completed_steps + 1
+        last_step = periodic_completed_steps + Nstorage
+    end subroutine time_step_range
+
     subroutine runTimeEvolution(this)
         class(TimeEvolution_t), intent(inout) :: this
 
-        block
-            integer :: first_step, last_step
-            first_step = periodic_completed_steps+1
-            last_step = periodic_completed_steps+Nstorage
-            do time_ind = first_step, last_step
-                call doStep(this)
-            end do
-        end block
+        integer :: first_step, last_step
+
+        call time_step_range(first_step, last_step)
+        do time_ind = first_step, last_step
+            call doStep(this)
+        end do
     end subroutine runTimeEvolution
 
     subroutine doStep(this, stat)
@@ -211,7 +219,7 @@ module time_evolution
         use recstep_mod, only: timstep_arr, tol
         use restart_mod, only: redostep
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
-            compute_antenna_factor_from_Ipar
+            compute_antenna_factor_from_Ipar, scale_ntv_torque_by_antenna_factor
         use writeData_m, only: writefort9999
 
         implicit none
@@ -235,6 +243,7 @@ module time_evolution
         call compute_antenna_factor_from_Ipar
         call record_parallel_current_history
         call rescale_transp_coeffs_by_ant_fac
+        call scale_ntv_torque_by_antenna_factor(antenna_factor_max)
         call interp_Br_Dql_at_resonance_timeevol
         call determine_Dql_diagnostic
 
@@ -896,7 +905,7 @@ module time_evolution
 
     subroutine alloc_Br_Dqle_for_timeevol
 
-        use grid_mod, only: T_tot_phi_e, T_tot_phi_i
+        use grid_mod, only: T_tot_phi_e, T_tot_phi_i, T_tot_phi_ntv
 
         use periodic_checkpoint_m, only: pending_periodic_restart
         implicit none
@@ -917,6 +926,7 @@ module time_evolution
         Ipar_time = (0.0_dp, 0.0_dp)
         allocate(T_tot_phi_e(history_size))
         allocate(T_tot_phi_i(history_size))
+        allocate(T_tot_phi_ntv(history_size))
 
     end subroutine
 
@@ -1073,9 +1083,14 @@ module time_evolution
     subroutine write_br_discrepancy_reached_info
 
         use h5mod
+        use KAMEL_hdf5_tools, only: h5overwrite
 
         implicit none
 
+        logical :: old_h5overwrite
+
+        old_h5overwrite = h5overwrite
+        h5overwrite = .true.
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
@@ -1084,6 +1099,7 @@ module time_evolution
             '/discrep_time', (/time_ind*1.d0, time/), (/1/), (/2/))
         CALL h5_close(h5_id)
         CALL h5_deinit()
+        h5overwrite = old_h5overwrite
 
     end subroutine
 
@@ -1110,17 +1126,21 @@ module time_evolution
         use wave_code_data, only: Vth, m_vals, n_vals
         use kim_wave_code_adapter_m, only: kim_periodic_mode_selected
         use periodic_checkpoint_m, only: periodic_restart_t, write_periodic_checkpoint
+        use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
 
         implicit none
         type(periodic_restart_t) :: checkpoint
         integer :: ipoi
+        real(dp), dimension(npoib) :: E_r_current
+
+        call compute_unsmoothed_radial_electric_field(params, E_r_current)
 
         if (ihdf5IO .eq. 1) then
             call log_debug("Write kinetic profiles")
             do ipoi = 1, npoic
                 sqg_bthet_overcavg(ipoi) = 0.5d0*(sqrt_g_times_B_theta_over_c(ipoi) &
                                                 + sqrt_g_times_B_theta_over_c(ipoi + 1))
-                Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+                Ercovavg(ipoi) = 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1))
             end do
             ! h5_mode_groupname
             !h5_currentgrp = "/"//trim(h5_mode_groupname) &
@@ -1182,7 +1202,7 @@ module time_evolution
                 write (1000 + time_ind, *) rc(ipoi), params(1:2, ipoi) &
                     , params(3, ipoi)/ev &
                     , params(4, ipoi)/ev &
-                    , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1)) &
+                    , 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1)) &
                     , 0.5d0*(sqrt_g_times_B_theta_over_c(ipoi) + &
                             sqrt_g_times_B_theta_over_c(ipoi + 1))
             end do
@@ -1565,35 +1585,39 @@ module time_evolution
     subroutine redoTimeStep
 
         use recstep_mod, only: timstep_arr
-        use grid_mod, only: npoic, rc, Ercov
+        use grid_mod, only: npoib, npoic, rc
         use plasma_parameters, only: params, params_begbeg
         use baseparam_mod, only: eV, factolmax
+        use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
         use restart_mod
 
         implicit none
 
         integer :: ipoi
+        real(dp), dimension(npoib) :: E_r_current
 
         print *, 'redo step with old DQL'
 
         call hold_prev_transp_coeffs
         iunit_redo = 137
 
+        call compute_unsmoothed_radial_electric_field(params, E_r_current)
         open (iunit_redo, file='params_redostep.after')
         do ipoi = 1, npoic
             write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
                 , params(3, ipoi)/ev &
                 , params(4, ipoi)/ev &
-                , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+                , 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1))
         end do
         close (iunit_redo)
         params = params_begbeg
+        call compute_unsmoothed_radial_electric_field(params, E_r_current)
         open (iunit_redo, file='params_redostep.before')
         do ipoi = 1, npoic
             write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
                 , params(3, ipoi)/ev &
                 , params(4, ipoi)/ev &
-                , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+                , 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1))
         end do
         close (iunit_redo)
 

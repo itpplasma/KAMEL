@@ -30,6 +30,7 @@ subroutine get_dql
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code, &
+                           is_time_evolution_run, &
                           jpar_method
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res, &
         periodic_response_trial
@@ -47,6 +48,7 @@ subroutine get_dql
     use PolyLagrangeInterpolation
     use logger_m, only: log_debug
     use writeData_m, only: write_fields_currs_transp_coefs_to_h5, write_D_one_over_nu_to_h5
+    use rhs_balance_m, only: project_params_to_boundary_grid, compute_radial_electric_field
 
     implicit none
 
@@ -125,16 +127,8 @@ subroutine get_dql
         return
     end if
 
-    do ipoi = 1, npoib
-        do ieq = 1, nbaleqs
-            ! radial derivatives of equilibrium parameters at cell boundaries:
-            ddr_params_nl(ieq, ipoi) &
-                = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*deriv_coef(:, ipoi))
-            ! equilibrium parameters at cell boundaries:
-            params_b(ieq, ipoi) &
-                = sum(params(ieq, ipbeg(ipoi):ipend(ipoi))*reint_coef(:, ipoi))
-        end do
-    end do
+    call project_params_to_boundary_grid(params, ipbeg, ipend, deriv_coef, reint_coef, &
+                                         params_b, ddr_params_nl)
 
     ! Smooth input for KILCA
     allocate (dummy(npoib), row_buffer(npoib))
@@ -150,9 +144,8 @@ subroutine get_dql
     deallocate (dummy)
 
     ! Compute radial electric field:
-    Ercov = sqrt_g_times_B_theta_over_c*(params_b(2, :) - Vth*q/rb) &
-            + (params_b(4, :)*ddr_params_nl(1, :)/params_b(1, :) + ddr_params_nl(4, :)) &
-            /(Z_i*e_charge)
+    call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
+                                       sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
 
     ! Compute diffusion coefficient matrices:
 
@@ -317,7 +310,7 @@ subroutine get_dql
             spec_weight(ipoi) = spec_weight(ipoi)*weight
         end do
 
-        if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
+        if (is_time_evolution_run(type_of_run)) then
             if (time_ind>0) then
                 call interp_rb_at_r0(Br, r_resonant(i_mn), br_vac_res(time_ind))
             end if
@@ -345,7 +338,7 @@ subroutine get_dql
         write(*,*) '  max|formfactor|      = ', maxval(abs(formfactor))
 
         ! todo: interpolate formfactor at resonant surface and write out. This is Brtot/Brvac at the resonant surface
-        if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
+        if (is_time_evolution_run(type_of_run)) then
             if (time_ind > 0) then
                 call interp_rb_at_r0(formfactor, r_resonant(i_mn), br_formfactor(time_ind))
             end if

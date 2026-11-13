@@ -88,6 +88,12 @@ function(find_or_fetch DEPENDENCY)
     set(LIBNEO_ENABLE_TESTS OFF CACHE BOOL "" FORCE)
     set(LIBNEO_ENABLE_GOLDEN_TESTS OFF CACHE BOOL "" FORCE)
 
+    # Dependencies locate their own modules via ${CMAKE_SOURCE_DIR}/cmake, which
+    # points to KAMEL's tree here. Append theirs; function scope keeps it local.
+    if(IS_DIRECTORY "${${DEPENDENCY}_SOURCE_DIR}/cmake")
+        list(APPEND CMAKE_MODULE_PATH "${${DEPENDENCY}_SOURCE_DIR}/cmake")
+    endif()
+
     add_subdirectory(${${DEPENDENCY}_SOURCE_DIR}
         ${CMAKE_CURRENT_BINARY_DIR}/${DEPENDENCY}
         EXCLUDE_FROM_ALL

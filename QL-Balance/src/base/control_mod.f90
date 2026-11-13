@@ -58,4 +58,17 @@ contains
         end select
     end function ion_transport_model_id
 
+    pure logical function is_time_evolution_run(run_type)
+        ! TimeEvolutionNTV extends TimeEvolution and shares its time stepping,
+        ! histories and periodic-amplitude handling.
+        character(*), intent(in) :: run_type
+
+        select case (trim(run_type))
+        case ('TimeEvolution', 'TimeEvolutionNTV')
+            is_time_evolution_run = .true.
+        case default
+            is_time_evolution_run = .false.
+        end select
+    end function is_time_evolution_run
+
 end module control_mod

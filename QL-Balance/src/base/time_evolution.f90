@@ -90,7 +90,7 @@ module time_evolution
         use periodic_checkpoint_m, only: pending_periodic_restart, reset_periodic_restart
         use kim_wave_code_adapter_m, only: kim_periodic_mode_selected
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
-            compute_antenna_factor_from_Ipar
+            compute_antenna_factor_from_Ipar, scale_ntv_torque_by_antenna_factor
         use grid_mod, only: mwind, rmax, rmin, set_boundary_condition, npoib, rb
         use baseparam_mod, only: dperp, tol_max
         use QLbalance_diag, only: write_diag, write_diag_b
@@ -182,6 +182,7 @@ module time_evolution
             call get_dql
             call compute_antenna_factor_from_Ipar
             call rescale_transp_coeffs_by_ant_fac
+            call scale_ntv_torque_by_antenna_factor(antenna_factor_max)
         end if
         call write_periodic_workflow_provenance
         call hold_prev_transp_coeffs
@@ -218,7 +219,7 @@ module time_evolution
         use recstep_mod, only: timstep_arr, tol
         use restart_mod, only: redostep
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
-            compute_antenna_factor_from_Ipar
+            compute_antenna_factor_from_Ipar, scale_ntv_torque_by_antenna_factor
         use writeData_m, only: writefort9999
 
         implicit none
@@ -242,6 +243,7 @@ module time_evolution
         call compute_antenna_factor_from_Ipar
         call record_parallel_current_history
         call rescale_transp_coeffs_by_ant_fac
+        call scale_ntv_torque_by_antenna_factor(antenna_factor_max)
         call interp_Br_Dql_at_resonance_timeevol
         call determine_Dql_diagnostic
 

@@ -76,6 +76,14 @@ target_link_libraries(test_ntv_feedback.x PUBLIC ql-balance_lib)
 add_fortran_test(test_ntv_feedback)
 
 # NEO-RT meta-config namelist reader
+add_executable(test_ntv_antenna_scaling.x test_ntv_antenna_scaling.f90)
+target_link_libraries(test_ntv_antenna_scaling.x PUBLIC ql-balance_lib)
+add_fortran_test(test_ntv_antenna_scaling)
+add_test(NAME test_ntv_antenna_scaling_zero_reference
+         COMMAND test_ntv_antenna_scaling.x zero_reference)
+set_tests_properties(test_ntv_antenna_scaling_zero_reference PROPERTIES
+                     PASS_REGULAR_EXPRESSION "needs a positive reference antenna factor")
+
 add_executable(test_neort_config.x test_neort_config.f90)
 target_link_libraries(test_neort_config.x PUBLIC ql-balance_lib)
 add_fortran_test(test_neort_config)

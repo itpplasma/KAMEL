@@ -32,6 +32,7 @@ contains
     subroutine initTimeEvolutionNTV(this)
         use baseparam_mod, only: am, Z_i, rsepar
         use grid_mod, only: rmin
+        use time_evolution, only: antenna_factor_max
         use neort_interface, only: meta_config_neort_t, read_neort_meta_config, &
                                    meta_config_neort_problem, read_equil_file, &
                                    calculate_s_tor, calculate_coarse_s_tor
@@ -48,14 +49,21 @@ contains
 
         character(len=*), parameter :: balance_config_file = "balance_conf.nml"
 
-        call this%TimeEvolution_t%init_balance
-        this%runType = "TimeEvolutionNTV"
-
-        ! NEO-RT
-        call read_neort_meta_config(balance_config_file, meta_config)
+        ! Reject a bad &NEORT namelist before the wave-code setup and the
+        ! first output; the mode numbers are filled in after it.
+        call read_neort_meta_config(balance_config_file, meta_config, with_modes=.false.)
         if (len_trim(meta_config_neort_problem(meta_config)) > 0) then
             error stop trim(meta_config_neort_problem(meta_config))
         end if
+
+        call this%TimeEvolution_t%init_balance
+        this%runType = "TimeEvolutionNTV"
+        if (.not. (antenna_factor_max > 0.0_dp)) error stop &
+            "TimeEvolutionNTV needs antenna_factor > 0: the reference amplitude of the NEO-RT "// &
+            "perturbation"
+
+        ! NEO-RT
+        call read_neort_meta_config(balance_config_file, meta_config)
         antenna_factor_exponent = meta_config%antenna_factor_exponent
         s_size = meta_config%amount_of_s
 
@@ -68,6 +76,9 @@ contains
 
         ! Prepare grid splines for NEO-RT
         call read_equil_file(r_eff=r_eff, psi_tor=psi_tor)
+        ! The s(r) spline must not extrapolate: NEO-RT needs s inside [0, 1].
+        if (rmin < minval(r_eff) .or. rsepar > maxval(r_eff)) error stop &
+            "TimeEvolutionNTV: the equilibrium file must cover rmin..rsepar"
         allocate (s_tor_equil(size(psi_tor)))
         call calculate_s_tor(s_tor_equil, psi_tor)
 

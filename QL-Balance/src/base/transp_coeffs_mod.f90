@@ -4,6 +4,37 @@ module transp_coeffs_mod
 
     contains
 
+    subroutine scale_ntv_torque_by_antenna_factor(antenna_factor_reference)
+        !
+        ! NEO-RT computes the NTV torque for the amplitude of its perturbation
+        ! file, taken to correspond to antenna_factor_reference. Scale it with
+        ! the antenna_factor of this step, i.e. the same one applied to the QL
+        ! coefficients, also when it comes from I_par_toroidal. Assigning from
+        ! the unscaled torque keeps repeated calls harmless; runs without NTV
+        ! have no unscaled torque and are left untouched.
+        !
+        use QLBalance_kinds, only: dp
+        use grid_mod, only: torque_density_ntv, torque_density_ntv_unscaled, &
+                            ntv_antenna_factor_exponent
+        use wave_code_data, only: antenna_factor
+        use logger_m, only: log_info
+
+        real(dp), intent(in) :: antenna_factor_reference
+        character(len=128) :: log_line
+
+        if (.not. allocated(torque_density_ntv_unscaled)) return
+        if (.not. (antenna_factor_reference > 0.0_dp)) &
+            error stop 'NTV antenna scaling needs a positive reference antenna factor'
+        torque_density_ntv = torque_density_ntv_unscaled &
+            * (antenna_factor / antenna_factor_reference)**ntv_antenna_factor_exponent
+
+        ! The NTV torque enters the implicit step as a frozen source with no
+        ! Jacobian entry, so its size relative to the step is worth seeing.
+        write (log_line, '(A,ES10.3,A)') "NEO-RT: max |NTV torque density| = ", &
+            maxval(abs(torque_density_ntv)), " dyn/cm^2"
+        call log_info(trim(log_line))
+    end subroutine scale_ntv_torque_by_antenna_factor
+
     subroutine rescale_transp_coeffs_by_ant_fac
 
         use grid_mod, only: dqle11, dqle12, dqle21, dqle22, &

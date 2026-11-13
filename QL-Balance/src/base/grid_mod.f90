@@ -23,6 +23,10 @@ module grid_mod
     real(dp), dimension(:),   allocatable :: dai11,dai12,dai22
     real(dp), dimension(:), allocatable :: dni22, visca, polforce
     real(dp), dimension(:), allocatable :: torque_density_e, torque_density_i, torque_density_ntv
+    ! NEO-RT torque for the perturbation file's amplitude, before the antenna
+    ! scaling; allocated only in TimeEvolutionNTV runs.
+    real(dp), dimension(:), allocatable :: torque_density_ntv_unscaled
+    real(dp) :: ntv_antenna_factor_exponent = 1.0_dp
     real(dp), dimension(:), allocatable :: T_tot_phi_e, T_tot_phi_i, T_tot_phi_ntv
     ! ql RMP-induced diffusion
     real(dp), dimension(:),   allocatable :: dqle11,dqle12,dqle21,dqle22

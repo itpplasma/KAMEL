@@ -28,11 +28,14 @@ module neort_interface
 
 contains
 
-    subroutine read_neort_meta_config(config_file, meta_config)
+    subroutine read_neort_meta_config(config_file, meta_config, with_modes)
         use wave_code_data, only: m_vals, n_vals
 
         character(len=*), intent(in) :: config_file
         type(meta_config_neort_t), intent(out) :: meta_config
+        ! .false. reads the namelist before the wave code has set the mode
+        ! numbers, so it can be validated before the expensive setup.
+        logical, intent(in), optional :: with_modes
 
         ! mode numbers
         integer :: poloidal_mode_number
@@ -123,8 +126,15 @@ contains
         end if
 
         ! mode numbers (from KiLCA input)
-        poloidal_mode_number = abs(m_vals(1))
-        toroidal_mode_number = n_vals(1)
+        poloidal_mode_number = 0
+        toroidal_mode_number = 0
+        if (.not. present(with_modes)) then
+            poloidal_mode_number = abs(m_vals(1))
+            toroidal_mode_number = n_vals(1)
+        else if (with_modes) then
+            poloidal_mode_number = abs(m_vals(1))
+            toroidal_mode_number = n_vals(1)
+        end if
 
         ! set values from namelist in meta config struct
         meta_config%boozer_file = trim(adjustl(boozer_file))
@@ -470,11 +480,10 @@ contains
     subroutine apply_ntv_transport(r, transport_data, antenna_factor_exponent)
         use PolyLagrangeInterpolation, only: binsrc
         use control_mod, only: data_verbosity
-        use grid_mod, only: rb, torque_density_ntv
-        use logger_m, only: log_info
+        use grid_mod, only: rb, torque_density_ntv_unscaled, ntv_antenna_factor_exponent
+        use transp_coeffs_mod, only: scale_ntv_torque_by_antenna_factor
         use writeData_m, only: write_NTV_torque_diagnostic
         use spline, only: spline_coeff, spline_val
-        use wave_code_data, only: antenna_factor
         use time_evolution, only: antenna_factor_max, time_ind
 
         real(dp), dimension(:), intent(in) :: r
@@ -487,8 +496,6 @@ contains
         real(dp), dimension(:, :), allocatable :: torque_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: torque_splined
         integer :: ntorque, nrb, i, i_separatrix
-        real(dp) :: antenna_factor_scaling
-        character(len=128) :: log_line
 
         ! extract array sizes
         ntorque = size(transport_data)
@@ -529,19 +536,16 @@ contains
         torque_splined = spline_val(torque_of_r_coeffs, rb(1:i_separatrix))
 
         ! torque for r > separatrix should be zero
-        torque_density_ntv(1:i_separatrix) = torque_splined(:, 1)
-        torque_density_ntv(i_separatrix + 1:nrb) = 0.0_dp
+        if (.not. allocated(torque_density_ntv_unscaled)) &
+            allocate (torque_density_ntv_unscaled(nrb))
+        torque_density_ntv_unscaled(1:i_separatrix) = torque_splined(:, 1)
+        torque_density_ntv_unscaled(i_separatrix + 1:nrb) = 0.0_dp
 
-        ! rescale ntv by antenna factor proportion and
-        ! exponent (for different collisionality regimes)
-        antenna_factor_scaling = (antenna_factor / antenna_factor_max)**antenna_factor_exponent
-        torque_density_ntv = torque_density_ntv * antenna_factor_scaling
-
-        ! The NTV torque enters the implicit step as a frozen source with no
-        ! Jacobian entry, so its size relative to the step is worth seeing.
-        write (log_line, '(A,ES10.3,A)') "NEO-RT: max |NTV torque density| = ", &
-            maxval(abs(torque_density_ntv)), " dyn/cm^2"
-        call log_info(trim(log_line))
+        ! Rescale by the antenna-factor ratio with an exponent for the
+        ! collisionality regime. doStep repeats this once antenna_factor is
+        ! final for the step, so NTV and QL use the same amplitude.
+        ntv_antenna_factor_exponent = antenna_factor_exponent
+        call scale_ntv_torque_by_antenna_factor(antenna_factor_max)
     end subroutine apply_ntv_transport
 
 end module neort_interface

@@ -1029,22 +1029,38 @@ module time_evolution
     end subroutine ! write_br_dqle22_time_data
 
 
+    pure subroutine br_ramp_residual(br_unit, af, t, beta, delta)
+        !! br_abs is stored per unit amplitude, while the linear prediction is a line through the
+        !! origin in time, valid for the physical amplitude under a linear ramp (ramp_up_mode = 2).
+        real(dp), intent(in) :: br_unit(:), af(:), t(:)
+        real(dp), intent(inout) :: beta
+        real(dp), intent(out) :: delta
+        real(dp) :: br_amp(size(br_unit))
+        integer :: n
+
+        n = size(br_unit)
+        br_amp = br_unit*sqrt(af)
+        if (beta .eq. 0) beta = sum(br_amp(3:n)*t(3:n))/sum(t(1:n)**2)
+        delta = abs(br_amp(n) - beta*t(n))
+    end subroutine br_ramp_residual
+
+
     subroutine check_linear_discr_pen_ratio
         use writeData_m, only: write_fields_currs_transp_coefs_to_h5
 
         implicit none
 
+        real(dp) :: delta
+        logical :: first_fit
+
         if (time_ind .gt. 50 .and. .not. discr_reached) then
-            ! calculate beta only once
-            if (br_beta .eq. 0) then
-                ! Calculate slope from the data until this time step. (Simple linear regression algorithm)
-                br_beta = sum(br_abs(3:time_ind)*br_abs_time(3:time_ind))/sum(br_abs_time(1:time_ind)**2)
-                write(*,*) 'br_beta = ', br_beta
-            end if
-            ! calculate the from the linear regression predicted value of Br_abs
+            first_fit = br_beta .eq. 0
+            call br_ramp_residual(br_abs(1:time_ind), br_abs_antenna_factor(1:time_ind), &
+                                  br_abs_time(1:time_ind), br_beta, delta)
+            if (first_fit) write(*,*) 'br_beta = ', br_beta
             br_predicted = br_beta*br_abs_time(time_ind)
-            write(*,*) "Delta = ", abs(br_abs(time_ind) - br_predicted)
-            if (abs(br_abs(time_ind) - br_predicted) .gt. 0.1) then
+            write(*,*) "Delta = ", delta
+            if (delta .gt. 0.1) then
                 write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
                 if (modulo(time_ind, save_prof_time_step) .ne. 0) then
                     if (suppression_mode .eqv. .false.) then

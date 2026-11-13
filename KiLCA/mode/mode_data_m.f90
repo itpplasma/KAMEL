@@ -42,6 +42,7 @@ module kilca_mode_data_m
         c_int, c_intptr_t, c_double, c_char, c_ptr, c_funloc, c_loc, c_f_pointer, &
         c_null_char, c_null_ptr, c_associated
     use constants, only: dp, twopi
+    use, intrinsic :: iso_fortran_env, only: error_unit
     use kilca_zone_m, only: zone_t, handle_to_zone, zone_destroy_c, &
         PLASMA_MODEL_VACUUM, PLASMA_MODEL_MEDIUM, PLASMA_MODEL_IMHD, &
         PLASMA_MODEL_RMHD, PLASMA_MODEL_FLRE, &
@@ -53,7 +54,8 @@ module kilca_mode_data_m
     use kilca_flre_zone_m, only: flre_zone_create_
     use kilca_wave_data_m, only: wave_data_t, wave_data_create, wave_data_destroy
     use kilca_background_data_m, only: get_background_x0, get_background_xlast
-    use kilca_neville_m, only: eval_neville_polynom
+    use kilca_neville_m, only: eval_neville_polynom, eval_neville_polynom_ready, &
+        find_index_for_interp
     use fortnum_capi, only: fortnum_root_brent
     use fortnum_status, only: FORTNUM_OK
     use kilca_progs_common_m, only: fmt_g, fmt_e, open_directory, read_directory, &
@@ -1080,22 +1082,33 @@ contains
         type(mode_data_t), intent(in) :: md
         real(dp), intent(in) :: x
         complex(dp), intent(out) :: EB_out(6)
-        integer :: izz, D, comp, start
-        integer(c_int) :: neville_ind
+        integer :: izz, D, comp, start, lo, hi
+        integer(c_int) :: neville_ind, edeg
         class(zone_t), pointer :: z
         real(dp) :: re_v(0:0), im_v(0:0)
+        real(dp), parameter :: tol = 1.0d-9
 
         izz = determine_zone_index_for_point(md, x)
         call handle_to_zone(md%zone_handles(izz), z)
         D = z%get_radial_grid_dimension()
         start = md%index(izz)
 
+        ! Same stencil as eval_neville_polynom, but only its deg+1 points are
+        ! copied: real/imag temporaries of the whole zone per point and
+        ! component made each evaluation O(D) instead of O(1).
+        edeg = min(5, D - 1)
         neville_ind = 0
+        call find_index_for_interp(edeg, x, D, md%r(start + 1:start + D), neville_ind)
+        lo = start + 1 + neville_ind
+        hi = lo + edeg
+        if (x < md%r(start + 1) - tol .or. x > md%r(start + D) + tol) &
+            write (error_unit, '(a,es12.4)') &
+            "warning: eval_neville_polynom: x is outside the array: x=", x
         do comp = 1, 6
-            call eval_neville_polynom(D, md%r(start + 1:start + D), &
-                real(md%EB(comp, start + 1:start + D), dp), 5, x, 0, 0, neville_ind, re_v)
-            call eval_neville_polynom(D, md%r(start + 1:start + D), &
-                aimag(md%EB(comp, start + 1:start + D)), 5, x, 0, 0, neville_ind, im_v)
+            call eval_neville_polynom_ready(md%r(lo:hi), real(md%EB(comp, lo:hi), dp), &
+                edeg, x, 0, 0, re_v)
+            call eval_neville_polynom_ready(md%r(lo:hi), aimag(md%EB(comp, lo:hi)), &
+                edeg, x, 0, 0, im_v)
             EB_out(comp) = cmplx(re_v(0), im_v(0), dp)
         end do
     end subroutine eval_EB_fields

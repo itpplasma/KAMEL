@@ -416,7 +416,8 @@ contains
             qlheat_e(ibegb:iendb) = 0.0_dp
             qlheat_i(ibegb:iendb) = 0.0_dp
             dot_params(:, ibeg:iend) = 0.0_dp
-            dy = 0.0_dp
+            ! Only this range was written; zeroing all of dy per probe cost O(neqset**2).
+            dy(nbaleqs * (ibeg - 1) + 1:nbaleqs * iend) = 0.0_dp
         end do
 
         if (isw_rhs == 0) then

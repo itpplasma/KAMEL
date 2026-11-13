@@ -8,7 +8,7 @@ module kilca_neville_m
     implicit none
     private
 
-    public :: eval_neville_polynom, eval_neville_polynom_ready
+    public :: eval_neville_polynom, eval_neville_polynom_ready, find_index_for_interp
 
 contains
 

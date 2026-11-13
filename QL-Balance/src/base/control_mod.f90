@@ -17,6 +17,12 @@ module control_mod
     real(dp) :: kim_current_floor = 1.0e-30_dp
     real(dp) :: kim_current_max_scale = 1.0e12_dp
     real(dp) :: kim_current_relaxation = 1.0_dp
+    ! Periodic amplitude: 'target_current' fixes int(j_par) to I_par_toroidal;
+    ! 'delta_prime' matches the constant-psi layer to the cylindrical ideal
+    ! outer region (I_par_toroidal = fully shielded limit).
+    character(len=32) :: kim_periodic_matching = 'target_current'
+    ! Ideal wall radius for the outer region [cm]; <= 0: no wall (vacuum decay).
+    real(dp) :: kim_periodic_wall_radius = -1.0_dp
     logical :: kim_transport_benchmark = .false.
     logical :: kim_profiles_from_balance = .true.
     integer, parameter :: kim_max_modes = 100

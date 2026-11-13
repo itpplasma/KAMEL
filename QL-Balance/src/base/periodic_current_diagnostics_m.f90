@@ -85,6 +85,21 @@ contains
                 call h5_add(h5_id, trim(group)//'max_scale_ratio', rec%max_scale)
                 call h5_add(h5_id, trim(group)//'status', rec%status)
                 call h5_add(h5_id, trim(group)//'core_bounds', rec%core, [1], [2])
+                if (rec%matched) then
+                    call h5_add_string(h5_id, trim(group)//'matching', 'delta_prime')
+                    call h5_add_string(h5_id, trim(group)//'matching_convention', &
+                        "scale=I c/(2 pi (unit_current-outer_current)), outer_current="// &
+                        "i c Delta' r_res/(4 pi ks); cylindrical ideal outer region, "// &
+                        "KIM equilibrium; target_current = fully shielded limit")
+                    call h5_add(h5_id, trim(group)//'delta_prime', rec%delta_prime)
+                    call h5_add(h5_id, trim(group)//'delta_prime_r_res', rec%delta_prime_r_res)
+                    call h5_add(h5_id, trim(group)//'delta_prime_ks_res', rec%delta_prime_ks)
+                    call h5_add(h5_id, trim(group)//'delta_prime_status', rec%delta_prime_status)
+                    call h5_add(h5_id, trim(group)//'wall_radius', rec%wall_radius)
+                    call write_complex('outer_current', rec%outer_current)
+                else
+                    call h5_add_string(h5_id, trim(group)//'matching', 'target_current')
+                end if
                 nr = size(rec%r)
                 call h5_add(h5_id, trim(group)//'r', rec%r, [1], [nr])
                 allocate(profile(nr, 2))

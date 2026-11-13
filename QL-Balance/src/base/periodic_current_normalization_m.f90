@@ -50,32 +50,45 @@ contains
     end function integrate_trusted_current
 
     subroutine periodic_drive_scale(target_current, unit_current, c_light, current_floor, &
-                                    max_scale_ratio, relaxation, scale, status)
+                                    max_scale_ratio, relaxation, scale, status, outer_current)
         !! status = 0: normalized response
         !! status = 1: invalid finite configuration (response suppressed)
         !! status = 2: unit current below the trusted floor (response suppressed)
         !! status = 3: non-finite or excessive scale (response suppressed)
         !! Relaxation mixes the desired scale with the unit scale for this
         !! one response; it is not an update from a previous time step.
+        !! outer_current (optional, Delta' matching): the outer-region current
+        !! per unit drive in the units of unit_current. The target current is
+        !! then the ideal (fully shielded) limit and
+        !! scale = I c / (2 pi (unit_current - outer_current)); see
+        !! cylindrical_delta_prime_m::delta_prime_current. Absent = 0.
         real(dp), intent(in) :: target_current, c_light, current_floor, max_scale_ratio, relaxation
         complex(dp), intent(in) :: unit_current
+        complex(dp), intent(in), optional :: outer_current
         complex(dp), intent(out) :: scale
         integer, intent(out) :: status
         real(dp) :: ratio
+        complex(dp) :: response
         status = 3
         scale = (0.0_dp, 0.0_dp)
         if (.not. all(ieee_is_finite([target_current, c_light, current_floor, &
                  max_scale_ratio, relaxation, real(unit_current, dp), aimag(unit_current)]))) return
+        response = unit_current
+        if (present(outer_current)) then
+            if (.not. ieee_is_finite(real(outer_current, dp)) .or. &
+                .not. ieee_is_finite(aimag(outer_current))) return
+            response = unit_current - outer_current
+        end if
         if (target_current <= 0.0_dp .or. c_light <= 0.0_dp .or. current_floor <= 0.0_dp &
             .or. max_scale_ratio <= 0.0_dp .or. relaxation <= 0.0_dp .or. relaxation > 1.0_dp) then
             status = 1
             return
         end if
-        if (abs(unit_current) <= current_floor) then
+        if (abs(response) <= current_floor) then
             status = 2
             return
         end if
-        scale = relaxation * (target_current * c_light / unit_current) &
+        scale = relaxation * (target_current * c_light / response) &
                 / (2.0_dp * acos(-1.0_dp)) &
                 + (1.0_dp - relaxation) * (1.0_dp, 0.0_dp)
         if (.not. ieee_is_finite(real(scale, dp)) .or. .not. ieee_is_finite(aimag(scale))) then

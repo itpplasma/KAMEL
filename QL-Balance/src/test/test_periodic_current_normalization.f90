@@ -108,7 +108,40 @@ contains
         call periodic_drive_scale(8.0_dp, current, c_light, 1.0e-20_dp, &
                                   1.0e12_dp, 0.5_dp, relaxed, status)
        call check_complex(relaxed, 0.5_dp * (scale + 1.0_dp), 'one-shot relaxation from unit scale')
+        call test_outer_current(scale)
     end subroutine test_complex_scaling
+
+    subroutine test_outer_current(reference)
+        !! Delta' matching: scale = I c / (2 pi (u - u_outer)).
+        complex(dp), intent(in) :: reference
+        real(dp), parameter :: c_light = 2.99792458e10_dp, pi = acos(-1.0_dp)
+        complex(dp), parameter :: current = cmplx(3.0_dp, -4.0_dp, dp)
+        complex(dp), parameter :: outer = cmplx(0.0_dp, 2.0_dp, dp)
+        complex(dp) :: scale
+        integer :: status
+        call periodic_drive_scale(8.0_dp, current, c_light, 1.0e-20_dp, &
+                                  1.0e12_dp, 1.0_dp, scale, status, (0.0_dp, 0.0_dp))
+        call check(status == 0, 'zero outer current accepted')
+        call check_complex(scale, reference, 'zero outer current reproduces target-current scale')
+        call periodic_drive_scale(8.0_dp, current, c_light, 1.0e-20_dp, &
+                                  1.0e12_dp, 1.0_dp, scale, status, outer)
+        call check(status == 0, 'outer current accepted')
+        call check_complex(2.0_dp * pi * scale * (current - outer) / c_light, &
+                           cmplx(8.0_dp, 0.0_dp, dp), 'matched scale closes u - u_outer to target')
+        call periodic_drive_scale(8.0_dp, (0.0_dp, 0.0_dp), c_light, 1.0e-20_dp, &
+                                  1.0e12_dp, 1.0_dp, scale, status, outer)
+        call check(status == 0, 'no layer response stays finite with outer current')
+        call check_complex(scale, -8.0_dp * c_light / (2.0_dp * pi * outer), &
+                           'no layer response gives the outer-region amplitude')
+        call periodic_drive_scale(8.0_dp, outer, c_light, 1.0e-20_dp, &
+                                  1.0e12_dp, 1.0_dp, scale, status, outer)
+        call check(status == 2 .and. scale == (0.0_dp, 0.0_dp), &
+                   'floor applies to u - u_outer')
+        call periodic_drive_scale(8.0_dp, current, c_light, 1.0e-20_dp, &
+                                  1.0e12_dp, 1.0_dp, scale, status, &
+                                  cmplx(bad(1), 0.0_dp, dp))
+        call check(status == 3 .and. scale == (0.0_dp, 0.0_dp), 'nonfinite outer current rejected')
+    end subroutine test_outer_current
 
     subroutine test_guards()
         real(dp), parameter :: valid(5) = [8.0_dp, 1.0_dp, 1.0e-20_dp, 1.0e6_dp, 1.0_dp]

@@ -60,6 +60,12 @@ module kim_wave_code_adapter_m
         complex(8) :: unit = (0.0d0, 0.0d0), achieved = (0.0d0, 0.0d0)
         complex(8) :: scale = (1.0d0, 0.0d0), residual = (0.0d0, 0.0d0)
         integer :: status = -1
+        ! Delta' matching (kim_periodic_matching = 'delta_prime')
+        logical :: matched = .false.
+        real(8) :: delta_prime = 0.0d0, delta_prime_r_res = 0.0d0, delta_prime_ks = 0.0d0
+        real(8) :: wall_radius = -1.0d0
+        integer :: delta_prime_status = -1
+        complex(8) :: outer_current = (0.0d0, 0.0d0)
         real(8), allocatable :: r(:)
         complex(8), allocatable :: unit_jpar(:), normalized_jpar(:)
     end type periodic_current_record_t
@@ -380,9 +386,12 @@ contains
             wcd_B0t => B0t, wcd_B0z => B0z, wcd_Vth => Vth, wcd_Vz => Vz, &
             I_par_toroidal
         use control_mod, only: kim_profiles_from_balance, type_of_run, kim_current_floor, &
-            kim_current_max_scale, kim_current_relaxation
+            kim_current_max_scale, kim_current_relaxation, kim_periodic_matching, &
+            kim_periodic_wall_radius
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
-        use setup_m, only: Br_boundary_re, Br_boundary_im
+        use setup_m, only: Br_boundary_re, Br_boundary_im, kim_R0 => R0
+        use cylindrical_delta_prime_m, only: cylindrical_delta_prime, delta_prime_current, &
+            delta_prime_result_t, DELTA_PRIME_OK
         use periodic_current_normalization_m, only: integrate_trusted_current
         use periodic_amplitude_state_m, only: periodic_amplitudes
 
@@ -392,9 +401,10 @@ contains
         integer :: i_mn, ierr, kim_npts, kim_plasma_npts, nrad_inside, i
         real(8), allocatable :: kim_r(:), kim_plasma_r(:), weights(:)
         real(8) :: core_lo, core_hi, width, saved_br_re, saved_br_im
-        complex(8) :: current_unit, drive_scale
+        complex(8) :: current_unit, drive_scale, outer_current
         integer :: scale_status
-        logical :: periodic, normalize
+        logical :: periodic, normalize, matched
+        type(delta_prime_result_t) :: outer
 
         periodic = kim_periodic_mode_selected()
         if (periodic) then
@@ -528,6 +538,39 @@ contains
                     kim_current_records(i_mn)%core = [core_lo, core_hi]
                     kim_current_records(i_mn)%r = kim_r
                     kim_current_records(i_mn)%unit_jpar = res%jpar
+                    ! Delta' matching: outer region from KIM's global equilibrium
+                    ! (refreshed by every solve), in KIM's field-aligned frame.
+                    matched = trim(kim_periodic_matching) == 'delta_prime'
+                    outer_current = (0.0d0, 0.0d0)
+                    kim_current_records(i_mn)%matched = matched
+                    if (matched) then
+                        if (.not. allocated(background%r_plasma) .or. &
+                                .not. allocated(background%B0z) .or. &
+                                .not. allocated(background%B0th)) &
+                            error stop 'Delta prime matching lacks the KIM equilibrium'
+                        call cylindrical_delta_prime(background%r_plasma, background%B0z, &
+                            background%B0th, kim_R0, m_vals(i_mn), n_vals(i_mn), outer, &
+                            r_wall=kim_periodic_wall_radius)
+                        kim_current_records(i_mn)%delta_prime_status = outer%status
+                        if (outer%status /= DELTA_PRIME_OK) then
+                            write(*,*) 'ERROR: Delta prime failed for mode ', i_mn, &
+                                ' status ', outer%status
+                            error stop 'Delta prime matching failed'
+                        end if
+                        if (abs(outer%r_res - res%r_resonance) > 1.0d-3) write(*,*) &
+                            'WARNING: Delta prime resonance differs from KIM: ', &
+                            outer%r_res, res%r_resonance
+                        outer_current = delta_prime_current(outer%delta_prime, outer%r_res, &
+                            outer%ks_res, periodic_c_light)
+                        kim_current_records(i_mn)%delta_prime = outer%delta_prime
+                        kim_current_records(i_mn)%delta_prime_r_res = outer%r_res
+                        kim_current_records(i_mn)%delta_prime_ks = outer%ks_res
+                        kim_current_records(i_mn)%wall_radius = kim_periodic_wall_radius
+                        kim_current_records(i_mn)%outer_current = outer_current
+                        write(*,*) '  Delta prime matching: mode ', i_mn, &
+                            ' Delta_prime*r_res=', outer%delta_prime*outer%r_res, &
+                            ' outer_current=', outer_current
+                    end if
                     if (is_time_evolution_run(type_of_run) .and. &
                             periodic_restored_amplitude_pending) then
                         call kim_normalize_periodic_response(res, I_par_toroidal, &
@@ -538,6 +581,9 @@ contains
                             periodic_constant_psi_pending) then
                         call kim_normalize_periodic_response(res, I_par_toroidal, &
                             current_unit, drive_scale, scale_status, (1.0d0, 0.0d0))
+                    elseif (matched) then
+                        call kim_normalize_periodic_response(res, I_par_toroidal, &
+                            current_unit, drive_scale, scale_status, outer_current=outer_current)
                     else
                         call kim_normalize_periodic_response(res, I_par_toroidal, &
                             current_unit, drive_scale, scale_status)
@@ -787,7 +833,7 @@ contains
     end subroutine kim_use_accepted_amplitudes
 
     subroutine kim_normalize_periodic_response(res, target, unit_current, scale, status, &
-        prescribed_scale, prescribed_status)
+        prescribed_scale, prescribed_status, outer_current)
         !! Normalize a complete unit response. Rejected data are assigned clean
         !! zeros: multiplying NaN or Infinity by zero cannot suppress them.
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
@@ -800,6 +846,7 @@ contains
         real(8) :: core_lo, core_hi
         complex(8), intent(in), optional :: prescribed_scale
         integer, intent(in), optional :: prescribed_status
+        complex(8), intent(in), optional :: outer_current  !! Delta' matching, see periodic_drive_scale
 
         ! No target is the existing manual-amplitude path, not a zero drive.
         if (ieee_is_finite(target)) then
@@ -826,7 +873,8 @@ contains
                 .or. kim_current_relaxation <= 0.0d0 .or. kim_current_relaxation > 1.0d0) status = 1
         else
             call periodic_drive_scale(target, unit_current, periodic_c_light, &
-                kim_current_floor, kim_current_max_scale, kim_current_relaxation, scale, status)
+                kim_current_floor, kim_current_max_scale, kim_current_relaxation, scale, status, &
+                outer_current)
         end if
         ! Initial/restarted evolution chooses an amplitude, but still passes
         ! through the shared finite-response checks and single scaling step.

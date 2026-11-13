@@ -189,7 +189,8 @@ subroutine write_NTV_torque_diagnostic(r, ntv_torque, time_ind)
         call h5_add_double_1(h5_id, trim(tempch)//"T_NTV_phi_i_no_spline", ntv_torque, &
                              lbound(ntv_torque), ubound(ntv_torque), &
                              comment="NTV torque on ions calculated by NEO-RT."// &
-                             " No splining to the full radial grid has been performed.")
+                             " No splining to the full radial grid and no"// &
+                             " antenna-factor scaling have been applied.")
 
         call h5_close(h5_id)
         call h5_deinit()

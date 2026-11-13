@@ -30,7 +30,8 @@ module kim_wave_code_adapter_m
     use periodic_amplitude_state_m, only: &
         kim_periodic_normalization_version => periodic_normalization_version, &
         kim_periodic_phase_policy => periodic_phase_policy
-    use control_mod, only: kim_periodic_normalization_relaxation => kim_current_relaxation, &
+    use control_mod, only: is_time_evolution_run, &
+                           kim_periodic_normalization_relaxation => kim_current_relaxation, &
                            kim_bparallel_source
 
     implicit none
@@ -180,7 +181,7 @@ contains
         call kim_handle%finalize()
         periodic_constant_psi_pending = .true.
         periodic_restored_amplitude_pending = .false.
-        if (trim(type_of_run) == 'TimeEvolution' .and. periodic_amplitudes%initialized) then
+        if (is_time_evolution_run(type_of_run) .and. periodic_amplitudes%initialized) then
             if (.not. allocated(periodic_amplitudes%accepted)) &
                 error stop 'initialized periodic amplitude state has no accepted response'
             if (size(periodic_amplitudes%accepted) == dim_mn) then
@@ -518,7 +519,7 @@ contains
                 write(*,*) '  KIM compact core and requested/actual width [cm]: ', &
                     kim_embedding_metadata(:, i_mn)
                 allocate(weights(dim_r))
-                if (normalize .or. trim(type_of_run) == 'TimeEvolution') then
+                if (normalize .or. is_time_evolution_run(type_of_run)) then
                     kim_current_records(i_mn)%active = .true.
                     kim_current_records(i_mn)%target = I_par_toroidal
                     kim_current_records(i_mn)%relaxation = kim_current_relaxation
@@ -527,13 +528,13 @@ contains
                     kim_current_records(i_mn)%core = [core_lo, core_hi]
                     kim_current_records(i_mn)%r = kim_r
                     kim_current_records(i_mn)%unit_jpar = res%jpar
-                    if (trim(type_of_run) == 'TimeEvolution' .and. &
+                    if (is_time_evolution_run(type_of_run) .and. &
                             periodic_restored_amplitude_pending) then
                         call kim_normalize_periodic_response(res, I_par_toroidal, &
                             current_unit, drive_scale, scale_status, &
                             periodic_amplitudes%accepted(i_mn), &
                             periodic_amplitudes%accepted_status(i_mn))
-                    elseif (trim(type_of_run) == 'TimeEvolution' .and. &
+                    elseif (is_time_evolution_run(type_of_run) .and. &
                             periodic_constant_psi_pending) then
                         call kim_normalize_periodic_response(res, I_par_toroidal, &
                             current_unit, drive_scale, scale_status, (1.0d0, 0.0d0))
@@ -750,10 +751,10 @@ contains
             deallocate(kim_plasma_r)
         end if
 
-        if (periodic .and. trim(type_of_run) == 'TimeEvolution' .and. periodic_constant_psi_pending) then
+        if (periodic .and. is_time_evolution_run(type_of_run) .and. periodic_constant_psi_pending) then
             periodic_constant_psi_pending = .false.
         end if
-        if (periodic .and. trim(type_of_run) == 'TimeEvolution' .and. &
+        if (periodic .and. is_time_evolution_run(type_of_run) .and. &
                 periodic_restored_amplitude_pending) then
             periodic_restored_amplitude_pending = .false.
         end if

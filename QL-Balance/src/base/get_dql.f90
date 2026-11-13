@@ -30,6 +30,7 @@ subroutine get_dql
     use plasma_parameters
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code, &
+                           is_time_evolution_run, &
                           jpar_method
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res, &
         periodic_response_trial
@@ -309,7 +310,7 @@ subroutine get_dql
             spec_weight(ipoi) = spec_weight(ipoi)*weight
         end do
 
-        if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
+        if (is_time_evolution_run(type_of_run)) then
             if (time_ind>0) then
                 call interp_rb_at_r0(Br, r_resonant(i_mn), br_vac_res(time_ind))
             end if
@@ -337,7 +338,7 @@ subroutine get_dql
         write(*,*) '  max|formfactor|      = ', maxval(abs(formfactor))
 
         ! todo: interpolate formfactor at resonant surface and write out. This is Brtot/Brvac at the resonant surface
-        if (trim(type_of_run) .eq. "TimeEvolution") then !TODO: this is a very bad solution... Make it better
+        if (is_time_evolution_run(type_of_run)) then
             if (time_ind > 0) then
                 call interp_rb_at_r0(formfactor, r_resonant(i_mn), br_formfactor(time_ind))
             end if

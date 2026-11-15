@@ -141,4 +141,28 @@ module ampere_matrices_m
 
     end subroutine
 
+    subroutine assemble_laplace_perp(xb, ks, L)
+        ! Rows of nabla_perp^2 = d^2/dr^2 + (1/r) d/dr - ks^2 in the Galerkin
+        ! form of the Ampere block, whose kernel rows are int phi_i j dr: the
+        ! second derivative enters through the stiffness matrix, the other two
+        ! terms with the lumped mass (hL + hR)/2 of the hat function phi_i.
+        ! Boundary rows are left zero for the boundary conditions.
+
+        real(dp), intent(in) :: xb(:), ks(:)
+        real(dp), intent(out) :: L(:,:)
+        real(dp) :: hL, hR, w
+        integer :: i
+
+        L = 0.0d0
+        do i = 2, size(xb) - 1
+            hL = xb(i) - xb(i-1)
+            hR = xb(i+1) - xb(i)
+            w = 0.5d0 * (hL + hR)
+            L(i,i-1) = 1.0d0 / hL - w / (xb(i) * (hL + hR))
+            L(i,i)   = -(1.0d0 / hL + 1.0d0 / hR) - w * ks(i)**2
+            L(i,i+1) = 1.0d0 / hR + w / (xb(i) * (hL + hR))
+        end do
+
+    end subroutine
+
 end module

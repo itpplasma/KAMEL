@@ -3,7 +3,7 @@ program test_ampere_matrices
     use KIM_kinds_m, only: dp
     use grid_m, only: xl_grid, calc_mass_matrix, M_mat
     use ampere_matrices_m, only: calc_potential_matrix, &
-        calc_weighted_mass_matrix, calc_weighted_potential_matrix
+        calc_weighted_mass_matrix, calc_weighted_potential_matrix, assemble_laplace_perp
 
     implicit none
 
@@ -89,6 +89,53 @@ program test_ampere_matrices
     end do
     print *, 'PASS: Q_hz = h_const * Q_mat for constant h_z'
 
+    call test_laplace_perp()
+
     print *, 'All Ampere matrix tests passed.'
+
+contains
+
+    ! Rows of nabla_perp^2 on a non-uniform grid, divided by the lumped mass
+    ! (hL + hR)/2, approximate A'' + A'/r - ks^2 A pointwise: zero for the
+    ! vacuum solution A = r^m with ks = m/r, and the analytic value for
+    ! A = exp(r/7) with constant ks.
+    subroutine test_laplace_perp()
+        integer, parameter :: np = 401, m = 6
+        real(dp) :: xb(np), ks(np), a(np), lap(np, np), row, w, want, t, scale
+        integer :: k
+
+        do k = 1, np
+            t = dble(k - 1) / dble(np - 1)
+            xb(k) = r_min + (r_max - r_min) * (t + 0.5d0 * t**2) / 1.5d0
+        end do
+
+        ks = m / xb
+        a = xb**m
+        call assemble_laplace_perp(xb, ks, lap)
+        do k = 2, np - 1
+            w = 0.5d0 * (xb(k+1) - xb(k-1))
+            row = dot_product(lap(k, k-1:k+1), a(k-1:k+1)) / w
+            scale = ks(k)**2 * a(k)
+            if (abs(row) > 1.0d-3 * scale) then
+                print *, 'FAIL: nabla_perp^2 r^m /= 0 at r =', xb(k), row / scale
+                error stop
+            end if
+        end do
+        print *, 'PASS: nabla_perp^2 annihilates the vacuum solution r^m'
+
+        ks = 0.3d0
+        a = exp(xb / 7.0d0)
+        call assemble_laplace_perp(xb, ks, lap)
+        do k = 2, np - 1
+            w = 0.5d0 * (xb(k+1) - xb(k-1))
+            row = dot_product(lap(k, k-1:k+1), a(k-1:k+1)) / w
+            want = a(k) * (1.0d0 / 49.0d0 + 1.0d0 / (7.0d0 * xb(k)) - ks(k)**2)
+            if (abs(row - want) > 1.0d-3 * abs(want)) then
+                print *, 'FAIL: nabla_perp^2 exp(r/7) at r =', xb(k), row, want
+                error stop
+            end if
+        end do
+        print *, 'PASS: nabla_perp^2 exp(r/7) matches the analytic value'
+    end subroutine
 
 end program

@@ -20,7 +20,7 @@ set(BUILD_TESTING OFF)
 
 # Only fetch libneo if not already available (prevents duplicate targets)
 if(NOT TARGET LIBNEO::magfie)
-    set(LIBNEO_REF "d03789a1fef15e188752614328dd50ea9854919f" CACHE STRING "libneo revision")
+    set(LIBNEO_REF "94f59c176714c8598ca1b43607a353b29a2ca2a7" CACHE STRING "libneo revision")
     find_or_fetch(libneo)
 endif()
 

@@ -240,7 +240,7 @@ contains
         use constants_m, only: pi, com_unit, flr_damping_cutoff
         use flr2_fourier_kernel_m, only: flr_arg_pair_sp, scaled_bessel_pair, &
             core_rho_phi_sp_bessel, core_rho_B_sp_bessel, core_j_phi_sp_bessel, &
-            core_j_B_sp_bessel
+            core_j_B_sp_bessel, boltzmann_gyroaverage
         use radial_current_fourier_kernel_m, only: hatG_jrad_phi_br, jrad_bessel_tables
         use setup_m, only: mphi_max
 
@@ -260,7 +260,7 @@ contains
         real(dp) :: k_a, k_b, bplus, bcross, sI0, sIm1
         complex(dp), allocatable :: phase(:,:)
         complex(dp) :: ph, point_jrphi, point_jrB
-        complex(dp) :: core(4), core_sp(4, 0:plasma%n_species - 1)
+        complex(dp) :: core(4), core_sp(4, 0:plasma%n_species - 1), debye
         complex(dp) :: acc(4, max_entries), acc_rad(2, max_entries)
         complex(dp) :: acc_sp(4, 0:plasma%n_species - 1, max_entries)
         real(dp) :: tables(0:mphi_max + 3, 0:plasma%n_species - 1)
@@ -279,7 +279,7 @@ contains
         !$omp parallel do schedule(dynamic) default(shared) &
         !$omp private(mag_a, mag_b, j, sp, e, n_entries, im, imp, rows, cols, k_a, k_b, bplus, &
         !$omp         bcross, sI0, sIm1, ph, point_jrphi, point_jrB, core, core_sp, &
-        !$omp         acc, acc_rad, acc_sp, tables)
+        !$omp         acc, acc_rad, acc_sp, tables, debye)
         do mag_a = M, 0, -1
             k_a = k_of_m(mag_a, L)
             do mag_b = 0, mag_a
@@ -299,8 +299,10 @@ contains
                         sIm1 = 0.0_dp
                         if (fp_active .and. bplus - bcross <= flr_damping_cutoff) &
                             call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
+                        ! The Boltzmann term depends on k_row - k_col, not only on
+                        ! the magnitudes; it is added per signed entry below.
                         core_sp(1, sp) = core_rho_phi_sp_bessel(plasma, sp, bplus, bcross, &
-                            j, sI0, sIm1) / (8.0_dp * pi**2)
+                            j, sI0, sIm1, 0.0_dp) / (8.0_dp * pi**2)
                         core_sp(2, sp) = core_rho_B_sp_bessel(plasma, sp, bplus, bcross, &
                             j, sI0, sIm1) / (8.0_dp * pi**2)
                         core_sp(3, sp) = core_j_phi_sp_bessel(plasma, sp, bplus, bcross, &
@@ -314,6 +316,17 @@ contains
                         ph = phase(rows(e), j) * conjg(phase(cols(e), j))
                         acc(:, e) = acc(:, e) + ph * core
                         if (want_species) acc_sp(:, :, e) = acc_sp(:, :, e) + ph * core_sp
+                        if (artificial_debye_case <= 1) then
+                            do sp = 0, plasma%n_species - 1
+                                if ((sp == 0 .and. turn_off_electrons) .or. &
+                                    (sp >= 1 .and. turn_off_ions)) cycle
+                                debye = -ph * boltzmann_gyroaverage(plasma, sp, &
+                                    k_of_m(rows(e), L), k_of_m(cols(e), L), j) &
+                                    / (plasma%spec(sp)%lambda_D(j)**2 * 8.0_dp * pi**2)
+                                acc(1, e) = acc(1, e) + debye
+                                if (want_species) acc_sp(1, sp, e) = acc_sp(1, sp, e) + debye
+                            end do
+                        end if
                         if (want_radial_current) then
                             call hatG_jrad_phi_br(plasma, k_of_m(rows(e), L), &
                                 k_of_m(cols(e), L), j, point_jrphi, point_jrB, tables=tables)

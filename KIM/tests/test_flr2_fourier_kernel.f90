@@ -39,6 +39,7 @@ program test_flr2_fourier_kernel
     call test_electron_zero_flr_arguments()
     call test_scaled_bessel_large_arg()
     call test_large_bcross_kernel_finite()
+    call test_boltzmann_gyroaverage()
 
     print *, 'All tests PASSED'
     stop 0
@@ -1148,6 +1149,62 @@ contains
             Er_prof(i) = -0.5_dp
         end do
     end subroutine
+
+    subroutine test_boltzmann_gyroaverage()
+        ! The Boltzmann (Debye) term of the two-wavenumber rho-Phi kernel is
+        ! gyroaveraged at the particle position: with only that term active,
+        ! hatG_rho_phi = -sum_sp exp(-rho_L^2 (kr - krp)^2/2)/lambda_D^2
+        ! exp(-i (kr - krp) r_g)/(8 pi^2) (paper Eq. 2.41), and the factor is
+        ! 1 on the diagonal.
+        use config_m, only: profiles_in_memory, nml_config_path, artificial_debye_case
+        use constants_m, only: com_unit, pi
+        use species_m, only: plasma, set_profiles_from_arrays
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        real(dp), parameter :: kr = 3.0_dp, krp = -1.0_dp
+        complex(dp) :: got, want
+        integer :: j, sp, saved
+        logical :: saved_zero
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+        call write_test_namelist('./KIM_config_fourier_boltzmann_test.nml')
+        nml_config_path = './KIM_config_fourier_boltzmann_test.nml'
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        saved = artificial_debye_case
+        saved_zero = kern_zero_flr_electrons
+        artificial_debye_case = 1
+        kern_zero_flr_electrons = .false.
+        j = rg_grid%npts_b / 2
+        want = (0.0_dp, 0.0_dp)
+        do sp = 0, plasma%n_species - 1
+            want = want - exp(-0.5_dp * plasma%spec(sp)%rho_L(j)**2 * (kr - krp)**2) &
+                / plasma%spec(sp)%lambda_D(j)**2
+        end do
+        want = want * exp(-com_unit * (kr - krp) * rg_grid%xb(j)) / (8.0_dp * pi**2)
+        got = hatG_rho_phi(plasma, kr, krp, j)
+        artificial_debye_case = saved
+        kern_zero_flr_electrons = saved_zero
+        if (abs(got - want) > 1.0e-12_dp * abs(want)) then
+            print *, 'FAIL: Boltzmann term not gyroaveraged off the diagonal'
+            print *, '  got  = ', got
+            print *, '  want = ', want
+            error stop
+        end if
+        print *, 'PASS: Boltzmann term gyroaveraged between radial wavenumbers'
+    end subroutine test_boltzmann_gyroaverage
 
     subroutine write_test_namelist(path)
         ! Minimal electrostatic FokkerPlanck configuration on a coarse grid,

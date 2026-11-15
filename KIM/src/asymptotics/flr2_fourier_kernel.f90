@@ -240,9 +240,10 @@ contains
         ! FLR argument pair (b_+, b_x). Shares the skeleton of core_rho_phi_sp;
         ! only the moment pair and the prefactor differ.
         !
-        ! Moments (I01, I21) per thesis (14.5). j-Phi and rho-B legitimately
-        ! SHARE moments: the pair is (I^{0s}, I^{2s}) with s = moment power +
-        ! drive power, and both have s = 1. This is not a copy-paste artifact.
+        ! Moments (I10, I12) = (I01, I21) by symmetry, thesis (14.5): the
+        ! current supplies one power of u_par, the Phi drive none and its
+        ! energy factor u_par^2. rho-B has the source powers 1 and 3 and uses
+        ! (I01, I03), paper Eq. (2.43); see core_rho_B_sp_bessel.
         !
         ! The prefactor carries vT^3 = vT^(2+s), not the vT^2 printed in (14.5):
         ! (14.3)-(14.6) all print vT^2, and (14.4)'s was confirmed dimensionally
@@ -402,6 +403,9 @@ contains
         ! leading multiplier) of the modified Bessel terms. rho-B carries the
         ! leading minus, so callers accumulate with '+'. NO Debye term, no phase,
         ! NO /(4*pi); species selection (turn_off_*) stays in callers.
+        ! Moments (I01, I03): the density supplies no power of u_par, the B_r
+        ! drive u_par and its energy factor u_par^2 (paper Eq. 2.43). I03
+        ! equals I21 only for energy-conserving collisions (models 1 and 3).
         use config_m, only: artificial_debye_case
         use constants_m, only: sol
         type(plasma_t), intent(in) :: plasma_in
@@ -419,7 +423,7 @@ contains
                         sI0 * (plasma_in%spec(sp)%A1(j) + plasma_in%spec(sp)%A2(j) * (1-bplus)) &
                         + plasma_in%spec(sp)%A2(j) * bcross * sIm1 &
                     )&
-                    + 0.5d0 * plasma_in%spec(sp)%I21(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
+                    + 0.5d0 * plasma_in%spec(sp)%I03(j, 0) * plasma_in%spec(sp)%A2(j) * sI0 &
                 )
         end if
     end function core_rho_B_sp_bessel

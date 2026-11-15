@@ -39,6 +39,7 @@ program test_flr2_fourier_kernel
     call test_electron_zero_flr_arguments()
     call test_scaled_bessel_large_arg()
     call test_large_bcross_kernel_finite()
+    call test_rho_B_source_moments()
 
     print *, 'All tests PASSED'
     stop 0
@@ -158,7 +159,7 @@ contains
                                     bessel_in(0, b) * (plasma%spec(sp)%A1(j) + plasma%spec(sp)%A2(j) * (1-b)) &
                                     + plasma%spec(sp)%A2(j) * b * bessel_in(-1, b) &
                                 )&
-                                + 0.5d0 * plasma%spec(sp)%I21(j, 0) * plasma%spec(sp)%A2(j) * bessel_in(0, b) &
+                                + 0.5d0 * plasma%spec(sp)%I03(j, 0) * plasma%spec(sp)%A2(j) * bessel_in(0, b) &
                             )
                     end if
                 end do
@@ -1148,6 +1149,72 @@ contains
             Er_prof(i) = -0.5_dp
         end do
     end subroutine
+
+    subroutine test_rho_B_source_moments()
+        ! The rho-B kernel pairs the density moment with the source powers of
+        ! the B_r drive, u_par and u_par^3 (paper Eq. 2.43): it depends on I01
+        ! and I03, not on I21. Shifting I03 by delta changes the per-species
+        ! kernel by -(1/lambda_D^2) v_T^3/(omega_c nu c) exp(-b) I_0(b) A2 delta/2;
+        ! shifting I21 changes nothing. (I03 = I21 holds only for
+        ! energy-conserving collisions, so production runs with models 1 and 3
+        ! are not affected.)
+        use config_m, only: profiles_in_memory, nml_config_path
+        use constants_m, only: sol
+        use fortnum_special, only: bessel_in
+        use species_m, only: plasma, set_profiles_from_arrays
+        use grid_m, only: rg_grid
+        use kim_base_m, only: kim_t
+        use kim_mod_m, only: from_kim_factory_get_kim
+
+        integer, parameter :: npts = 101
+        real(dp) :: r_prof(npts), n_prof(npts), Te_prof(npts)
+        real(dp) :: Ti_prof(npts), q_prof(npts), Er_prof(npts)
+        class(kim_t), allocatable :: kim_instance
+        complex(dp), parameter :: delta = (0.3_dp, -0.2_dp)
+        complex(dp) :: base, shifted, want
+        real(dp) :: kr, b
+        integer :: j, sp
+
+        call make_test_profiles(npts, r_prof, n_prof, Te_prof, Ti_prof, &
+                                q_prof, Er_prof)
+        call write_test_namelist('./KIM_config_fourier_moment_test.nml')
+        nml_config_path = './KIM_config_fourier_moment_test.nml'
+        profiles_in_memory = .true.
+        call kim_init()
+        call set_profiles_from_arrays(r_prof, n_prof, Te_prof, Ti_prof, &
+                                      q_prof, Er_prof, npts)
+        call from_kim_factory_get_kim('electrostatic', kim_instance)
+        call kim_instance%init()
+
+        kr = 1.0_dp
+        j = rg_grid%npts_b / 2
+        do sp = 0, plasma%n_species - 1
+            b = (kr**2.0d0) * plasma%spec(sp)%rho_L(j)**2.0d0
+            base = hatG_rho_B_diag_sp(plasma, sp, kr, j)
+
+            plasma%spec(sp)%I03(j, 0) = plasma%spec(sp)%I03(j, 0) + delta
+            shifted = hatG_rho_B_diag_sp(plasma, sp, kr, j)
+            plasma%spec(sp)%I03(j, 0) = plasma%spec(sp)%I03(j, 0) - delta
+            want = -1.0d0 / plasma%spec(sp)%lambda_D(j)**2.0d0 * plasma%spec(sp)%vT(j)**3.0d0 &
+                / (plasma%spec(sp)%omega_c(j) * plasma%spec(sp)%nu(j) * sol) &
+                * exp(-b) * bessel_in(0, b) * 0.5d0 * plasma%spec(sp)%A2(j) * delta
+            if (abs((shifted - base) - want) > 1.0e-10_dp * abs(want)) then
+                print *, 'FAIL: rho-B does not respond to I03 as Eq. (2.43), species ', sp
+                print *, '  change = ', shifted - base, ' expected = ', want
+                error stop
+            end if
+
+            plasma%spec(sp)%I21(j, 0) = plasma%spec(sp)%I21(j, 0) + delta
+            shifted = hatG_rho_B_diag_sp(plasma, sp, kr, j)
+            plasma%spec(sp)%I21(j, 0) = plasma%spec(sp)%I21(j, 0) - delta
+            if (abs(shifted - base) > 1.0e-14_dp * abs(base)) then
+                print *, 'FAIL: rho-B depends on I21, species ', sp
+                error stop
+            end if
+        end do
+
+        print *, 'PASS: rho-B uses the source moments I01 and I03'
+    end subroutine test_rho_B_source_moments
 
     subroutine write_test_namelist(path)
         ! Minimal electrostatic FokkerPlanck configuration on a coarse grid,

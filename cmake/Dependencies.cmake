@@ -10,28 +10,34 @@ include(${CMAKE_SOURCE_DIR}/cmake/DependencyPins.cmake)
 include(FetchLapack)
 include(FetchSuiteSparse)
 include(FetchSUNDIALS)
-include(FetchFortnum)
 
-if(NOT TARGET fortio)
-    if(APPLE)
-        execute_process(COMMAND xcrun --show-sdk-path OUTPUT_VARIABLE _kamel_sdk
-                        OUTPUT_STRIP_TRAILING_WHITESPACE)
-        set(ZLIB_INCLUDE_DIR "${_kamel_sdk}/usr/include" CACHE PATH "" FORCE)
+# fortnum is the single numerical core for KAMEL (special functions,
+# quadrature, ODE, root finding). The Fortran target `fortnum` backs the
+# KIM/KiLCA Fortran sources; ${fortnum_SOURCE_DIR}/include holds fortnum.h for
+# the C/C++ sources. Added before libneo, which asks for fortnum as well.
+itp_add_dependency(fortnum REF ${KAMEL_FORTNUM_REF}
+    GIT_REPOSITORY https://github.com/lazy-fortran/fortnum.git
+    TARGET fortnum)
+FetchContent_GetProperties(fortnum)
+
+if(APPLE)
+    execute_process(COMMAND xcrun --show-sdk-path OUTPUT_VARIABLE _kamel_sdk
+                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    set(ZLIB_INCLUDE_DIR "${_kamel_sdk}/usr/include" CACHE PATH "" FORCE)
+endif()
+itp_add_dependency(fortio REF ${KAMEL_FORTIO_REF}
+    GIT_REPOSITORY https://github.com/lazy-fortran/fortio.git
+    TARGET fortio)
+if(APPLE AND TARGET ZLIB::ZLIB)
+    get_target_property(_zlib_real ZLIB::ZLIB ALIASED_TARGET)
+    if(NOT _zlib_real)
+        set(_zlib_real ZLIB::ZLIB)
     endif()
-    itp_add_dependency(fortio REF ${KAMEL_FORTIO_REF}
-        GIT_REPOSITORY https://github.com/lazy-fortran/fortio.git
-        TARGET fortio)
-    if(APPLE AND TARGET ZLIB::ZLIB)
-        get_target_property(_zlib_real ZLIB::ZLIB ALIASED_TARGET)
-        if(NOT _zlib_real)
-            set(_zlib_real ZLIB::ZLIB)
-        endif()
-        if(_zlib_real)
-            get_target_property(_zlib_includes ${_zlib_real} INTERFACE_INCLUDE_DIRECTORIES)
-            if(_zlib_includes)
-                list(FILTER _zlib_includes EXCLUDE REGEX "/MacOSX\\.sdk/usr/include/?$")
-                set_property(TARGET ${_zlib_real} PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${_zlib_includes}")
-            endif()
+    if(_zlib_real)
+        get_target_property(_zlib_includes ${_zlib_real} INTERFACE_INCLUDE_DIRECTORIES)
+        if(_zlib_includes)
+            list(FILTER _zlib_includes EXCLUDE REGEX "/MacOSX\\.sdk/usr/include/?$")
+            set_property(TARGET ${_zlib_real} PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${_zlib_includes}")
         endif()
     endif()
 endif()

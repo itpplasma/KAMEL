@@ -37,6 +37,11 @@ foreach(case_and_message
                         PROPERTIES PASS_REGULAR_EXPRESSION "${expected_message}" TIMEOUT 10)
 endforeach()
 
+add_executable(test_ampere_operator
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_operator.f90)
+target_link_libraries(test_ampere_operator KIM_lib)
+add_test(NAME test_ampere_operator COMMAND test_ampere_operator)
+
 # Optional: build QUADPACK/RKF45 integration comparison test
 add_executable(test_integration_methods ${CMAKE_SOURCE_DIR}/KIM/tests/test_integration_methods.f90)
 set_target_properties(test_integration_methods PROPERTIES
@@ -504,6 +509,13 @@ set_target_properties(test_scaled_besseli_large_x PROPERTIES
 target_link_libraries(test_scaled_besseli_large_x KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
 add_test(NAME test_scaled_besseli_large_x
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_scaled_besseli_large_x.x)
+
+add_executable(test_ampere_coupling ${CMAKE_SOURCE_DIR}/KIM/tests/test_ampere_coupling.f90)
+set_target_properties(test_ampere_coupling PROPERTIES
+                      OUTPUT_NAME test_ampere_coupling.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_ampere_coupling KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_ampere_coupling COMMAND ${CMAKE_BINARY_DIR}/tests/test_ampere_coupling.x)
 
 add_executable(test_fp_harmonic_prefactors
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_fp_harmonic_prefactors.f90)

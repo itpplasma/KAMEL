@@ -12,6 +12,31 @@ target_link_libraries(test_frozen_fourier_gyroaverage
 add_test(NAME test_frozen_fourier_gyroaverage
          COMMAND ${CMAKE_BINARY_DIR}/tests/test_frozen_fourier_gyroaverage.x)
 
+add_executable(test_adaptive_grid test_adaptive_grid.f90)
+target_link_libraries(test_adaptive_grid KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_adaptive_grid COMMAND test_adaptive_grid)
+# Each rejection case must stop with its own message, not with any failure.
+foreach(case_and_message
+        "nan_min|Adaptive lower bound must be finite"
+        "nan_max|Adaptive upper bound must be finite"
+        "unordered|Adaptive grid bounds must increase"
+        "one_node|Adaptive grid needs two nominal nodes"
+        "nan_width|Adaptive width must be finite"
+        "zero_width|Adaptive width must be positive"
+        "nan_amplitude|Adaptive amplitude must be finite"
+        "nonpositive_factor|Adaptive spacing factor must be positive"
+        "nan_scale|Adaptive spacing scale must be finite"
+        "zero_scale|Adaptive spacing scale must be positive"
+        "stalled|Adaptive terminal cell is numerically unresolved")
+    string(REPLACE "|" ";" case_parts "${case_and_message}")
+    list(GET case_parts 0 invalid_grid)
+    list(GET case_parts 1 expected_message)
+    add_test(NAME test_adaptive_grid_${invalid_grid}
+             COMMAND test_adaptive_grid ${invalid_grid})
+    set_tests_properties(test_adaptive_grid_${invalid_grid}
+                        PROPERTIES PASS_REGULAR_EXPRESSION "${expected_message}" TIMEOUT 10)
+endforeach()
+
 # Optional: build QUADPACK/RKF45 integration comparison test
 add_executable(test_integration_methods ${CMAKE_SOURCE_DIR}/KIM/tests/test_integration_methods.f90)
 set_target_properties(test_integration_methods PROPERTIES

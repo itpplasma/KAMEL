@@ -18,7 +18,6 @@ if(FOURIER_STANDALONE)
     include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/ItpDeps.cmake)
     include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/DependencyPins.cmake)
 endif()
-include_directories(${libneo_BINARY_DIR}/include)
 
 # Source files - equilibrium tracing (mag, rhs1, RK4D) now comes from kamel_equil
 set(source_files
@@ -44,7 +43,6 @@ if(TARGET kamel_equil)
         LIBNEO::magfie
     )
     target_include_directories(fouriermodes PUBLIC
-        ${libneo_BINARY_DIR}/include
         ${KAMEL_EQUIL_INCLUDE_DIRS}
     )
 else()

@@ -32,11 +32,9 @@ set_target_properties(kamel_equil PROPERTIES
     LINKER_LANGUAGE Fortran
 )
 
-# libneo puts its Fortran modules in include/ of its build folder.
 target_include_directories(kamel_equil
     PUBLIC
         ${EQUIL_MODULE_DIR}
-        ${libneo_BINARY_DIR}/include
 )
 
 # Link libneo magfie for equilibrium field functionality

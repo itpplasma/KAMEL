@@ -95,6 +95,9 @@ module rhs_balance_m
     public :: compute_rmp_induced_sources
     public :: compute_diffusive_parts
     public :: compute_convective_parts
+    public :: project_params_to_boundary_grid
+    public :: compute_radial_electric_field
+    public :: compute_unsmoothed_radial_electric_field
 
     public :: thermodynamic_forces_t
     public :: species_fluxes_t
@@ -183,10 +186,11 @@ contains
         use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib, Sc, Sb, deriv_coef, ipbeg, &
                             ipend, rb, reint_coef, fluxes_dif_lin, fluxes_con_lin, rc, dae11, &
                             dae12, dae22, dai11, dai12, dai22, dni22, visca, gpp_av, dqle11, &
-                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, T_EM_phi_e, &
-                            T_EM_phi_i, sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, &
-                            qlheat_i, Ercov_lin, fluxes_con_nl, Gamma_ql_e_frozen, &
-                            Gamma_ql_i_frozen, dery_equisource
+                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, dqli22, &
+                            torque_density_e, torque_density_i, torque_density_ntv, &
+                            sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i, &
+                            Ercov_lin, fluxes_con_nl, Gamma_ql_e_frozen, Gamma_ql_i_frozen, &
+                            dery_equisource
         use plasma_parameters, only: params, ddr_params_lin, params_lin, params_b_lin, &
                                      params_b, dot_params, ddr_params_nl
         use baseparam_mod, only: Z_i, am
@@ -236,14 +240,8 @@ contains
         end do
 
         ! Interpolate to boundary points
-        do ipoi = 1, npoib
-            do ieq = 1, nbaleqs
-                associate (param => params(ieq, ipbeg(ipoi):ipend(ipoi)))
-                    ddr_params_nl(ieq, ipoi) = sum(param * deriv_coef(:, ipoi))
-                    params_b(ieq, ipoi) = sum(param * reint_coef(:, ipoi))
-                end associate
-            end do
-        end do
+        call project_params_to_boundary_grid(params, ipbeg, ipend, deriv_coef, reint_coef, &
+                                             params_b, ddr_params_nl)
 
         ! Compute E0r at actual state
         call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
@@ -361,8 +359,9 @@ contains
                                                  Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
                                                  Ercov(ipoi), Ercov_lin(ipoi), &
                                                  sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
-                                                 polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &
-                                                 T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
+                                                 0.0_dp, polforce(ipoi), qlheat_e(ipoi), &
+                                                 qlheat_i(ipoi), torque_density_e(ipoi), &
+                                                 torque_density_i(ipoi))
             end do
 
             ! Apply boundary conditions for linearized fluxes
@@ -447,9 +446,10 @@ contains
         ! Uses the frozen-state quantities that rhs_balance has just computed
         ! (params, params_b, Ercov, transport coefficients, fluxes_con_nl and the
         ! QL particle fluxes Gamma_ql_*_frozen). Also sets polforce, qlheat_e/i and
-        ! the torque densities T_EM_phi_e/i at the state for diagnostics.
+        ! the torque densities torque_density_e/i at the state for diagnostics.
         !
-        use grid_mod, only: nbaleqs, npoib, Sc, rb, rc, gpp_av, T_EM_phi_e, T_EM_phi_i, &
+        use grid_mod, only: nbaleqs, npoib, Sc, rb, rc, gpp_av, torque_density_e, &
+                            torque_density_i, torque_density_ntv, &
                             sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i, &
                             Gamma_ql_e_frozen, Gamma_ql_i_frozen, fluxes_con_nl
         use plasma_parameters, only: params, params_b
@@ -468,8 +468,9 @@ contains
             call compute_rmp_induced_sources(Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
                                              0.0_dp, 0.0_dp, Ercov(ipoi), 0.0_dp, &
                                              sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
-                                             polforce(ipoi), qlheat_e(ipoi), qlheat_i(ipoi), &
-                                             T_EM_phi_e(ipoi), T_EM_phi_i(ipoi))
+                                             torque_density_ntv(ipoi), polforce(ipoi), &
+                                             qlheat_e(ipoi), qlheat_i(ipoi), &
+                                             torque_density_e(ipoi), torque_density_i(ipoi))
         end do
 
         ! The state itself takes the role of the probe perturbation: fluxes at the
@@ -488,6 +489,49 @@ contains
     !===========================================================================
     ! Core computation routines (shared by the Jacobian probe and the rate evaluation)
     !===========================================================================
+
+    pure subroutine project_params_to_boundary_grid(params_in, ipbeg, ipend, deriv_coef, &
+                                                    reint_coef, params_boundary, ddr_params)
+        real(dp), dimension(:, :), intent(in) :: params_in
+        integer, dimension(:), intent(in) :: ipbeg, ipend
+        real(dp), dimension(:, :), intent(in) :: deriv_coef, reint_coef
+        real(dp), dimension(:, :), intent(out) :: params_boundary, ddr_params
+
+        integer :: ipoi, ieq
+
+        do ipoi = 1, size(ipbeg)
+            do ieq = 1, size(params_in, 1)
+                associate (param => params_in(ieq, ipbeg(ipoi):ipend(ipoi)))
+                    ddr_params(ieq, ipoi) = sum(param * deriv_coef(:, ipoi))
+                    params_boundary(ieq, ipoi) = sum(param * reint_coef(:, ipoi))
+                end associate
+            end do
+        end do
+    end subroutine project_params_to_boundary_grid
+
+    subroutine compute_unsmoothed_radial_electric_field(params_in, E_r)
+        use baseparam_mod, only: Z_i
+        use grid_mod, only: npoib, rb, ipbeg, ipend, deriv_coef, reint_coef, &
+                            sqrt_g_times_B_theta_over_c
+        use wave_code_data, only: q, Vth
+
+        real(dp), dimension(:, :), intent(in) :: params_in
+        real(dp), dimension(:), intent(out) :: E_r
+
+        real(dp), dimension(:, :), allocatable :: params_boundary, ddr_params
+
+        if (size(E_r) /= npoib) then
+            error stop "compute_unsmoothed_radial_electric_field: E_r size mismatch"
+        end if
+
+        allocate (params_boundary(size(params_in, 1), npoib))
+        allocate (ddr_params(size(params_in, 1), npoib))
+
+        call project_params_to_boundary_grid(params_in, ipbeg, ipend, deriv_coef, reint_coef, &
+                                             params_boundary, ddr_params)
+        call compute_radial_electric_field(npoib, rb, params_boundary, ddr_params, &
+                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, E_r)
+    end subroutine compute_unsmoothed_radial_electric_field
 
     pure subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, &
                                                   sqrt_g_Bth_over_c, V_pol_arr, q_arr, Z, E0r)
@@ -617,8 +661,8 @@ contains
     end subroutine compute_fluxes_at_boundary
 
     pure subroutine compute_rmp_induced_sources(Gamma_ql_e, Gamma_ql_i, Gamma_ql_e_froz, &
-                                                Gamma_ql_i_froz, E0r, E0r_lin, &
-                                                sqrt_g_Bth_over_c, Z, am, polforce, qlheat_e, &
+                                                Gamma_ql_i_froz, E0r, E0r_lin, sqrt_g_Bth_over_c, &
+                                                Z, am, torque_density_ntv, polforce, qlheat_e, &
                                                 qlheat_i, torque_e, torque_i)
         !
         ! Compute RMP-induced source terms of the four balance equations.
@@ -651,6 +695,7 @@ contains
         real(dp), intent(in) :: E0r, E0r_lin
         real(dp), intent(in) :: sqrt_g_Bth_over_c
         real(dp), intent(in) :: Z, am
+        real(dp), intent(in) :: torque_density_ntv
         real(dp), intent(out) :: polforce, qlheat_e, qlheat_i
         real(dp), intent(out) :: torque_e, torque_i
 
@@ -663,7 +708,11 @@ contains
         torque_e = +sqrt_g_Bth_over_c * e_charge * Gamma_ql_e
         torque_i = -sqrt_g_Bth_over_c * Z * e_charge * Gamma_ql_i
         ! Net radial current drive entering the momentum evolution as a source term.
-        polforce = (torque_e + torque_i) / (am * p_mass)
+        ! torque_{e,i} has units [dyn/cm²] = [g·cm⁻¹·s⁻²] (force per area, same as pressure).
+        ! polforce = torque / mass has units [cm⁻¹·s⁻²].
+        ! In compute_dot_params_at_point, polforce is multiplied by Z/(n·g_φφ) to give
+        ! angular acceleration [s⁻²] for the toroidal rotation frequency evolution.
+        polforce = (torque_e + torque_i + torque_density_ntv) / (am * p_mass)
 
         ! Eq. 3: Electron temperature
         ! Complete linearization: δ(E0r·Γ_ql) = E0r·δΓ_ql + δE0r·Γ_ql_frozen
@@ -878,7 +927,7 @@ contains
 
     pure subroutine compute_diffusive_parts(dn_dr, dVphi_dr, dTe_dr, dTi_dr, n, Te, Ti, Z, S, &
                                             Dae11, Dqle11, Dae22, Dqle22, Dai22, Dni22, Dqli22, &
-                                            Dqli21, mu_perb, g_phi_phi, flux_diffusion)
+                                            Dqli21, mu_perp, g_phi_phi, flux_diffusion)
         !
         ! Compute diffusive fluxes for all four balance equations.
         ! These are only the operands of the divergence operator in each
@@ -918,7 +967,7 @@ contains
         real(dp), intent(in) :: n, Te, Ti, Z, S
         real(dp), intent(in) :: Dae11, Dqle11, Dae22, Dqle22
         real(dp), intent(in) :: Dai22, Dni22, Dqli22, Dqli21
-        real(dp), intent(in) :: mu_perb, g_phi_phi
+        real(dp), intent(in) :: mu_perp, g_phi_phi
         real(dp), dimension(4), intent(out) :: flux_diffusion
 
         real(dp) :: dfluxvphi
@@ -931,7 +980,7 @@ contains
         ! Eq. 2: Toroidal momentum diffusion (viscous term)
         ! Divide the equation by the factor mi to get velocity instead of momentum.
         ! This code evolves velocity directly.
-        dfluxvphi = -mu_perb * dVphi_dr * n / Z * g_phi_phi
+        dfluxvphi = -mu_perp * dVphi_dr * n / Z * g_phi_phi
         flux_diffusion(2) = S * dfluxvphi
 
         ! Eq. 3: Electron heat flux (diffusive part)

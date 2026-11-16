@@ -1,0 +1,179 @@
+module time_evolution_ntv
+    use iso_fortran_env, only: dp => real64
+    use time_evolution, only: TimeEvolution_t
+    use neort_lib
+
+    implicit none
+
+    private
+
+    type, public, extends(TimeEvolution_t) :: TimeEvolutionNTV_t
+    contains
+        procedure :: init_balance => initTimeEvolutionNTV
+        procedure :: run_balance => runTimeEvolutionNTV
+    end type
+
+    ! for NEO-RT
+    real(dp), dimension(:), allocatable :: r
+    real(dp), dimension(:), allocatable :: s_tor
+    real(dp) :: am1
+    real(dp) :: am2
+    real(dp) :: Z1
+    real(dp) :: Z2
+    real(dp), dimension(:, :), allocatable :: plasma_data
+    real(dp), dimension(:, :), allocatable :: profile_data
+    real(dp) :: antenna_factor_exponent
+
+    ! from NEO-RT
+    type(transport_data_t), dimension(:), allocatable :: transport_data
+
+contains
+
+    subroutine initTimeEvolutionNTV(this)
+        use baseparam_mod, only: am, Z_i, rsepar
+        use grid_mod, only: rmin
+        use time_evolution, only: antenna_factor_max
+        use neort_interface, only: meta_config_neort_t, read_neort_meta_config, &
+                                   meta_config_neort_problem, read_equil_file, &
+                                   calculate_s_tor, calculate_coarse_s_tor
+        use spline, only: spline_coeff, spline_val
+
+        class(TimeEvolutionNTV_t), intent(inout) :: this
+
+        real(dp), dimension(:), allocatable :: r_eff, psi_tor, s_tor_equil
+        real(dp), dimension(:, :), allocatable :: r_of_s_coeffs, s_of_r_coeffs
+        real(dp), dimension(:, :), allocatable :: s_splined, r_splined
+        real(dp) :: s_min, s_max
+        type(meta_config_neort_t) :: meta_config
+        integer :: s_size
+
+        character(len=*), parameter :: balance_config_file = "balance_conf.nml"
+
+        ! Reject a bad &NEORT namelist before the wave-code setup and the
+        ! first output; the mode numbers are filled in after it.
+        call read_neort_meta_config(balance_config_file, meta_config, with_modes=.false.)
+        if (len_trim(meta_config_neort_problem(meta_config)) > 0) then
+            error stop trim(meta_config_neort_problem(meta_config))
+        end if
+
+        call this%TimeEvolution_t%init_balance
+        this%runType = "TimeEvolutionNTV"
+        if (.not. (antenna_factor_max > 0.0_dp)) error stop &
+            "TimeEvolutionNTV needs antenna_factor > 0: the reference amplitude of the NEO-RT "// &
+            "perturbation"
+
+        ! NEO-RT
+        call read_neort_meta_config(balance_config_file, meta_config)
+        antenna_factor_exponent = meta_config%antenna_factor_exponent
+        s_size = meta_config%amount_of_s
+
+        allocate (r_splined(s_size, 3))
+        allocate (r(s_size))
+        allocate (s_tor(s_size))
+        allocate (plasma_data(s_size, 6))
+        allocate (profile_data(s_size, 2))
+        allocate (transport_data(s_size))
+
+        ! Prepare grid splines for NEO-RT
+        call read_equil_file(r_eff=r_eff, psi_tor=psi_tor)
+        ! The s(r) spline must not extrapolate: NEO-RT needs s inside [0, 1].
+        if (rmin < minval(r_eff) .or. rsepar > maxval(r_eff)) error stop &
+            "TimeEvolutionNTV: the equilibrium file must cover rmin..rsepar"
+        allocate (s_tor_equil(size(psi_tor)))
+        call calculate_s_tor(s_tor_equil, psi_tor)
+
+        ! Find s values corresponding to rmin and rsepar by splining s(r)
+        allocate (s_of_r_coeffs(size(r_eff) - 1, 5))
+        allocate (s_splined(2, 3))
+        s_of_r_coeffs = spline_coeff(r_eff, s_tor_equil)
+        s_splined = spline_val(s_of_r_coeffs, [rmin, rsepar])
+        s_min = s_splined(1, 1)
+        s_max = s_splined(2, 1)
+
+        ! Create an equidistant grid in s
+        call calculate_coarse_s_tor(s_tor, s_min, s_max, s_size)
+        allocate (r_of_s_coeffs(size(s_tor_equil) - 1, 5))
+        r_of_s_coeffs = spline_coeff(s_tor_equil, r_eff)
+        r_splined = spline_val(r_of_s_coeffs, s_tor)
+        r = r_splined(:, 1)
+
+        ! Cache species parameters for parallel use (same mass/charge for both species)
+        am1 = am
+        am2 = am
+        Z1 = Z_i
+        Z2 = Z_i
+
+        ! NEO-RT initialization
+        call neort_init(meta_config%config, meta_config%boozer_file, meta_config%boozer_pert_file)
+
+        deallocate (r_eff)
+        deallocate (psi_tor)
+        deallocate (s_tor_equil)
+        deallocate (r_of_s_coeffs)
+        deallocate (s_of_r_coeffs)
+        deallocate (s_splined)
+        deallocate (r_splined)
+    end subroutine initTimeEvolutionNTV
+
+    subroutine runTimeEvolutionNTV(this)
+        use time_evolution, only: time_ind, time_step_range
+
+        class(TimeEvolutionNTV_t), intent(inout) :: this
+
+        integer :: first_step, last_step
+
+        call time_step_range(first_step, last_step)
+        do time_ind = first_step, last_step
+            call doStep(this)
+        end do
+    end subroutine runTimeEvolutionNTV
+
+    subroutine doStep(this)
+        use time_evolution, only: doStepBase => doStep
+
+        class(TimeEvolutionNTV_t), intent(inout) :: this
+
+        call neo_rt
+        call doStepBase(this%TimeEvolution_t)
+    end subroutine doStep
+
+    subroutine neo_rt
+        use loading_bar_m, only: updateLoadingBarWithETA
+        use neort_interface, only: prepare_plasma_data_for_neort, &
+                                   prepare_profile_data_for_neort, apply_ntv_transport
+
+        integer :: s_size, work_idx, s_idx
+        real(dp) :: s_val
+        integer(kind=8) :: start_count, count_rate
+        integer :: completed_steps
+
+        s_size = size(s_tor)
+
+        call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
+        call prepare_profile_data_for_neort(profile_data, r, s_tor)
+        call neort_prepare_splines(s_size, am1, am2, Z1, Z2, plasma_data, profile_data)
+
+        ! Initialize progress tracking
+        call system_clock(start_count, count_rate)
+        completed_steps = 0
+
+        ! Higher s takes longer to compute, therefore schedule it in reverse
+        !$omp parallel do private(s_idx, s_val) schedule(runtime)
+        do work_idx = 1, s_size
+            s_idx = s_size - work_idx + 1
+            s_val = s_tor(s_idx)
+            call neort_compute_at_s(s_val, transport_data(s_idx))
+
+            !$omp critical
+            completed_steps = completed_steps + 1
+            call updateLoadingBarWithETA(completed_steps, s_size, start_count, count_rate, "NEO-RT")
+            !$omp end critical
+        end do
+        !$omp end parallel do
+
+        ! Add torque to global torque_density_ntv array to be used in rhs_balance
+        call apply_ntv_transport(r, transport_data, antenna_factor_exponent)
+
+    end subroutine neo_rt
+
+end module

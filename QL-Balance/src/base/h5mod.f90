@@ -23,13 +23,17 @@ module h5mod
         implicit none
 
         character(*), intent(in) :: reason
+        logical :: old_h5overwrite
 
+        old_h5overwrite = h5overwrite
+        h5overwrite = .true.
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
         '/stopping_criterion', reason)
         CALL h5_close(h5_id)
         CALL h5_deinit()
+        h5overwrite = old_h5overwrite
 
     end subroutine
 

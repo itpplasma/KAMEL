@@ -14,14 +14,20 @@ module grid_mod
 
     integer, dimension(:),   allocatable :: ipbeg,ipend
     real(dp), dimension(:),   allocatable :: rb,rc,Sb,Sc
-    real(dp), dimension(:),   allocatable :: sqrt_g_times_B_theta_over_c,Ercov
+    real(dp), dimension(:), allocatable :: sqrt_g_times_B_theta_over_c
+    ! Workspace for the active RHS or get_dql evaluation. Recompute from params before cross-stage use.
+    real(dp), dimension(:), allocatable :: Ercov
     real(dp), dimension(:),   allocatable :: sqg_bthet_overcavg,Ercovavg
     real(dp), dimension(:),   allocatable :: y,dery,dery_equisource
     real(dp), dimension(:),   allocatable :: dae11,dae12,dae22
     real(dp), dimension(:),   allocatable :: dai11,dai12,dai22
     real(dp), dimension(:), allocatable :: dni22, visca, polforce
-    real(dp), dimension(:), allocatable :: T_EM_phi_e, T_EM_phi_i
-    real(dp), dimension(:), allocatable :: T_tot_phi_e, T_tot_phi_i
+    real(dp), dimension(:), allocatable :: torque_density_e, torque_density_i, torque_density_ntv
+    ! NEO-RT torque for the perturbation file's amplitude, before the antenna
+    ! scaling; allocated only in TimeEvolutionNTV runs.
+    real(dp), dimension(:), allocatable :: torque_density_ntv_unscaled
+    real(dp) :: ntv_antenna_factor_exponent = 1.0_dp
+    real(dp), dimension(:), allocatable :: T_tot_phi_e, T_tot_phi_i, T_tot_phi_ntv
     ! ql RMP-induced diffusion
     real(dp), dimension(:),   allocatable :: dqle11,dqle12,dqle21,dqle22
     real(dp), dimension(:),   allocatable :: dqli11,dqli12,dqli21,dqli22

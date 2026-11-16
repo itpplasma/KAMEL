@@ -59,7 +59,8 @@ subroutine kim_read_config
     namelist /KIM_PERIODIC/ periodic_dr_asis_scale, periodic_dr_tr_scale, &
                         periodic_kmax_scale, periodic_n_rg, &
                         periodic_match_global_kernel_approximations, periodic_Bparallel_ratio, &
-                        periodic_calculate_radial_current, periodic_calculate_ion_tensor
+                        periodic_calculate_radial_current, periodic_calculate_ion_tensor, &
+                        periodic_electromagnetic, periodic_em_psi_definition
 
     namelist /KIM_FLR2/ flr2_electron_flr, flr2_ion_flr, &
                         flr2_electron_potential, flr2_ion_potential, &
@@ -105,6 +106,8 @@ subroutine kim_read_config
     periodic_Bparallel_ratio = (0.0_dp, 0.0_dp)
     periodic_calculate_radial_current = .false.
     periodic_calculate_ion_tensor = .false.
+    periodic_electromagnetic = .false.
+    periodic_em_psi_definition = 'extrapolated'
     periodic_group_present = namelist_header_present(77, 'KIM_PERIODIC')
     periodic_iomsg = ''
     rewind(unit = 77)
@@ -114,6 +117,11 @@ subroutine kim_read_config
             (.not. periodic_group_present .and. periodic_iostat > 0)) then
         write(*,*) 'Error reading KIM_PERIODIC namelist: ', trim(periodic_iomsg)
         error stop 'Malformed KIM_PERIODIC namelist'
+    end if
+    if (trim(periodic_em_psi_definition) /= 'extrapolated' .and. &
+            trim(periodic_em_psi_definition) /= 'resonance') then
+        write(*,*) 'Invalid periodic_em_psi_definition: ', trim(periodic_em_psi_definition)
+        error stop 'periodic_em_psi_definition must be extrapolated or resonance'
     end if
 
     ! Optional standalone-FLR2 term switches. KIM's background and shared

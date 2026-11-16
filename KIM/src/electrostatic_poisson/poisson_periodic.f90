@@ -124,7 +124,7 @@ module rt_electrostatic_periodic_m
 
 
     subroutine compute_periodic_ion_tensor_spectrum(phi_m, br, period, radius, ks, kpar, &
-            vti, nui, omega_ci, omega_mode, om_e, b0, tensor, bparallel)
+            vti, nui, omega_ci, omega_mode, om_e, b0, tensor, bparallel, br_spectrum)
         use KIM_kinds_m, only: dp
         use config_m, only: resolved_ion_ifunc_conservation_model
         use setup_m, only: mphi_max
@@ -134,6 +134,9 @@ module rt_electrostatic_periodic_m
 
         complex(dp), intent(in) :: phi_m(:), br
         complex(dp), intent(in), optional :: bparallel
+        !> Full Br Fourier coefficients (electromagnetic periodic solve); when
+        !> present they replace the constant br at k_r = 0.
+        complex(dp), intent(in), optional :: br_spectrum(:)
         real(dp), intent(in) :: period, radius, ks, kpar, vti, nui, omega_ci
         real(dp), intent(in) :: omega_mode, om_e, b0
         real(dp), intent(out) :: tensor(2,2)
@@ -151,7 +154,15 @@ module rt_electrostatic_periodic_m
             kr(i) = 2.0_dp*pi*real(i-cutoff-1,dp)/period
             fields(1,i) = phi_m(i)*exp(com_unit*kr(i)*radius)
         end do
-        fields(2,cutoff+1) = br
+        if (present(br_spectrum)) then
+            if (size(br_spectrum) /= size(phi_m)) &
+                error stop 'periodic ion tensor: Br and Phi spectra differ in size'
+            do i = 1, size(phi_m)
+                fields(2,i) = br_spectrum(i)*exp(com_unit*kr(i)*radius)
+            end do
+        else
+            fields(2,cutoff+1) = br
+        end if
         if (present(bparallel)) fields(3,cutoff+1) = bparallel
 
         ! Phi_m are Fourier-series amplitudes: Phi(r)=sum Phi_m exp(i*k_m*r).
@@ -208,16 +219,18 @@ module rt_electrostatic_periodic_m
     subroutine compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
             r_out, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, &
             dPhi_dr, jrad, phi_spectrum, Bparallel_const, rho_Bparallel, &
-            rho_Bparallel_species)
+            rho_Bparallel_species, Br_spectrum, ks_res)
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use periodic_background_m, only: build_periodic_plasma
         use periodic_assembly_m, only: assemble_periodic_matrices, &
             assemble_periodic_bparallel_matrices
         use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, &
-            reconstruct_delta_phi_derivative, reconstruct_jpar, reconstruct_jrad
+            reconstruct_delta_phi_derivative, reconstruct_jpar, reconstruct_jrad, &
+            solve_periodic_em, PERIODIC_PSI_EXTRAPOLATED, PERIODIC_PSI_RESONANCE
         use config_m, only: periodic_match_global_kernel_approximations, &
-            periodic_calculate_radial_current
+            periodic_calculate_radial_current, periodic_electromagnetic, &
+            periodic_em_psi_definition
         use flr2_fourier_kernel_m, only: set_global_kernel_approximations
 
         real(dp),    intent(in)  :: rm, dx_asis, dx_tr
@@ -235,7 +248,14 @@ module rt_electrostatic_periodic_m
         complex(dp), intent(in), optional :: Bparallel_const
         complex(dp), allocatable, intent(out), optional :: rho_Bparallel(:)
         complex(dp), allocatable, intent(out), optional :: rho_Bparallel_species(:,:)
+        !> Fourier coefficients Br_m of the radial field (constant drive: Br_const
+        !> at m = 0 only; electromagnetic: solved) and ks at the resonance.
+        complex(dp), allocatable, intent(out), optional :: Br_spectrum(:)
+        real(dp), intent(out), optional :: ks_res
 
+        complex(dp), allocatable :: Br_m(:)
+        real(dp) :: ks_rm
+        integer :: psi_def
         complex(dp), allocatable :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:), Phi_m(:)
         complex(dp), allocatable :: Kjrphi(:,:), KjrB(:,:)
         complex(dp), allocatable :: Kjphi_species(:,:,:), KjB_species(:,:,:)
@@ -307,25 +327,55 @@ module rt_electrostatic_periodic_m
                         KBparallel, KjBparallel)
                 end if
             end if
+        end if
+        ks_rm = interp_plasma_ks(rm)
+        if (present(ks_res)) ks_res = ks_rm
+        if (periodic_electromagnetic) then
+            psi_def = PERIODIC_PSI_EXTRAPOLATED
+            if (trim(periodic_em_psi_definition) == 'resonance') psi_def = PERIODIC_PSI_RESONANCE
+            if (bparallel_active) then
+                call solve_periodic_em(Kphi, KB, Kjphi, KjB, L, M, rm, dx_asis, ks_rm, &
+                    Br_const, psi_def, Phi_m, Br_m, info, KBparallel=KBparallel, &
+                    KjBparallel=KjBparallel, Bparallel_const=Bparallel_drive)
+            else
+                call solve_periodic_em(Kphi, KB, Kjphi, KjB, L, M, rm, dx_asis, ks_rm, &
+                    Br_const, psi_def, Phi_m, Br_m, info)
+            end if
+        else if (bparallel_active) then
             call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info, &
                 KBparallel=KBparallel, Bparallel_const=Bparallel_drive)
         else
             call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
         end if
         if (info /= 0) return
+        if (.not. periodic_electromagnetic) then
+            allocate(Br_m(2*M + 1))
+            Br_m = (0.0_dp, 0.0_dp)
+            Br_m(M + 1) = Br_const
+        end if
+        if (present(Br_spectrum)) Br_spectrum = Br_m
 
         if (present(phi_spectrum)) phi_spectrum = Phi_m
         dPhi = reconstruct_delta_phi(Phi_m, L, M, r_out)
         if (present(dPhi_dr)) dPhi_dr = reconstruct_delta_phi_derivative(Phi_m, L, M, r_out)
         if (present(rho_B)) then
-            rho_B = reconstruct_delta_phi(Br_const * KB(:, M + 1), L, M, r_out)
+            if (periodic_electromagnetic) then
+                rho_B = reconstruct_delta_phi(matmul(KB, Br_m), L, M, r_out)
+            else
+                rho_B = reconstruct_delta_phi(Br_const * KB(:, M + 1), L, M, r_out)
+            end if
         end if
 
         if (present(rho_B_species)) then
             allocate(rho_B_species(size(r_out), 0:plasma%n_species - 1))
             do sp = 0, plasma%n_species - 1
-                rho_B_species(:, sp) = reconstruct_delta_phi(&
-                    Br_const * KB_species(:, M + 1, sp), L, M, r_out)
+                if (periodic_electromagnetic) then
+                    rho_B_species(:, sp) = reconstruct_delta_phi(&
+                        matmul(KB_species(:, :, sp), Br_m), L, M, r_out)
+                else
+                    rho_B_species(:, sp) = reconstruct_delta_phi(&
+                        Br_const * KB_species(:, M + 1, sp), L, M, r_out)
+                end if
             end do
         end if
 
@@ -353,12 +403,22 @@ module rt_electrostatic_periodic_m
         if (present(jpar_species)) then
             allocate(jpar_species(size(r_out), 0:plasma%n_species - 1))
             do sp = 0, plasma%n_species - 1
-                if (bparallel_active) then
+                if (bparallel_active .and. periodic_electromagnetic) then
+                    jpar_species(:, sp) = reconstruct_jpar(&
+                        Kjphi_species(:, :, sp), KjB_species(:, :, sp), &
+                        Phi_m, Br_const, L, M, r_out, &
+                        KjBparallel=KjBparallel_species(:, :, sp), &
+                        Bparallel_const=Bparallel_drive, Br_spectrum=Br_m)
+                else if (bparallel_active) then
                     jpar_species(:, sp) = reconstruct_jpar(&
                         Kjphi_species(:, :, sp), KjB_species(:, :, sp), &
                         Phi_m, Br_const, L, M, r_out, &
                         KjBparallel=KjBparallel_species(:, :, sp), &
                         Bparallel_const=Bparallel_drive)
+                else if (periodic_electromagnetic) then
+                    jpar_species(:, sp) = reconstruct_jpar(&
+                        Kjphi_species(:, :, sp), KjB_species(:, :, sp), &
+                        Phi_m, Br_const, L, M, r_out, Br_spectrum=Br_m)
                 else
                     jpar_species(:, sp) = reconstruct_jpar(&
                         Kjphi_species(:, :, sp), KjB_species(:, :, sp), &
@@ -368,18 +428,32 @@ module rt_electrostatic_periodic_m
         end if
 
         if (present(jpar)) then
-            if (bparallel_active) then
+            if (bparallel_active .and. periodic_electromagnetic) then
+                jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, &
+                    r_out, KjBparallel=KjBparallel, &
+                    Bparallel_const=Bparallel_drive, Br_spectrum=Br_m)
+            else if (bparallel_active) then
                 jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, &
                     r_out, KjBparallel=KjBparallel, &
                     Bparallel_const=Bparallel_drive)
+            else if (periodic_electromagnetic) then
+                jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out, &
+                    Br_spectrum=Br_m)
             else
                 jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
             end if
         end if
         if (present(jrad) .and. periodic_calculate_radial_current) then
-            if (bparallel_active) then
+            if (bparallel_active .and. periodic_electromagnetic) then
+                jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
+                    KjrBparallel=KjrBparallel, Bparallel_const=Bparallel_drive, &
+                    Br_spectrum=Br_m)
+            else if (bparallel_active) then
                 jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
                     KjrBparallel=KjrBparallel, Bparallel_const=Bparallel_drive)
+            else if (periodic_electromagnetic) then
+                jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
+                    Br_spectrum=Br_m)
             else
                 jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out)
             end if
@@ -460,6 +534,27 @@ module rt_electrostatic_periodic_m
         rhoLx = sum(coef(0, :) * plasma_in%spec(sp)%rho_L(ibeg:iend))
     end function interp_species_rho_L
 
+    !> ks of the current (window) plasma at x, 4-point Lagrange.
+    real(dp) function interp_plasma_ks(x) result(ksx)
+        use KIM_kinds_m, only: dp
+        use species_m, only: plasma
+        real(dp), intent(in) :: x
+        integer, parameter :: nlagr = 4, nder = 0
+        real(dp) :: coef(0:nder, nlagr)
+        integer :: gs, ir, ibeg, iend
+
+        gs = plasma%grid_size
+        call binsrc(plasma%r_grid, 1, gs, x, ir)
+        ibeg = max(1, ir - nlagr / 2)
+        iend = ibeg + nlagr - 1
+        if (iend > gs) then
+            iend = gs
+            ibeg = iend - nlagr + 1
+        end if
+        call plag_coeff(nlagr, nder, x, plasma%r_grid(ibeg:iend), coef)
+        ksx = sum(coef(0, :) * plasma%ks(ibeg:iend))
+    end function interp_plasma_ks
+
     !> Global setup, identical to the electrostatic run-type's init: build the
     !> grids and equilibrium and populate the GLOBAL plasma. run() reads the
     !> resonance rm and the representative rho_L(rm) from that global plasma
@@ -508,7 +603,9 @@ module rt_electrostatic_periodic_m
                             periodic_kmax_scale, periodic_n_rg, hdf5_output, &
                             periodic_match_global_kernel_approximations, &
                             periodic_Bparallel_ratio, turn_off_electrons, turn_off_ions, &
-                            output_path, periodic_calculate_ion_tensor
+                            output_path, periodic_calculate_ion_tensor, &
+                            periodic_electromagnetic, periodic_em_psi_definition
+        use periodic_solve_m, only: reconstruct_delta_phi
         use setup_m, only: Br_boundary_re, Br_boundary_im, m_mode, n_mode, R0, omega
         use species_m, only: plasma
         use grid_m, only: rg_grid
@@ -527,8 +624,9 @@ module rt_electrostatic_periodic_m
         complex(dp), allocatable :: rho_B(:), rho_B_species(:,:), rho_B_i(:)
         complex(dp), allocatable :: rho_Bparallel(:), rho_Bparallel_species(:,:)
         complex(dp), allocatable :: rho_Bparallel_i(:)
-        complex(dp), allocatable :: phi_spectrum(:)
-        real(dp) :: tensor_local(2,2)
+        complex(dp), allocatable :: phi_spectrum(:), br_spectrum(:)
+        real(dp) :: tensor_local(2,2), ks_rm
+        complex(dp) :: br_at_rm
         complex(dp) :: Br_const, Bparallel_const
         real(dp), allocatable :: r_win(:)
         real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max
@@ -598,7 +696,8 @@ module rt_electrostatic_periodic_m
             r_win, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, &
             dPhi_dr=dPhi_dr, jrad=jrad, phi_spectrum=phi_spectrum, &
             Bparallel_const=Bparallel_const, rho_Bparallel=rho_Bparallel, &
-            rho_Bparallel_species=rho_Bparallel_species)
+            rho_Bparallel_species=rho_Bparallel_species, Br_spectrum=br_spectrum, &
+            ks_res=ks_rm)
         if (info /= 0) then
             print *, "Error (electrostatic_periodic): solve_periodic failed, info = ", info
             error stop "electrostatic_periodic: periodic solve failed"
@@ -621,7 +720,18 @@ module rt_electrostatic_periodic_m
         EBdat%dx_transition = dx_tr
         EBdat%Phi    = dPhi
         allocate(EBdat%Br(size(dPhi)))
-        EBdat%Br = Br_const
+        if (periodic_electromagnetic) then
+            EBdat%Br = reconstruct_delta_phi(br_spectrum, L, M, r_win)
+            EBdat%Apar = EBdat%Br/(com_unit*ks_rm)
+            br_at_rm = sum(reconstruct_delta_phi(br_spectrum, L, M, [rm]))
+            print *, "electrostatic_periodic: electromagnetic, psi definition = ", &
+                trim(periodic_em_psi_definition), " ks(rm) [1/cm] = ", ks_rm
+            print *, "electrostatic_periodic: Br(rm)/Br_ref = ", br_at_rm/Br_const, &
+                " max|Br/Br_ref - 1| core = ", maxval(abs(EBdat%Br/Br_const - 1.0_dp), &
+                mask=abs(r_win - rm) <= dx_asis)
+        else
+            EBdat%Br = Br_const
+        end if
         allocate(EBdat%Bparallel(size(dPhi)))
         EBdat%Bparallel = Bparallel_const
         allocate(EBdat%Er(size(dPhi)), EBdat%Etheta(size(dPhi)), EBdat%Ez(size(dPhi)))
@@ -645,7 +755,8 @@ module rt_electrostatic_periodic_m
                             phi_spectrum, Br_const, L, r_win(i), plasma%ks(i), plasma%kp(i), &
                             plasma%spec(sp)%vT(i), plasma%spec(sp)%nu(i), &
                             plasma%spec(sp)%omega_c(i), omega, plasma%om_E(i), &
-                            plasma%B0(i), tensor_local, Bparallel_const)
+                            plasma%B0(i), tensor_local, Bparallel_const, &
+                            br_spectrum=br_spectrum)
                         EBdat%D_ion(:, :, i) = EBdat%D_ion(:, :, i) + tensor_local
                     end do
                 end do
@@ -677,6 +788,16 @@ module rt_electrostatic_periodic_m
                 "/fields/Phi", &
                 'Electrostatic potential perturbation Phi, forced-periodicity solution', &
                 'statV')
+            if (periodic_electromagnetic) then
+                call write_complex_profile_abs(EBdat%r_grid, EBdat%Br, rg_grid%npts_b, &
+                    "/fields/Br", &
+                    'Radial magnetic field perturbation Br, periodic Poisson-Ampere solution', &
+                    'G')
+                call write_complex_profile_abs(EBdat%r_grid, EBdat%Apar, rg_grid%npts_b, &
+                    "/fields/Apar", &
+                    'Parallel vector potential Br/(i ks(r_res)), periodic Poisson-Ampere solution', &
+                    'G*cm')
+            end if
             call write_complex_profile_abs(EBdat%r_grid, EBdat%jpar, rg_grid%npts_b, &
                 "/fields/jpar", &
                 'Parallel current density perturbation j_par, forced-periodicity solution', &

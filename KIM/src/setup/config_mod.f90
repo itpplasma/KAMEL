@@ -69,6 +69,11 @@ module config_m
     ! Assemble and return the periodic ion diffusion tensor. Keep disabled by
     ! default; QL-Balance explicitly enables it for coupled transport.
     logical :: periodic_calculate_ion_tensor = .false.
+    ! Solve Ampere's law inside the period (Br varies across the layer). The
+    ! k_r = 0 amplitude psi = Br_boundary/(i ks(r_res)) is prescribed by
+    ! periodic_em_psi_definition ('extrapolated' or 'resonance').
+    logical :: periodic_electromagnetic = .false.
+    character(len=16) :: periodic_em_psi_definition = 'extrapolated'
     ! Reproduce the global FEM kernel approximations for direct comparisons:
     ! drop k_s^2 from Bessel arguments and take electrons in the zero-FLR limit.
     ! The forced-periodic solver uses its full Fourier kernel by default.

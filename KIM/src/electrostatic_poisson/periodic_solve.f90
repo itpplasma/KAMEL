@@ -39,6 +39,7 @@ module periodic_solve_m
     public :: dense_solve, reconstruct_jpar, reconstruct_jrad
     public :: solve_periodic_em, core_integral_weights
     public :: odd_field_spectrum, core_moment_weights, outer_slope_amplitude
+    public :: layer_dipole_weights
 
     integer, parameter, public :: PERIODIC_PSI_EXTRAPOLATED = 1
     integer, parameter, public :: PERIODIC_PSI_RESONANCE = 2
@@ -105,12 +106,15 @@ contains
     !>   e_m = exp(-i k_m (r_m + L/2)).
     !> The net window current L j_0 is returned by a compensating sheet at the
     !> period boundary r_m + L/2 (inside the transition band). Likewise the
-    !> dipole moment P = int (r - r_m) j dr over the period: a periodic field
-    !> turns the step (4 pi/c) P that P produces between the far sides into a
-    !> uniform slope -(4 pi/c) P/L; the compensating odd field
+    !> dipole moment of the layer, P = int s(r) (r - r_m) j dr: a periodic
+    !> field turns the step (4 pi/c) P that P produces between the far sides
+    !> into a uniform slope -(4 pi/c) P/L; the compensating odd field
     !> +(4 pi/c) (P/L) g (g = r - r_m on the core, odd_field_spectrum; sources
     !> in the transition band) removes it, so that the core sees the local
-    !> kink convolution of its current only. Inside the core
+    !> kink convolution of its current only. The core mask s (1 on the core,
+    !> -> 0 at the period edge, as in odd_field_spectrum) excludes the
+    !> transition-band currents (image resonance at the period edge, next to
+    !> the return sheet), whose lever arm about r_m is not defined. Inside the core
     !> the plasma current then produces its local field only (kink convolution,
     !> up to O((ks L)^2)); its far field belongs to the outer region and enters
     !> through the Delta' matching of the k_r = 0 amplitude in QL-Balance.
@@ -197,16 +201,10 @@ contains
         end do
         if (bpar /= (0.0_dp, 0.0_dp)) b(1:dim) = -4.0_dp*pi*bpar*KBparallel(:, i0)
 
-        ! Dipole compensation: cP = (4 pi/c) P/L = (4 pi/c) sum_m d_m j_m with
-        ! d_m = exp(i k_m r_m) (-1)^m/(i k_m) (m /= 0), d_0 = 0.
+        ! Dipole compensation: cP = (4 pi/c) P/L = (4 pi/c) sum_m d_m j_m,
+        ! d_m = (1/L) int s(x) x exp(i k_m (r_m + x)) dx (layer_dipole_weights).
         gd = odd_field_spectrum(L, M, r_m, x_a)
-        allocate(d_dip(dim))
-        d_dip = (0.0_dp, 0.0_dp)
-        do mm = -M, M
-            if (mm == 0) cycle
-            k = 2.0_dp*pi*real(mm, dp)/L
-            d_dip(mm + i0) = exp(com_unit*k*r_m)*real((-1)**abs(mm), dp)/(com_unit*k)
-        end do
+        d_dip = layer_dipole_weights(L, M, r_m, x_a)
         allocate(dip_row(2*dim))
         dip_row(1:dim) = 4.0_dp*pi/sol*matmul(d_dip, Kjphi)
         dip_row(dim+1:2*dim) = 4.0_dp*pi/sol*alpha*matmul(d_dip, KjB)
@@ -308,13 +306,35 @@ contains
         real(dp), intent(in) :: L, r_m, x_a
         integer, intent(in) :: M
         complex(dp) :: g(2*M + 1)
-        integer, parameter :: over = 32
         real(dp), allocatable :: x(:), sx(:)
         complex(dp) :: gp
-        real(dp) :: t, smean, k, h
-        integer :: n, j, mm
+        real(dp) :: smean, k
+        integer :: n, mm
 
-        if (x_a <= 0.0_dp .or. 2.0_dp*x_a >= L) error stop 'odd_field_spectrum: bad x_a'
+        call core_mask_samples(L, M, x_a, x, sx)
+        n = size(x)
+        smean = sum(sx)/real(n, dp)
+        sx = (sx - smean)/(1.0_dp - smean)            ! g'
+        g = (0.0_dp, 0.0_dp)
+        do mm = -M, M
+            if (mm == 0) cycle
+            k = 2.0_dp*pi*real(mm, dp)/L
+            gp = sum(sx*exp(-com_unit*k*(r_m + x)))/real(n, dp)
+            g(mm + M + 1) = gp/(com_unit*k)
+        end do
+    end function odd_field_spectrum
+
+    !> Smooth core mask s(x), x = r - r_m on an oversampled midpoint grid of
+    !> the period: s = 1 for |x| <= x_a, C-infinity step to 0 at |x| = L/2.
+    subroutine core_mask_samples(L, M, x_a, x, sx)
+        real(dp), intent(in) :: L, x_a
+        integer, intent(in) :: M
+        real(dp), allocatable, intent(out) :: x(:), sx(:)
+        integer, parameter :: over = 32
+        real(dp) :: t, h
+        integer :: n, j
+
+        if (x_a <= 0.0_dp .or. 2.0_dp*x_a >= L) error stop 'core mask: bad x_a'
         n = over*(2*M + 1)
         allocate(x(n), sx(n))
         h = L/real(n, dp)
@@ -329,22 +349,31 @@ contains
                 sx(j) = bump(1.0_dp - t)/(bump(1.0_dp - t) + bump(t))
             end if
         end do
-        smean = sum(sx)/real(n, dp)
-        sx = (sx - smean)/(1.0_dp - smean)            ! g'
-        g = (0.0_dp, 0.0_dp)
-        do mm = -M, M
-            if (mm == 0) cycle
-            k = 2.0_dp*pi*real(mm, dp)/L
-            gp = sum(sx*exp(-com_unit*k*(r_m + x)))/real(n, dp)
-            g(mm + M + 1) = gp/(com_unit*k)
-        end do
     contains
         pure real(dp) function bump(tt)
             real(dp), intent(in) :: tt
             bump = 0.0_dp
             if (tt > 0.0_dp) bump = exp(-1.0_dp/tt)
         end function bump
-    end function odd_field_spectrum
+    end subroutine core_mask_samples
+
+    !> Weights d_m with P/L = sum_m d_m j_m, P = int s(x) x j dx the masked
+    !> dipole moment of j = sum_m j_m exp(i k_m r) about r_m (x = r - r_m).
+    function layer_dipole_weights(L, M, r_m, x_a) result(d)
+        use constants_m, only: pi, com_unit
+        real(dp), intent(in) :: L, r_m, x_a
+        integer, intent(in) :: M
+        complex(dp) :: d(2*M + 1)
+        real(dp), allocatable :: x(:), sx(:)
+        real(dp) :: k
+        integer :: mm
+
+        call core_mask_samples(L, M, x_a, x, sx)
+        do mm = -M, M
+            k = 2.0_dp*pi*real(mm, dp)/L
+            d(mm + M + 1) = sum(sx*x*exp(com_unit*k*(r_m + x)))/real(size(x), dp)
+        end do
+    end function layer_dipole_weights
 
     !> Weights w_m with int_{r_m-x_a}^{r_m+x_a} f r dr = sum_m w_m f_m for
     !> f = sum_m f_m exp(i k_m r).

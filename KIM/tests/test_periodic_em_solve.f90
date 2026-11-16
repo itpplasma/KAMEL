@@ -17,6 +17,9 @@ program test_periodic_em_solve
     !!           [psi f(x) - S delta^2 erf(x/(sqrt(2) delta))],
     !!     error O(eps^2).
     !! (f) outer_slope_amplitude satisfies both matching conditions.
+    !! (g) A current layer at the period edge (x_e = L/2 - a, next to the return
+    !!     sheet) must not tilt the core field: the remaining odd slope is the
+    !!     periodic one of the pair (lever arm ~ a), not the unmasked L/2 - a.
     use KIM_kinds_m, only: dp
     use constants_m, only: pi, sol, com_unit
     use periodic_solve_m, only: solve_periodic, solve_periodic_em, reconstruct_delta_phi, &
@@ -33,6 +36,7 @@ program test_periodic_em_solve
     call test_odd_field()
     call test_thin_layer_slope()
     call test_matching_algebra()
+    call test_edge_current()
 
     if (failures > 0) then
         print *, failures, ' failures'
@@ -280,5 +284,43 @@ contains
             abs(p*(u1 + sol*r/(4.0_dp*pi)*dprime*psi_unit) - target*sol/(2.0_dp*pi)) &
             /(target*sol/(2.0_dp*pi)), 1.0e-13_dp)
     end subroutine test_matching_algebra
+
+    subroutine test_edge_current()
+        integer, parameter :: M = 64, dim = 2*M + 1
+        real(dp), parameter :: L = 8.0_dp, rm = 55.0_dp, x_a = 2.0_dp, delta = 0.1_dp
+        real(dp), parameter :: ks = 1.0e-3_dp, a = 0.3_dp, eps = 1.0e-3_dp
+        complex(dp) :: Kphi(dim, dim), KB(dim, dim), Kjphi(dim, dim), KjB(dim, dim)
+        complex(dp), allocatable :: Phi_m(:), Br_m(:)
+        complex(dp) :: shat, br(2), slope_A
+        real(dp) :: sigma0, kq, xe, j_edge, lever
+        integer :: i, j, info
+
+        xe = 0.5_dp*L - a
+        sigma0 = eps*sol/(2.0_dp*pi*ks*sqrt(2.0_dp*pi)*delta*x_a)
+        Kphi = (0.0_dp, 0.0_dp)
+        do i = 1, dim
+            Kphi(i, i) = (1.0_dp, 0.0_dp)
+        end do
+        KB = (0.0_dp, 0.0_dp)
+        Kjphi = (0.0_dp, 0.0_dp)
+        do i = -M, M
+            do j = -M, M
+                kq = 2.0_dp*pi*real(i - j, dp)/L
+                shat = sigma0*sqrt(2.0_dp*pi)*delta/L*exp(-0.5_dp*(kq*delta)**2) &
+                    *exp(-com_unit*kq*(rm + xe))
+                KjB(i + M + 1, j + M + 1) = shat
+            end do
+        end do
+        call solve_periodic_em(Kphi, KB, Kjphi, KjB, L, M, rm, x_a, ks, (1.0_dp, 0.0_dp), &
+            PERIODIC_PSI_EXTRAPOLATED, Phi_m, Br_m, info)
+        if (info /= 0) error stop 'edge current: solve failed'
+        br = reconstruct_delta_phi(Br_m, L, M, [rm - x_a, rm + x_a])
+        slope_A = (br(2) - br(1))/(2.0_dp*x_a)/(com_unit*ks)
+        ! first-order edge-layer current J = int j dr = sigma0 sqrt(2 pi) delta (Br = 1)
+        j_edge = sigma0*sqrt(2.0_dp*pi)*delta
+        lever = abs(slope_A)*L/(4.0_dp*pi/sol*j_edge)
+        call check('edge current: lever arm of core slope ~ a (not L/2 - a)', &
+            abs(lever - a), 0.1_dp)
+    end subroutine test_edge_current
 
 end program test_periodic_em_solve

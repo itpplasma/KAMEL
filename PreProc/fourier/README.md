@@ -16,12 +16,14 @@ files are downloaded automatically during CMake configuration.
 
 ## Building
 
+fouriermodes is built as part of KAMEL. From the KAMEL root:
+
 ```bash
-make
+make PreProc
 ```
 
-This yields `build/fouriermodes.x` and the static helper library
-`build/lib/libfouriermodes.a`.  All modules write their unformatted Fortran
+This yields `build/install/bin/fouriermodes.x` and the static helper library
+`build/PreProc/fourier/lib/libfouriermodes.a`.  All modules write their unformatted Fortran
 records in the current working directory, so run the executable from a folder
 that contains the input files described below.
 

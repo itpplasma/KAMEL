@@ -1,23 +1,10 @@
-# When built standalone, this sets up the project
-# When built as subdirectory of KAMEL, these are already set
-if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
-    cmake_minimum_required(VERSION 3.24)
-    project(fouriermodes LANGUAGES Fortran)
-    set(FOURIER_STANDALONE TRUE)
-else()
-    set(FOURIER_STANDALONE FALSE)
-endif()
+# Built as part of KAMEL only: kamel_equil and libneo come from the top level.
 
 set(src ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(objs ${CMAKE_CURRENT_BINARY_DIR}/OBJS/)
 set(lib ${CMAKE_CURRENT_BINARY_DIR}/lib/)
 
 set(CMAKE_Fortran_MODULE_DIRECTORY "${objs}")
-
-if(FOURIER_STANDALONE)
-    include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/ItpDeps.cmake)
-    include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/DependencyPins.cmake)
-endif()
 
 # Source files - equilibrium tracing (mag, rhs1, RK4D) now comes from kamel_equil
 set(source_files
@@ -36,19 +23,14 @@ set_target_properties(fouriermodes PROPERTIES
     Fortran_MODULE_DIRECTORY ${objs}
 )
 
-# Link dependencies - kamel_equil provides mag, rhs1, RK4D for equilibrium tracing
-if(TARGET kamel_equil)
-    target_link_libraries(fouriermodes PUBLIC
-        kamel_equil
-        LIBNEO::magfie
-    )
-    target_include_directories(fouriermodes PUBLIC
-        ${KAMEL_EQUIL_INCLUDE_DIRS}
-    )
-else()
-    # Standalone build - need to build kamel_equil separately or link directly to libneo
-    message(FATAL_ERROR "kamel_equil target not found. Build fouriermodes as part of KAMEL or ensure kamel_equil is available.")
-endif()
+# kamel_equil provides mag, rhs1 and RK4D for equilibrium tracing.
+target_link_libraries(fouriermodes PUBLIC
+    kamel_equil
+    LIBNEO::magfie
+)
+target_include_directories(fouriermodes PUBLIC
+    ${KAMEL_EQUIL_INCLUDE_DIRS}
+)
 
 add_executable(fouriermodes.x ${src}/fouriermodes.f90)
 target_link_libraries(fouriermodes.x PUBLIC fouriermodes)

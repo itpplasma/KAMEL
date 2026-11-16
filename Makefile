@@ -24,8 +24,8 @@ KiLCA: build/build.ninja
 QL-Balance: build/build.ninja
 	cmake --build build --config $(CONFIG) --target ql-balance.x
 
-PreProc:
-	$(MAKE) -C PreProc/fourier
+PreProc: build/build.ninja
+	cmake --build build --config $(CONFIG) --target fouriermodes.x
 
 test: ninja
 	ctest --test-dir build --stop-on-failure --output-on-failure --no-label-summary

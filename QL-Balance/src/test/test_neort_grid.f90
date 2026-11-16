@@ -1,6 +1,6 @@
 program test_neort_grid
     use iso_fortran_env, only: dp => real64
-    use neort_interface, only: calculate_s_tor, read_equil_file
+    use neort_interface, only: calculate_s_tor, poloidal_flux_problem, read_equil_file
     use control_mod, only: equil_path
 
     implicit none
@@ -11,6 +11,7 @@ program test_neort_grid
     num_failed = 0
     call test_s_is_flux_over_boundary_flux()
     call test_equil_file_with_seven_columns()
+    call test_poloidal_flux_consistency()
 
     if (num_failed > 0) then
         print '(A,I0)', "FAILED assertions: ", num_failed
@@ -59,6 +60,25 @@ contains
         open (newunit=iunit, file=equil_path, status="old")
         close (iunit, status="delete")
     end subroutine test_equil_file_with_seven_columns
+
+    subroutine test_poloidal_flux_consistency()
+        ! dpsi_pol/ds is signed: the Boozer file and KAMEL's equilibrium must
+        ! share the toroidal orientation and agree in magnitude.
+        real(dp), dimension(3) :: neort, kamel
+
+        neort = [-1.0e6_dp, -2.0e6_dp, -4.0e6_dp]
+        kamel = neort * 1.02_dp
+        call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) == 0, &
+                         "2 % deviation accepted")
+
+        kamel(2) = -2.5e6_dp
+        call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) > 0, &
+                         "25 % deviation rejected")
+
+        kamel = -neort
+        call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) > 0, &
+                         "opposite orientation rejected")
+    end subroutine test_poloidal_flux_consistency
 
     subroutine assert_true(condition, label)
         logical, intent(in) :: condition

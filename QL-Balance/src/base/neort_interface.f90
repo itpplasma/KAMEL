@@ -22,6 +22,8 @@ module neort_interface
     public :: calculate_s_tor
     public :: prepare_plasma_data_for_neort
     public :: prepare_profile_data_for_neort
+    public :: dpsi_pol_dr
+    public :: poloidal_flux_problem
     public :: read_equil_file
     public :: read_neort_meta_config
     public :: meta_config_neort_problem
@@ -266,7 +268,7 @@ contains
     !>             Column 2: toroidal Mach number M_t [dimensionless]
     !> @param[in] R0 major radius NEO-RT uses to turn M_t back into Omega_tE [cm]
     subroutine prepare_profile_data_for_neort(profile_data, r, s_tor, R0)
-        use baseparam_mod, only: am, btor, c, p_mass
+        use baseparam_mod, only: am, c, p_mass
         use grid_mod, only: rb, rc
         use plasma_parameters, only: params, qsaf
         use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
@@ -323,7 +325,7 @@ contains
         real(dp), dimension(:), intent(in) :: s_tor
         real(dp), intent(in) :: R0
 
-        real(dp) :: E_r, T_i, m_i, vth, dpsi_pol_dr, Omega_tE, M_t
+        real(dp) :: E_r, T_i, m_i, vth, Omega_tE, M_t
         real(dp), dimension(:), allocatable :: E_r_boundary
         real(dp), dimension(:, :), allocatable :: E_r_coeffs, q_coeffs
         real(dp), dimension(:, :), allocatable :: Ti_of_r_coeffs
@@ -365,8 +367,7 @@ contains
 
             ! Calculate electric precession frequency from the accepted-state field.
             E_r = E_r_splined(i, 1)
-            dpsi_pol_dr = r(i) * btor / q_splined(i, 1)
-            Omega_tE = c * E_r / dpsi_pol_dr
+            Omega_tE = c * E_r / dpsi_pol_dr(r(i), q_splined(i, 1))
 
             ! Calculate thermal velocity [Albert2016, above (51)]
             ! Source detail: Albert2016, PDF p. 14, text before Eq. (51).
@@ -383,6 +384,44 @@ contains
             profile_data(i, 2) = M_t
         end do
     end subroutine prepare_profile_data_for_neort
+
+    !> @brief Poloidal flux derivative psi'_pol = dpsi_pol/dr = r B_ref / q [G cm]
+    !> @details KAMEL's effective radius is r = sqrt(2 psi_tor / B_ref) with the signed
+    !>          reference field btor, and q = psi'_tor / psi'_pol; fluxes are per
+    !>          radian. See the derivation in prepare_profile_data_for_neort.
+    elemental function dpsi_pol_dr(r, q)
+        use baseparam_mod, only: btor
+
+        real(dp), intent(in) :: r, q
+        real(dp) :: dpsi_pol_dr
+
+        dpsi_pol_dr = r * btor / q
+    end function dpsi_pol_dr
+
+    !> @brief Describe a mismatch between NEO-RT's and KAMEL's dpsi_pol/ds; empty if consistent
+    !> @details Both derivatives are signed. Opposite signs mean the Boozer file and
+    !>          KAMEL's equilibrium have opposite toroidal orientation; a magnitude
+    !>          mismatch means they, or the s <-> r mapping between them, do not
+    !>          describe the same equilibrium. Either would silently flip or scale
+    !>          Omega_tE and the NTV torque.
+    function poloidal_flux_problem(dpsi_pol_ds_neort, dpsi_pol_ds_kamel) result(problem)
+        real(dp), dimension(:), intent(in) :: dpsi_pol_ds_neort, dpsi_pol_ds_kamel
+        character(len=256) :: problem
+
+        real(dp), parameter :: tolerance = 0.1_dp
+        real(dp) :: mismatch
+
+        problem = ""
+        if (any(dpsi_pol_ds_neort * dpsi_pol_ds_kamel <= 0.0_dp)) then
+            problem = "NEO-RT Boozer file and KAMEL equilibrium disagree on the sign of dpsi_pol/ds"
+            return
+        end if
+        mismatch = maxval(abs(dpsi_pol_ds_neort - dpsi_pol_ds_kamel) / abs(dpsi_pol_ds_kamel))
+        if (mismatch > tolerance) then
+            write (problem, '(A,F6.3)') &
+                "NEO-RT Boozer and KAMEL dpsi_pol/ds differ, relative mismatch ", mismatch
+        end if
+    end function poloidal_flux_problem
 
     !> @brief Read effective radius and toroidal flux from the equilibrium file
     !> @details Reads the equil_r_q_psi.dat file named by the balance configuration:

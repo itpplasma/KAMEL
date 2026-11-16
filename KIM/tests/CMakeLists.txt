@@ -365,6 +365,25 @@ set_tests_properties(test_periodic_config_bparallel_malformed
                      test_periodic_config_bparallel_unterminated
                      PROPERTIES WILL_FAIL TRUE)
 
+add_executable(test_kernel_taper_config
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_kernel_taper_config.f90)
+set_target_properties(test_kernel_taper_config PROPERTIES
+                      OUTPUT_NAME test_kernel_taper_config.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_kernel_taper_config
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+file(READ ${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml taper_nml)
+string(REPLACE "kernel_taper_skip_threshold = 1.0d-6" "kernel_taper_skip_threshold = 6.0"
+       taper_nml_invalid "${taper_nml}")
+file(WRITE ${CMAKE_BINARY_DIR}/tests/KIM_config_taper_invalid.nml "${taper_nml_invalid}")
+add_test(NAME test_kernel_taper_config_valid
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_kernel_taper_config.x
+                 ${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml)
+add_test(NAME test_kernel_taper_config_invalid
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_kernel_taper_config.x
+                 ${CMAKE_BINARY_DIR}/tests/KIM_config_taper_invalid.nml)
+set_tests_properties(test_kernel_taper_config_invalid PROPERTIES WILL_FAIL TRUE)
+
 add_executable(test_flr2_tridiagonal
                ${CMAKE_SOURCE_DIR}/KIM/tests/test_flr2_tridiagonal.f90)
 set_target_properties(test_flr2_tridiagonal PROPERTIES

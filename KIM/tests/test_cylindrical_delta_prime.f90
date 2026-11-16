@@ -5,7 +5,7 @@ program test_cylindrical_delta_prime
     !! References: analytic Bessel solutions without the current term; with it,
     !! the independent Python implementation (scipy DOP853, natural splines,
     !! rmp_integral_ion_tensor_kamel/scripts/delta_prime_cyl.py).
-    use QLBalance_kinds, only: dp
+    use KIM_kinds_m, only: dp
     use cylindrical_delta_prime_m
     use fortnum_special_bessel, only: bessel_in, bessel_kn
     implicit none
@@ -38,6 +38,11 @@ program test_cylindrical_delta_prime
         - (bessel_in(m - 1, x)/bessel_in(m, x) - m/x))
     call cylindrical_delta_prime(r, B0z, B0th, R0, m, n, res2, include_current=.false.)
     call check('vacuum, no wall', res2%delta_prime, analytic, 5.0e-6_dp)
+    ! one-sided values: k K_m'/K_m (outer side), k I_m'/I_m (inner side)
+    call check('vacuum, right side', res2%delta_prime_right, &
+        k*(-bessel_kn(m - 1, x)/bessel_kn(m, x) - m/x), 5.0e-6_dp)
+    call check('vacuum, left side', res2%delta_prime_left, &
+        k*(bessel_in(m - 1, x)/bessel_in(m, x) - m/x), 5.0e-6_dp)
 
     ! no current term, ideal wall at 80 cm
     rw = 80.0_dp
@@ -50,6 +55,8 @@ program test_cylindrical_delta_prime
 
     ! with the equilibrium current (Python reference, same eps)
     call check('current, no wall', res%delta_prime, -2.282741958666485e-01_dp, 1.0e-7_dp)
+    call check('one-sided difference', res%delta_prime_right - res%delta_prime_left, &
+        res%delta_prime, 1.0e-14_dp)
     call cylindrical_delta_prime(r, B0z, B0th, R0, m, n, res2, eps=1.0e-4_dp)
     call check('current, eps 1e-4', res2%delta_prime, -2.282722764238130e-01_dp, 1.0e-7_dp)
     call check('eps convergence', res2%delta_prime, res%delta_prime, 2.0e-5_dp)

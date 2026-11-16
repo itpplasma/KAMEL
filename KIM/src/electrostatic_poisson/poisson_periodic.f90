@@ -219,7 +219,7 @@ module rt_electrostatic_periodic_m
     subroutine compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
             r_out, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, &
             dPhi_dr, jrad, phi_spectrum, Bparallel_const, rho_Bparallel, &
-            rho_Bparallel_species, Br_spectrum, ks_res)
+            rho_Bparallel_species, Br_spectrum, ks_res, outer_matching, outer_diagnostics)
         use KIM_kinds_m, only: dp
         use species_m, only: plasma
         use periodic_background_m, only: build_periodic_plasma
@@ -227,7 +227,9 @@ module rt_electrostatic_periodic_m
             assemble_periodic_bparallel_matrices
         use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, &
             reconstruct_delta_phi_derivative, reconstruct_jpar, reconstruct_jrad, &
-            solve_periodic_em, PERIODIC_PSI_EXTRAPOLATED, PERIODIC_PSI_RESONANCE
+            solve_periodic_em, PERIODIC_PSI_EXTRAPOLATED, PERIODIC_PSI_RESONANCE, &
+            odd_field_spectrum, core_moment_weights, outer_slope_amplitude
+        use constants_m, only: sol, com_unit
         use config_m, only: periodic_match_global_kernel_approximations, &
             periodic_calculate_radial_current, periodic_electromagnetic, &
             periodic_em_psi_definition
@@ -252,6 +254,15 @@ module rt_electrostatic_periodic_m
         !> at m = 0 only; electromagnetic: solved) and ks at the resonance.
         complex(dp), allocatable, intent(out), optional :: Br_spectrum(:)
         real(dp), intent(out), optional :: ks_res
+        !> Two-condition outer matching (EM only): [Delta', D_m, I, r_res] with
+        !> Delta' = jump, D_m = mean one-sided b/a + c0 ln(dx_asis), I the
+        !> target current (c = 1 units). The returned solution is the response
+        !> to Br_const at the matched odd slope S/p; outer_diagnostics returns
+        !> [p, S/p, u1, u2] (outer_slope_amplitude).
+        real(dp), intent(in), optional :: outer_matching(4)
+        complex(dp), intent(out), optional :: outer_diagnostics(4)
+        complex(dp), allocatable :: g_m(:), Phi_S(:), Br_S(:), w_mom(:), j1(:), j2(:)
+        complex(dp) :: u1, u2, p_amp, slope_per_p, psi_unit
 
         complex(dp), allocatable :: Br_m(:)
         real(dp) :: ks_rm
@@ -330,6 +341,9 @@ module rt_electrostatic_periodic_m
         end if
         ks_rm = interp_plasma_ks(rm)
         if (present(ks_res)) ks_res = ks_rm
+        if (present(outer_matching) .and. (bparallel_active .or. &
+                .not. periodic_electromagnetic)) &
+            error stop 'outer matching requires the electromagnetic solve without Bparallel drive'
         if (periodic_electromagnetic) then
             psi_def = PERIODIC_PSI_EXTRAPOLATED
             if (trim(periodic_em_psi_definition) == 'resonance') psi_def = PERIODIC_PSI_RESONANCE
@@ -337,6 +351,26 @@ module rt_electrostatic_periodic_m
                 call solve_periodic_em(Kphi, KB, Kjphi, KjB, L, M, rm, dx_asis, ks_rm, &
                     Br_const, psi_def, Phi_m, Br_m, info, KBparallel=KBparallel, &
                     KjBparallel=KjBparallel, Bparallel_const=Bparallel_drive)
+            else if (present(outer_matching)) then
+                if (psi_def /= PERIODIC_PSI_EXTRAPOLATED) &
+                    error stop 'outer matching requires the extrapolated psi'
+                g_m = odd_field_spectrum(L, M, rm, dx_asis)
+                call solve_periodic_em(Kphi, KB, Kjphi, KjB, L, M, rm, dx_asis, ks_rm, &
+                    Br_const, psi_def, Phi_m, Br_m, info, g_m=g_m, Phi_S=Phi_S, Br_S=Br_S)
+                if (info /= 0) return
+                w_mom = core_moment_weights(L, M, rm, dx_asis)
+                j1 = matmul(Kjphi, Phi_m) + matmul(KjB, Br_m)
+                j2 = matmul(Kjphi, Phi_S) + matmul(KjB, Br_S)
+                u1 = sum(w_mom*j1)
+                u2 = sum(w_mom*j2)
+                psi_unit = Br_const/(com_unit*ks_rm)
+                call outer_slope_amplitude(u1, u2, psi_unit, outer_matching(1), &
+                    outer_matching(2), outer_matching(3), outer_matching(4), sol, &
+                    p_amp, slope_per_p)
+                Phi_m = Phi_m + slope_per_p*Phi_S
+                Br_m = Br_m + slope_per_p*Br_S
+                if (present(outer_diagnostics)) &
+                    outer_diagnostics = [p_amp, slope_per_p, u1, u2]
             else
                 call solve_periodic_em(Kphi, KB, Kjphi, KjB, L, M, rm, dx_asis, ks_rm, &
                     Br_const, psi_def, Phi_m, Br_m, info)
@@ -604,8 +638,13 @@ module rt_electrostatic_periodic_m
                             periodic_match_global_kernel_approximations, &
                             periodic_Bparallel_ratio, turn_off_electrons, turn_off_ions, &
                             output_path, periodic_calculate_ion_tensor, &
-                            periodic_electromagnetic, periodic_em_psi_definition
+                            periodic_electromagnetic, periodic_em_psi_definition, &
+                            periodic_outer_slope, periodic_outer_target_current, &
+                            periodic_outer_wall_radius
         use periodic_solve_m, only: reconstruct_delta_phi
+        use equilibrium_m, only: B0z_eq => B0z, B0th_eq => B0th
+        use cylindrical_delta_prime_m, only: cylindrical_delta_prime, delta_prime_result_t, &
+            DELTA_PRIME_OK
         use setup_m, only: Br_boundary_re, Br_boundary_im, m_mode, n_mode, R0, omega
         use species_m, only: plasma
         use grid_m, only: rg_grid
@@ -631,6 +670,9 @@ module rt_electrostatic_periodic_m
         real(dp), allocatable :: r_win(:)
         real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max
         integer :: M, n_rg, info, i, reference_species, sp
+        type(delta_prime_result_t) :: outer
+        real(dp) :: outer_matching(4), d_mean
+        complex(dp) :: outer_diag(4)
 
         ! 1. Locate the resonant surface rm = r_res (q = -m/n) on the global plasma.
         call kim_prepare_resonances
@@ -639,6 +681,22 @@ module rt_electrostatic_periodic_m
             error stop "electrostatic_periodic: resonance not found"
         end if
         rm = r_res
+
+        ! 1b. Outer region (two-condition matching): one-sided Delta' from the
+        ! global equilibrium, before build_periodic_plasma redirects the plasma
+        ! onto the window (same inputs as QL-Balance's Delta' matching).
+        if (periodic_outer_slope) then
+            if (.not. (periodic_outer_target_current > 0.0_dp)) &
+                error stop 'electrostatic_periodic: outer slope needs a positive target current'
+            if (size(plasma%r_grid) /= size(B0z_eq) .or. size(B0th_eq) /= size(B0z_eq)) &
+                error stop 'electrostatic_periodic: equilibrium and plasma grids differ'
+            call cylindrical_delta_prime(plasma%r_grid, B0z_eq, B0th_eq, R0, m_mode, n_mode, &
+                outer, r_wall=periodic_outer_wall_radius)
+            if (outer%status /= DELTA_PRIME_OK) then
+                print *, "Error (electrostatic_periodic): Delta' status ", outer%status
+                error stop "electrostatic_periodic: outer Delta' failed"
+            end if
+        end if
 
         ! 2. Select the largest Larmor radius among the species that the FP
         ! kernel will actually assemble. This keeps the full response of every
@@ -672,6 +730,15 @@ module rt_electrostatic_periodic_m
                  " dx_tr [cm] = ", dx_tr, " L [cm] = ", L
         print *, "electrostatic_periodic: k_max [1/cm] = ", k_max, &
                  " M = ", M, " n_rg = ", n_rg
+        if (periodic_outer_slope) then
+            d_mean = 0.5_dp*(outer%delta_prime_right + outer%delta_prime_left) &
+                + outer%c0*log(dx_asis)
+            outer_matching = [outer%delta_prime, d_mean, periodic_outer_target_current, rm]
+            print *, "electrostatic_periodic: outer Delta'*r = ", outer%delta_prime*rm, &
+                " right*r = ", outer%delta_prime_right*rm, " left*r = ", &
+                outer%delta_prime_left*rm, " c0*r = ", outer%c0*rm, " D_m*r = ", d_mean*rm, &
+                " r_res(outer) = ", outer%r_res
+        end if
         print *, "electrostatic_periodic: match global kernel approximations = ", &
                  periodic_match_global_kernel_approximations
         call write_periodic_scale_metadata(reference_species, &
@@ -692,12 +759,25 @@ module rt_electrostatic_periodic_m
         ! periodic core. It does NOT error stop on a singular solve; do it here.
         Br_const = cmplx(Br_boundary_re, Br_boundary_im, dp)
         Bparallel_const = periodic_Bparallel_ratio * Br_const
-        call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
-            r_win, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, &
-            dPhi_dr=dPhi_dr, jrad=jrad, phi_spectrum=phi_spectrum, &
-            Bparallel_const=Bparallel_const, rho_Bparallel=rho_Bparallel, &
-            rho_Bparallel_species=rho_Bparallel_species, Br_spectrum=br_spectrum, &
-            ks_res=ks_rm)
+        if (.not. periodic_outer_slope) then
+            call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
+                r_win, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, &
+                dPhi_dr=dPhi_dr, jrad=jrad, phi_spectrum=phi_spectrum, &
+                Bparallel_const=Bparallel_const, rho_Bparallel=rho_Bparallel, &
+                rho_Bparallel_species=rho_Bparallel_species, Br_spectrum=br_spectrum, &
+                ks_res=ks_rm)
+        else
+            call compute_periodic_delta_phi(rm, dx_asis, dx_tr, M, n_rg, Br_const, &
+                r_win, dPhi, info, jpar, jpar_species, rho_B, rho_B_species, &
+                dPhi_dr=dPhi_dr, jrad=jrad, phi_spectrum=phi_spectrum, &
+                Bparallel_const=Bparallel_const, rho_Bparallel=rho_Bparallel, &
+                rho_Bparallel_species=rho_Bparallel_species, Br_spectrum=br_spectrum, &
+                ks_res=ks_rm, outer_matching=outer_matching, outer_diagnostics=outer_diag)
+            if (info == 0) print *, "electrostatic_periodic: outer slope matching p = ", &
+                outer_diag(1), " S/p [A per cm] = ", outer_diag(2), " u1 = ", outer_diag(3), &
+                " u2 = ", outer_diag(4), " S x_a/psi = ", &
+                outer_diag(2)*dx_asis*com_unit*ks_rm/Br_const
+        end if
         if (info /= 0) then
             print *, "Error (electrostatic_periodic): solve_periodic failed, info = ", info
             error stop "electrostatic_periodic: periodic solve failed"

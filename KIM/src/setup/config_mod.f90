@@ -70,6 +70,15 @@ module config_m
     ! periodic_em_psi_definition ('extrapolated' or 'resonance').
     logical :: periodic_electromagnetic = .false.
     character(len=16) :: periodic_em_psi_definition = 'extrapolated'
+    ! Two-condition matching to the cylindrical outer region (requires
+    ! periodic_electromagnetic and the 'extrapolated' psi): the k_r = 0
+    ! amplitude AND the odd outer slope (coil-driven, fully shielded part plus
+    ! the one-sided Delta') are imposed. periodic_outer_target_current is the
+    ! toroidal target current I (c = 1 units, as QL-Balance I_par_toroidal; set
+    ! by QL-Balance before each solve); periodic_outer_wall_radius <= 0: no wall.
+    logical :: periodic_outer_slope = .false.
+    real(dp) :: periodic_outer_target_current = -1.0_dp
+    real(dp) :: periodic_outer_wall_radius = -1.0_dp
     ! Reproduce the global FEM kernel approximations for direct comparisons:
     ! drop k_s^2 from Bessel arguments and take electrons in the zero-FLR limit.
     ! The forced-periodic solver uses its full Fourier kernel by default.

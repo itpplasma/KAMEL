@@ -58,7 +58,9 @@ subroutine kim_read_config
                         periodic_kmax_scale, periodic_n_rg, &
                         periodic_match_global_kernel_approximations, periodic_Bparallel_ratio, &
                         periodic_calculate_radial_current, periodic_calculate_ion_tensor, &
-                        periodic_electromagnetic, periodic_em_psi_definition
+                        periodic_electromagnetic, periodic_em_psi_definition, &
+                        periodic_outer_slope, periodic_outer_target_current, &
+                        periodic_outer_wall_radius
 
     namelist /KIM_FLR2/ flr2_electron_flr, flr2_ion_flr, &
                         flr2_electron_potential, flr2_ion_potential, &
@@ -106,6 +108,9 @@ subroutine kim_read_config
     periodic_calculate_ion_tensor = .false.
     periodic_electromagnetic = .false.
     periodic_em_psi_definition = 'extrapolated'
+    periodic_outer_slope = .false.
+    periodic_outer_target_current = -1.0_dp
+    periodic_outer_wall_radius = -1.0_dp
     periodic_group_present = namelist_header_present(77, 'KIM_PERIODIC')
     periodic_iomsg = ''
     rewind(unit = 77)
@@ -120,6 +125,10 @@ subroutine kim_read_config
             trim(periodic_em_psi_definition) /= 'resonance') then
         write(*,*) 'Invalid periodic_em_psi_definition: ', trim(periodic_em_psi_definition)
         error stop 'periodic_em_psi_definition must be extrapolated or resonance'
+    end if
+    if (periodic_outer_slope .and. (.not. periodic_electromagnetic .or. &
+            trim(periodic_em_psi_definition) /= 'extrapolated')) then
+        error stop 'periodic_outer_slope requires periodic_electromagnetic and extrapolated psi'
     end if
 
     ! Optional standalone-FLR2 term switches. KIM's background and shared

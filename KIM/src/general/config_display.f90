@@ -131,6 +131,8 @@ contains
                 periodic_electromagnetic, width)
             if (periodic_electromagnetic) call print_config_line('Periodic EM psi', &
                 trim(periodic_em_psi_definition), width)
+            if (periodic_electromagnetic) call print_bool_line('Periodic outer slope', &
+                periodic_outer_slope, width)
         end if
         if (trim(type_of_run) == "WKB_dispersion") then
             call print_config_line('WKB Dispersion Mode', trim(WKB_dispersion_mode), width)

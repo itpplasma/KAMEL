@@ -1215,6 +1215,17 @@ add_test(NAME test_periodic_em_solve
 set_tests_properties(test_periodic_em_solve PROPERTIES
                      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
+# Cylindrical outer-region Delta' (one-sided values for the outer-slope matching).
+add_executable(test_cylindrical_delta_prime ${CMAKE_SOURCE_DIR}/KIM/tests/test_cylindrical_delta_prime.f90)
+set_target_properties(test_cylindrical_delta_prime PROPERTIES
+                        OUTPUT_NAME test_cylindrical_delta_prime.x
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_cylindrical_delta_prime KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_cylindrical_delta_prime
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_cylindrical_delta_prime.x)
+set_tests_properties(test_cylindrical_delta_prime PROPERTIES
+                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
 # Lifecycle/contract tests for the kim_solver_m API seam.
 add_executable(test_kim_solver ${CMAKE_SOURCE_DIR}/KIM/tests/test_kim_solver.f90)
 set_target_properties(

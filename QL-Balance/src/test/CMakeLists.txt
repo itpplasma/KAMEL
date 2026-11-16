@@ -184,9 +184,6 @@ set_tests_properties(
 add_executable(test_transport_smoothing.x test_transport_smoothing.f90)
 target_link_libraries(test_transport_smoothing.x PUBLIC ql-balance_lib)
 add_fortran_test(test_transport_smoothing)
-add_executable(test_cylindrical_delta_prime.x test_cylindrical_delta_prime.f90)
-target_link_libraries(test_cylindrical_delta_prime.x PUBLIC ql-balance_lib)
-add_fortran_test(test_cylindrical_delta_prime)
 
 add_executable(test_periodic_current_normalization.x test_periodic_current_normalization.f90)
 target_link_libraries(test_periodic_current_normalization.x PUBLIC ql-balance_lib)

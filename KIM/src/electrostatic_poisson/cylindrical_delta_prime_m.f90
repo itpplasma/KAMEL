@@ -13,11 +13,14 @@ module cylindrical_delta_prime_m
     !! vacuum (A ~ K_m(k r), no wall) or vanishes on an ideal wall at r_wall.
     !! Near the resonance kp(r_res) = 0, C ~ c0/x with x = r - r_res, and each
     !! side is A = a (1 + c0 x ln|x|) + b x; Delta' = b_R/a_R - b_L/a_L [1/cm].
+    !! The one-sided values delta_prime_right = b_R/a_R and delta_prime_left =
+    !! b_L/a_L are returned as well (x in cm: their mean depends on the length
+    !! unit through c0 ln|x|; only the difference is unit-free).
     !!
     !! The equilibrium enters only through natural cubic splines of r*B0th and
     !! B0z on the given grid. Module state holds the splines during one call;
     !! the routine is not thread-safe.
-    use QLBalance_kinds, only: dp
+    use KIM_kinds_m, only: dp
     use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
     implicit none
     private
@@ -29,6 +32,8 @@ module cylindrical_delta_prime_m
 
     type, public :: delta_prime_result_t
         real(dp) :: delta_prime = 0.0_dp   !! [1/cm]
+        real(dp) :: delta_prime_right = 0.0_dp  !! b_R/a_R [1/cm], x in cm
+        real(dp) :: delta_prime_left = 0.0_dp   !! b_L/a_L [1/cm], x in cm
         real(dp) :: r_res = 0.0_dp         !! kp(r_res) = 0 [cm]
         real(dp) :: ks_res = 0.0_dp        !! ks(r_res) [1/cm]
         real(dp) :: c0 = 0.0_dp            !! residue of C at r_res [1/cm]
@@ -126,9 +131,11 @@ contains
         end if
         yr = y_out(:, size(t_out))
 
-        result%delta_prime = small_over_large(yr, e, result%c0) &
-            - small_over_large(yl, -e, result%c0)
-        if (.not. ieee_is_finite(result%delta_prime)) then
+        result%delta_prime_right = small_over_large(yr, e, result%c0)
+        result%delta_prime_left = small_over_large(yl, -e, result%c0)
+        result%delta_prime = result%delta_prime_right - result%delta_prime_left
+        if (.not. ieee_is_finite(result%delta_prime_right) .or. &
+                .not. ieee_is_finite(result%delta_prime_left)) then
             result%status = DELTA_PRIME_ODE_FAILED
             return
         end if

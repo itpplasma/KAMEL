@@ -38,6 +38,7 @@ module periodic_solve_m
     public :: solve_periodic, reconstruct_delta_phi, reconstruct_delta_phi_derivative
     public :: dense_solve, reconstruct_jpar, reconstruct_jrad
     public :: solve_periodic_em, core_integral_weights
+    public :: odd_field_spectrum, core_moment_weights, outer_slope_amplitude
 
     integer, parameter, public :: PERIODIC_PSI_EXTRAPOLATED = 1
     integer, parameter, public :: PERIODIC_PSI_RESONANCE = 2
@@ -103,7 +104,13 @@ contains
     !>   -(k_m^2 + ks^2) A_m + (4 pi/c) (j_m - j_0 e_m) = 0,
     !>   e_m = exp(-i k_m (r_m + L/2)).
     !> The net window current L j_0 is returned by a compensating sheet at the
-    !> period boundary r_m + L/2 (inside the transition band). Inside the core
+    !> period boundary r_m + L/2 (inside the transition band). Likewise the
+    !> dipole moment P = int (r - r_m) j dr over the period: a periodic field
+    !> turns the step (4 pi/c) P that P produces between the far sides into a
+    !> uniform slope -(4 pi/c) P/L; the compensating odd field
+    !> +(4 pi/c) (P/L) g (g = r - r_m on the core, odd_field_spectrum; sources
+    !> in the transition band) removes it, so that the core sees the local
+    !> kink convolution of its current only. Inside the core
     !> the plasma current then produces its local field only (kink convolution,
     !> up to O((ks L)^2)); its far field belongs to the outer region and enters
     !> through the Delta' matching of the k_r = 0 amplitude in QL-Balance.
@@ -115,8 +122,17 @@ contains
     !>     requires the current layer to lie inside +-x_a);
     !>   PERIODIC_PSI_RESONANCE: A(r_m) = psi.
     !> With j = 0 both give Br = Br_ref (the electrostatic periodic solution).
+    !>
+    !> Optional outer odd field (g_m present): the external, current-free field
+    !> A_ext = S g(r), g = r - r_m on the core (odd_field_spectrum; its sources
+    !> lie in the transition band), is added to the field the plasma sees.
+    !> The solution above is then the S = 0 response, and Phi_S, Br_S return
+    !> the response to unit S (A units per cm) with psi = 0 and no Bparallel
+    !> drive; Br_S includes the external field itself. Both share one
+    !> factorization. The physical response is (Phi, Br) + S (Phi_S, Br_S).
     subroutine solve_periodic_em(Kphi, KB, Kjphi, KjB, L, M, r_m, x_a, ks, Br_ref, &
-            psi_definition, Phi_m, Br_m, info, KBparallel, KjBparallel, Bparallel_const)
+            psi_definition, Phi_m, Br_m, info, KBparallel, KjBparallel, Bparallel_const, &
+            g_m, Phi_S, Br_S)
         use constants_m, only: pi, sol, com_unit
 
         complex(dp), intent(in) :: Kphi(:,:), KB(:,:), Kjphi(:,:), KjB(:,:)
@@ -127,11 +143,17 @@ contains
         integer, intent(out) :: info
         complex(dp), intent(in), optional :: KBparallel(:,:), KjBparallel(:,:)
         complex(dp), intent(in), optional :: Bparallel_const
+        complex(dp), intent(in), optional :: g_m(:)
+        complex(dp), allocatable, intent(out), optional :: Phi_S(:), Br_S(:)
 
-        complex(dp), allocatable :: A(:,:), b(:), e(:), w_core(:), j_row(:)
-        complex(dp) :: alpha, bpar, jbpar0
+        complex(dp), allocatable :: A(:,:), b(:), e(:), w_core(:), j_row(:), bs(:), rhs(:,:)
+        complex(dp), allocatable :: jg(:), gd(:), d_dip(:), dip_row(:)
+        complex(dp) :: cdip
+        complex(dp) :: alpha, bpar, jbpar0, g_even
         real(dp) :: k
         integer :: dim, mm, im, i0, row
+        integer, allocatable :: ipiv(:)
+        logical :: slope
 
         if ((present(KBparallel) .neqv. present(Bparallel_const)) .or. &
                 (present(KjBparallel) .neqv. present(Bparallel_const))) then
@@ -145,6 +167,12 @@ contains
         if (psi_definition == PERIODIC_PSI_EXTRAPOLATED .and. &
                 (x_a <= 0.0_dp .or. 2.0_dp*x_a >= L)) then
             error stop 'solve_periodic_em: x_a must lie in (0, L/2)'
+        end if
+        slope = present(g_m)
+        if (slope .neqv. (present(Phi_S) .and. present(Br_S))) &
+            error stop 'solve_periodic_em: g_m requires Phi_S and Br_S'
+        if (slope) then
+            if (size(g_m) /= 2*M + 1) error stop 'solve_periodic_em: g_m has wrong size'
         end if
 
         dim = 2*M + 1
@@ -169,7 +197,22 @@ contains
         end do
         if (bpar /= (0.0_dp, 0.0_dp)) b(1:dim) = -4.0_dp*pi*bpar*KBparallel(:, i0)
 
-        ! Ampere rows m /= 0
+        ! Dipole compensation: cP = (4 pi/c) P/L = (4 pi/c) sum_m d_m j_m with
+        ! d_m = exp(i k_m r_m) (-1)^m/(i k_m) (m /= 0), d_0 = 0.
+        gd = odd_field_spectrum(L, M, r_m, x_a)
+        allocate(d_dip(dim))
+        d_dip = (0.0_dp, 0.0_dp)
+        do mm = -M, M
+            if (mm == 0) cycle
+            k = 2.0_dp*pi*real(mm, dp)/L
+            d_dip(mm + i0) = exp(com_unit*k*r_m)*real((-1)**abs(mm), dp)/(com_unit*k)
+        end do
+        allocate(dip_row(2*dim))
+        dip_row(1:dim) = 4.0_dp*pi/sol*matmul(d_dip, Kjphi)
+        dip_row(dim+1:2*dim) = 4.0_dp*pi/sol*alpha*matmul(d_dip, KjB)
+
+        ! Ampere rows m /= 0 for the plasma part A_p (A_p includes the dipole
+        ! compensation field cP g): -(k^2 + ks^2)(A_p - cP g) + (4 pi/c)(j - j_0 e) = 0
         do mm = -M, M
             if (mm == 0) cycle
             im = mm + i0
@@ -178,8 +221,10 @@ contains
             A(row, 1:dim) = 4.0_dp*pi/sol*(Kjphi(im, :) - e(im)*Kjphi(i0, :))
             A(row, dim+1:2*dim) = 4.0_dp*pi/sol*alpha*(KjB(im, :) - e(im)*KjB(i0, :))
             A(row, row) = A(row, row) - (k*k + ks*ks)
+            A(row, :) = A(row, :) + (k*k + ks*ks)*gd(im)*dip_row
             if (bpar /= (0.0_dp, 0.0_dp)) b(row) = -4.0_dp*pi/sol*bpar* &
-                (KjBparallel(im, i0) - e(im)*KjBparallel(i0, i0))
+                ((KjBparallel(im, i0) - e(im)*KjBparallel(i0, i0)) &
+                + (k*k + ks*ks)*gd(im)*sum(d_dip*KjBparallel(:, i0)))
         end do
 
         ! Row m = 0: outer amplitude psi = Br_ref/(i ks)
@@ -207,11 +252,149 @@ contains
             end if
         end select
 
-        call dense_solve(A, b, info)
+        if (.not. slope) then
+            call dense_solve(A, b, info)
+            if (info /= 0) return
+            Phi_m = b(1:dim)
+            Br_m = alpha*b(dim+1:2*dim)
+            return
+        end if
+
+        ! Unit-S right-hand side: the plasma part A_p solves the rows above with
+        ! the response to the external field alpha*g moved to the right.
+        allocate(bs(2*dim))
+        jg = alpha*matmul(KjB, g_m)                  ! plasma current driven by g
+        bs(1:dim) = -4.0_dp*pi*alpha*matmul(KB, g_m)
+        cdip = 4.0_dp*pi/sol*sum(d_dip*jg)
+        do mm = -M, M
+            if (mm == 0) cycle
+            im = mm + i0
+            k = 2.0_dp*pi*real(mm, dp)/L
+            bs(dim + im) = -4.0_dp*pi/sol*(jg(im) - e(im)*jg(i0)) - (k*k + ks*ks)*gd(im)*cdip
+        end do
+        row = dim + i0
+        select case (psi_definition)
+        case (PERIODIC_PSI_RESONANCE)
+            bs(row) = -sum(g_m*exp(com_unit*2.0_dp*pi*[(real(mm, dp), mm = -M, M)]/L*r_m))
+        case (PERIODIC_PSI_EXTRAPOLATED)
+            g_even = (0.0_dp, 0.0_dp)
+            do mm = -M, M
+                k = 2.0_dp*pi*real(mm, dp)/L
+                g_even = g_even + g_m(mm + i0)*0.5_dp*(exp(com_unit*k*(r_m + x_a)) &
+                    + exp(com_unit*k*(r_m - x_a)))
+            end do
+            bs(row) = -g_even - 2.0_dp*pi/sol*x_a*sum(w_core*jg)
+        end select
+
+        allocate(rhs(2*dim, 2), ipiv(2*dim))
+        rhs(:, 1) = b
+        rhs(:, 2) = bs
+        call zgesv(2*dim, 2, A, 2*dim, ipiv, rhs, 2*dim, info)
         if (info /= 0) return
-        Phi_m = b(1:dim)
-        Br_m = alpha*b(dim+1:2*dim)
+        Phi_m = rhs(1:dim, 1)
+        Br_m = alpha*rhs(dim+1:2*dim, 1)
+        Phi_S = rhs(1:dim, 2)
+        Br_S = alpha*(rhs(dim+1:2*dim, 2) + g_m)
     end subroutine solve_periodic_em
+
+    !> Fourier coefficients g_m of the odd external field profile g(r):
+    !> g = r - r_m on the core |r - r_m| <= x_a, g(r_m) = 0, odd about r_m,
+    !> periodic. g' = (s - <s>)/(1 - <s>), s = 1 on the core and a C-infinity
+    !> step to 0 at the period boundary across the transition band, so the
+    !> external sources (g'' /= 0) lie in the transition band only. Computed by
+    !> an oversampled DFT of g' (spectrally accurate for the smooth step).
+    function odd_field_spectrum(L, M, r_m, x_a) result(g)
+        use constants_m, only: pi, com_unit
+        real(dp), intent(in) :: L, r_m, x_a
+        integer, intent(in) :: M
+        complex(dp) :: g(2*M + 1)
+        integer, parameter :: over = 32
+        real(dp), allocatable :: x(:), sx(:)
+        complex(dp) :: gp
+        real(dp) :: t, smean, k, h
+        integer :: n, j, mm
+
+        if (x_a <= 0.0_dp .or. 2.0_dp*x_a >= L) error stop 'odd_field_spectrum: bad x_a'
+        n = over*(2*M + 1)
+        allocate(x(n), sx(n))
+        h = L/real(n, dp)
+        do j = 1, n
+            x(j) = -0.5_dp*L + (real(j, dp) - 0.5_dp)*h
+            t = (abs(x(j)) - x_a)/(0.5_dp*L - x_a)
+            if (t <= 0.0_dp) then
+                sx(j) = 1.0_dp
+            else if (t >= 1.0_dp) then
+                sx(j) = 0.0_dp
+            else
+                sx(j) = bump(1.0_dp - t)/(bump(1.0_dp - t) + bump(t))
+            end if
+        end do
+        smean = sum(sx)/real(n, dp)
+        sx = (sx - smean)/(1.0_dp - smean)            ! g'
+        g = (0.0_dp, 0.0_dp)
+        do mm = -M, M
+            if (mm == 0) cycle
+            k = 2.0_dp*pi*real(mm, dp)/L
+            gp = sum(sx*exp(-com_unit*k*(r_m + x)))/real(n, dp)
+            g(mm + M + 1) = gp/(com_unit*k)
+        end do
+    contains
+        pure real(dp) function bump(tt)
+            real(dp), intent(in) :: tt
+            bump = 0.0_dp
+            if (tt > 0.0_dp) bump = exp(-1.0_dp/tt)
+        end function bump
+    end function odd_field_spectrum
+
+    !> Weights w_m with int_{r_m-x_a}^{r_m+x_a} f r dr = sum_m w_m f_m for
+    !> f = sum_m f_m exp(i k_m r).
+    function core_moment_weights(L, M, r_m, x_a) result(w)
+        use constants_m, only: pi, com_unit
+        real(dp), intent(in) :: L, r_m, x_a
+        integer, intent(in) :: M
+        complex(dp) :: w(2*M + 1)
+        real(dp) :: k, a, b
+        integer :: mm
+
+        a = r_m - x_a
+        b = r_m + x_a
+        do mm = -M, M
+            if (mm == 0) then
+                w(mm + M + 1) = 0.5_dp*(b*b - a*a)
+            else
+                k = 2.0_dp*pi*real(mm, dp)/L
+                w(mm + M + 1) = antideriv(b) - antideriv(a)
+            end if
+        end do
+    contains
+        complex(dp) function antideriv(r)
+            real(dp), intent(in) :: r
+            ! d/dr [exp(i k r) (r/(i k) + 1/k^2)] = r exp(i k r)
+            antideriv = exp(com_unit*k*r)*(r/(com_unit*k) + 1.0_dp/(k*k))
+        end function antideriv
+    end function core_moment_weights
+
+    !> Two-condition matching of the window to the cylindrical outer region
+    !> with a coil-driven, fully shielded part (docs: em_periodic_outer_slope).
+    !> Outer field near r_res, odd part evaluated at the core edge x_a:
+    !>   jump  [A'] = Delta' psi - 2 I / r,            (Ampere: [A'] = -(4 pi/(c r)) u)
+    !>   mean  S    = D_m psi - I / r,                 D_m = (b_R/a_R + b_L/a_L)/2 + c0 ln x_a
+    !> (in the cylinder the shielded coil solution vanishes inside r_res, so its
+    !> whole slope -2 I / r is on the outer side and its mean is -I / r).
+    !> u = p u1 + S u2, p = psi/psi_unit, u1 = core current of the psi_unit
+    !> response, u2 = core current per unit S. I = target current (c = 1 units).
+    !> Returns p and S/p (the slope that goes with the psi_unit response).
+    subroutine outer_slope_amplitude(u1, u2, psi_unit, delta_prime, d_mean, target, r, &
+            c_light, p, slope_per_p)
+        complex(dp), intent(in) :: u1, u2, psi_unit
+        real(dp), intent(in) :: delta_prime, d_mean, target, r, c_light
+        complex(dp), intent(out) :: p, slope_per_p
+        real(dp) :: pi4
+        pi4 = 4.0_dp*acos(-1.0_dp)
+        p = (2.0_dp*target/r + pi4/(c_light*r*r)*u2*target) &
+            / (pi4/(c_light*r)*(u1 + u2*d_mean*psi_unit) + delta_prime*psi_unit)
+        slope_per_p = d_mean*psi_unit - target/(r*p)
+    end subroutine outer_slope_amplitude
 
     !> Weights w_m with int_{r_m-x_a}^{r_m+x_a} f dr = sum_m w_m f_m for
     !> f = sum_m f_m exp(i k_m r).

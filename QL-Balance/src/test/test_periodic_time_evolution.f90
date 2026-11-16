@@ -205,19 +205,24 @@ program test_periodic_time_evolution
     end if
     call initialize_periodic_response(stat)
     call require(stat == 0, 'initial periodic response failed')
-    call require(all(periodic_amplitudes%accepted == (1.0d0, 0.0d0)), &
-                 'first accepted periodic response is not the constant unit drive')
+    ! Default kim_periodic_initial_drive = 'target': the first accepted
+    ! response is normalized to the target current, not the unit drive.
+    call require(all(kim_periodic_scale_status == 0), 'initial normalization failed')
+    call require(all(periodic_amplitudes%accepted == kim_periodic_scale_modes), &
+                 'first accepted amplitude differs from the applied target scale')
+    call require(all(abs(periodic_amplitudes%accepted - (1.0d0, 0.0d0)) > 1.0d-6), &
+                 'first accepted periodic response is still the unit drive')
     call hold_prev_transp_coeffs()
     initial_profiles = params
 
     ! A direct call to the same real sparse solver establishes the expected
-    ! first advance using the accepted unit-drive transport. doStep must use
+    ! first advance using the accepted initial transport. doStep must use
     ! exactly that response, rather than normalize again before advancing.
     call evolvestep(timstep, eps)
     one_advance = params
     params = initial_profiles
     call restore_periodic_accepted_response(stat)
-    call require(stat == 0, 'could not restore the unit-drive initial response')
+    call require(stat == 0, 'could not restore the initial response')
     call reset_timstep_arr_w_timstep()
     suppression_mode = .false.
     save_prof_time_step = 1

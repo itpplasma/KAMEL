@@ -21,6 +21,10 @@ module control_mod
     ! 'delta_prime' matches the constant-psi layer to the cylindrical ideal
     ! outer region (I_par_toroidal = fully shielded limit).
     character(len=32) :: kim_periodic_matching = 'target_current'
+    ! First periodic TimeEvolution response: 'target' normalizes it like every
+    ! later response; 'unit' keeps the constant-psi unit drive (Br_ref = 1 G)
+    ! for the first transport step (behaviour before this switch).
+    character(len=32) :: kim_periodic_initial_drive = 'target'
     ! Ideal wall radius for the outer region [cm]; <= 0: no wall (vacuum decay).
     real(dp) :: kim_periodic_wall_radius = -1.0_dp
     logical :: kim_transport_benchmark = .false.

@@ -11,6 +11,7 @@ subroutine read_config
                            kim_n_modes, kim_m_list, kim_n_list, &
                            kim_current_floor, kim_current_max_scale, kim_current_relaxation, &
                            kim_periodic_matching, kim_periodic_wall_radius, &
+                           kim_periodic_initial_drive, &
                            jpar_method, ion_transport_model_id, &
                            ION_TRANSPORT_INVALID
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
@@ -50,7 +51,7 @@ subroutine read_config
         I_par_toroidal, jpar_method, kim_current_floor, kim_current_max_scale, &
         kim_current_relaxation, kim_electron_transport_model, &
         kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode, &
-        kim_periodic_matching, kim_periodic_wall_radius
+        kim_periodic_matching, kim_periodic_wall_radius, kim_periodic_initial_drive
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -80,6 +81,9 @@ subroutine read_config
         if (trim(kim_periodic_matching) /= 'target_current' .and. &
                 trim(kim_periodic_matching) /= 'delta_prime') &
             error stop 'kim_periodic_matching must be target_current or delta_prime'
+        if (trim(kim_periodic_initial_drive) /= 'target' .and. &
+                trim(kim_periodic_initial_drive) /= 'unit') &
+            error stop 'kim_periodic_initial_drive must be target or unit'
         if (.not. ieee_is_finite(kim_periodic_wall_radius)) &
             error stop 'non-finite kim_periodic_wall_radius'
     end if
@@ -163,6 +167,7 @@ subroutine read_config
     call log_info(fmt_val("    kim_benchmark_mode", trim(adjustl(kim_benchmark_mode))))
     call log_info(fmt_val("    kim_periodic_matching", trim(adjustl(kim_periodic_matching))))
     call log_info(fmt_val("    kim_periodic_wall_radius", kim_periodic_wall_radius, "cm"))
+    call log_info(fmt_val("    kim_periodic_initial_drive", trim(adjustl(kim_periodic_initial_drive))))
     call log_info(fmt_val("    kim_n_modes", kim_n_modes))
     if (kim_n_modes > 0) then
         write (*, "(A,100I5)") "    kim_m_list = ", kim_m_list(1:kim_n_modes)

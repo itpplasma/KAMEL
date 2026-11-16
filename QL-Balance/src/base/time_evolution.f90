@@ -480,7 +480,7 @@ module time_evolution
         redostep = .false.
 
         ! The accepted response already belongs to these profiles. In
-        ! particular, do not replace the initial unit drive before advancing.
+        ! particular, do not re-normalize the initial response before advancing.
         do attempt = 1, 100
             params = accepted_profiles
             params_beg = params

@@ -387,7 +387,7 @@ contains
             I_par_toroidal
         use control_mod, only: kim_profiles_from_balance, type_of_run, kim_current_floor, &
             kim_current_max_scale, kim_current_relaxation, kim_periodic_matching, &
-            kim_periodic_wall_radius
+            kim_periodic_wall_radius, kim_periodic_initial_drive
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         use setup_m, only: Br_boundary_re, Br_boundary_im, kim_R0 => R0
         use cylindrical_delta_prime_m, only: cylindrical_delta_prime, delta_prime_current, &
@@ -588,7 +588,11 @@ contains
                             periodic_amplitudes%accepted(i_mn), &
                             periodic_amplitudes%accepted_status(i_mn))
                     elseif (is_time_evolution_run(type_of_run) .and. &
-                            periodic_constant_psi_pending) then
+                            periodic_constant_psi_pending .and. &
+                            trim(kim_periodic_initial_drive) == 'unit') then
+                        ! Legacy: first transport step with the unit drive.
+                        ! Default ('target'): fall through, so the first response
+                        ! is normalized to the target like every later one.
                         call kim_normalize_periodic_response(res, I_par_toroidal, &
                             current_unit, drive_scale, scale_status, (1.0d0, 0.0d0))
                     elseif (matched) then

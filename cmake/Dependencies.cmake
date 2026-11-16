@@ -70,7 +70,7 @@ set(LIBNEO_REF "d03789a1fef15e188752614328dd50ea9854919f" CACHE STRING "libneo r
 set(ITP_LIBNEO_REF "${LIBNEO_REF}" CACHE STRING "libneo revision for ItpDeps consumers")
 # Pin NEO-RT like libneo, so an unchanged KAMEL commit always builds the same
 # NEO-RT (find_or_fetch reads <NAME>_REF).
-set(NEO-RT_REF "da2b037c4e662339f8caa794e5aaf48c45c4cbd6" CACHE STRING "NEO-RT revision")
+set(NEO-RT_REF "6a1d8d3e1db3269e2ef7bf1c48036ad44b341130" CACHE STRING "NEO-RT revision")
 set(NEORT_BUILD_TESTING OFF CACHE BOOL "Build tests for NEO-RT" FORCE)
 set(_KAMEL_BUILD_TESTING_SAVED ${BUILD_TESTING})
 set(BUILD_TESTING OFF)

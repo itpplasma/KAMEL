@@ -2,6 +2,16 @@
 # carried transitively by kilca_lib's PUBLIC link interface, so no per-target
 # OpenMP linkage is needed here.
 
+add_executable(test_frozen_fourier_gyroaverage
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_frozen_fourier_gyroaverage.f90)
+set_target_properties(test_frozen_fourier_gyroaverage PROPERTIES
+                      OUTPUT_NAME test_frozen_fourier_gyroaverage.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_frozen_fourier_gyroaverage
+                      KIM_lib kilca_lib lapack cerf fortnum_amos_compat)
+add_test(NAME test_frozen_fourier_gyroaverage
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_frozen_fourier_gyroaverage.x)
+
 # Optional: build QUADPACK/RKF45 integration comparison test
 add_executable(test_integration_methods ${CMAKE_SOURCE_DIR}/KIM/tests/test_integration_methods.f90)
 set_target_properties(test_integration_methods PROPERTIES

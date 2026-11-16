@@ -165,8 +165,6 @@ set_source_files_properties(${base_balance_src}/kim_wave_code_adapter.f90
 # fortnum C ABI header (fortnum.h) for vel_integral.cpp.
 target_include_directories(ql-balance_lib PUBLIC ${fortnum_SOURCE_DIR}/include)
 
-itp_add_dependency(libneo REF ${KAMEL_LIBNEO_REF} TARGET LIBNEO::polylag)
-FetchContent_GetProperties(libneo)
 include_directories(${libneo_BINARY_DIR}/include)
 
 add_dependencies(ql-balance_lib sparse)

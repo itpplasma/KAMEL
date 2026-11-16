@@ -7,10 +7,6 @@
 # - Magnetic axis finding
 # - Safety factor q, flux coordinates, and profile computation
 
-# ItpDeps adds libneo without its tests.
-itp_add_dependency(libneo REF ${KAMEL_LIBNEO_REF} TARGET LIBNEO::magfie)
-FetchContent_GetProperties(libneo)
-
 set(EQUIL_MODULE_DIR ${CMAKE_BINARY_DIR}/modules/equil)
 file(MAKE_DIRECTORY ${EQUIL_MODULE_DIR})
 

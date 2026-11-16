@@ -51,6 +51,11 @@ target_link_libraries(sparse PUBLIC SuiteSparse::umfpack_wrappers SuiteSparse::u
 # Make module directory available
 target_include_directories(sparse PUBLIC "${QLBALANCE_BASE}")
 
+# libneo is added before NEO-RT, so KAMEL's pin is the one built and a
+# different request from NEO-RT is reported.
+itp_add_dependency(libneo REF ${KAMEL_LIBNEO_REF} TARGET LIBNEO::magfie)
+FetchContent_GetProperties(libneo)
+
 # NEO-RT (NTV torque in QL-Balance).
 itp_add_dependency(neo_rt REF ${KAMEL_NEO_RT_REF}
     GIT_REPOSITORY https://github.com/itpplasma/NEO-RT.git

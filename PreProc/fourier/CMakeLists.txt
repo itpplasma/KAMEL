@@ -18,8 +18,6 @@ if(FOURIER_STANDALONE)
     include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/ItpDeps.cmake)
     include(${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/DependencyPins.cmake)
 endif()
-itp_add_dependency(libneo REF ${KAMEL_LIBNEO_REF} TARGET LIBNEO::magfie)
-FetchContent_GetProperties(libneo)
 include_directories(${libneo_BINARY_DIR}/include)
 
 # Source files - equilibrium tracing (mag, rhs1, RK4D) now comes from kamel_equil

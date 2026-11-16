@@ -88,7 +88,6 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/h5mod.f90
     ${base_balance_src}/integrate_parallel_current.f90
     ${base_balance_src}/periodic_current_normalization_m.f90
-    ${base_balance_src}/cylindrical_delta_prime_m.f90
     ${base_balance_src}/periodic_current_diagnostics_m.f90
     ${base_balance_src}/periodic_amplitude_state_m.f90
     ${base_balance_src}/periodic_checkpoint_m.f90

@@ -394,6 +394,8 @@ contains
             delta_prime_result_t, DELTA_PRIME_OK
         use periodic_current_normalization_m, only: integrate_trusted_current
         use periodic_amplitude_state_m, only: periodic_amplitudes
+        use config_m, only: periodic_outer_slope, periodic_outer_target_current, &
+            periodic_outer_wall_radius
 
         implicit none
 
@@ -411,6 +413,14 @@ contains
             if (.not. ieee_is_finite(I_par_toroidal)) error stop 'non-finite target current'
         end if
         normalize = periodic .and. I_par_toroidal > 0.0d0
+        ! Two-condition outer matching inside KIM: same target current and
+        ! outer region (wall) as the Delta' normalization below.
+        if (periodic .and. periodic_outer_slope) then
+            if (trim(kim_periodic_matching) /= 'delta_prime' .or. .not. normalize) &
+                error stop 'KIM periodic_outer_slope needs delta_prime matching and I_par_toroidal > 0'
+            periodic_outer_target_current = I_par_toroidal
+            periodic_outer_wall_radius = kim_periodic_wall_radius
+        end if
 
         ! -------------------------------------------------------
         ! 1. (Re-)allocate per-mode storage

@@ -62,6 +62,7 @@ set(KIM_poisson electrostatic_poisson/poisson.f90
                 electrostatic_poisson/solve_poisson.f90
                 electrostatic_poisson/periodic_assembly.f90
                 electrostatic_poisson/periodic_solve.f90
+                electrostatic_poisson/cylindrical_delta_prime_m.f90
                 kernels/kernel.f90
                 kernels/integrands.f90
                 electrostatic_poisson/fields_mod.f90

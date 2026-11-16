@@ -10,10 +10,18 @@ program test_periodic_em_solve
     !!     boundary removes the far field), with the 'extrapolated' psi. Checked
     !!     on the core, error O(eps^2): halving eps must reduce it ~4x.
     !! (c) 'resonance' psi: A(r_m) = psi exactly.
+    !! (d) Outer odd field: g = r - r_m on the core (odd_field_spectrum); with
+    !!     no plasma current the unit-S response is Br_S = i ks g.
+    !! (e) Thin layer with an imposed odd slope S: first order in eps
+    !!       A = psi + S x - (2 pi/c) i ks sigma0 sqrt(2 pi) delta
+    !!           [psi f(x) - S delta^2 erf(x/(sqrt(2) delta))],
+    !!     error O(eps^2).
+    !! (f) outer_slope_amplitude satisfies both matching conditions.
     use KIM_kinds_m, only: dp
     use constants_m, only: pi, sol, com_unit
     use periodic_solve_m, only: solve_periodic, solve_periodic_em, reconstruct_delta_phi, &
-        core_integral_weights, PERIODIC_PSI_EXTRAPOLATED, PERIODIC_PSI_RESONANCE
+        core_integral_weights, PERIODIC_PSI_EXTRAPOLATED, PERIODIC_PSI_RESONANCE, &
+        odd_field_spectrum, core_moment_weights, outer_slope_amplitude
     implicit none
 
     integer :: failures
@@ -22,6 +30,9 @@ program test_periodic_em_solve
     call test_no_current()
     call test_thin_layer()
     call test_core_weights()
+    call test_odd_field()
+    call test_thin_layer_slope()
+    call test_matching_algebra()
 
     if (failures > 0) then
         print *, failures, ' failures'
@@ -156,5 +167,118 @@ contains
             - exp(com_unit*2.0_dp*pi*3.0_dp/L*(rm - x_a)))/(com_unit*2.0_dp*pi*3.0_dp/L)
         call check('core integral weights', abs(sum(w*f) - exact), 1.0e-13_dp)
     end subroutine test_core_weights
+
+    subroutine test_odd_field()
+        integer, parameter :: M = 64, dim = 2*M + 1, nchk = 81
+        real(dp), parameter :: L = 8.0_dp, rm = 55.0_dp, x_a = 2.0_dp, ks = -0.11_dp
+        complex(dp) :: g(dim), Kphi(dim, dim), KB(dim, dim), Z(dim, dim), gx(nchk)
+        complex(dp), allocatable :: Phi_m(:), Br_m(:), Phi_S(:), Br_S(:)
+        real(dp) :: x(nchk)
+        integer :: i, info
+
+        g = odd_field_spectrum(L, M, rm, x_a)
+        do i = 1, nchk
+            x(i) = -x_a + 2.0_dp*x_a*real(i - 1, dp)/real(nchk - 1, dp)
+        end do
+        gx = reconstruct_delta_phi(g, L, M, rm + x)
+        call check('odd field: g = x on the core', maxval(abs(gx - x)), 1.0e-6_dp)
+        call check('odd field: g(r_m) = 0', abs(sum(reconstruct_delta_phi(g, L, M, [rm]))), &
+            1.0e-12_dp)
+        Kphi = (0.0_dp, 0.0_dp)
+        do i = 1, dim
+            Kphi(i, i) = (1.0_dp, 0.0_dp)
+        end do
+        KB = (0.0_dp, 0.0_dp)
+        Z = (0.0_dp, 0.0_dp)
+        call solve_periodic_em(Kphi, KB, Z, Z, L, M, rm, x_a, ks, (1.0_dp, 0.0_dp), &
+            PERIODIC_PSI_EXTRAPOLATED, Phi_m, Br_m, info, g_m=g, Phi_S=Phi_S, Br_S=Br_S)
+        call check('no current, slope: info', real(abs(info), dp), 0.0_dp)
+        call check('no current, slope: Br_S = i ks g', &
+            maxval(abs(Br_S - com_unit*ks*g)), 1.0e-14_dp)
+    end subroutine test_odd_field
+
+    !> Thin layer with odd slope S = s_rel psi/x_a: error of the first-order solution.
+    real(dp) function thin_layer_slope_error(eps, s_rel) result(err)
+        real(dp), intent(in) :: eps, s_rel
+        integer, parameter :: M = 64, dim = 2*M + 1, nchk = 81
+        real(dp), parameter :: L = 8.0_dp, rm = 55.0_dp, x_a = 2.0_dp, delta = 0.25_dp
+        real(dp), parameter :: ks = 1.0e-3_dp
+        complex(dp) :: Kphi(dim, dim), KB(dim, dim), Kjphi(dim, dim), KjB(dim, dim), g(dim)
+        complex(dp), allocatable :: Phi_m(:), Br_m(:), Phi_S(:), Br_S(:)
+        complex(dp) :: br(nchk), shat, analytic, psi, S
+        real(dp) :: sigma0, x(nchk), f, kq, e
+        integer :: i, j, info
+
+        sigma0 = eps*sol/(2.0_dp*pi*ks*sqrt(2.0_dp*pi)*delta*x_a)
+        Kphi = (0.0_dp, 0.0_dp)
+        do i = 1, dim
+            Kphi(i, i) = (1.0_dp, 0.0_dp)
+        end do
+        KB = (0.0_dp, 0.0_dp)
+        Kjphi = (0.0_dp, 0.0_dp)
+        do i = -M, M
+            do j = -M, M
+                kq = 2.0_dp*pi*real(i - j, dp)/L
+                shat = sigma0*sqrt(2.0_dp*pi)*delta/L*exp(-0.5_dp*(kq*delta)**2) &
+                    *exp(-com_unit*kq*rm)
+                KjB(i + M + 1, j + M + 1) = shat
+            end do
+        end do
+        g = odd_field_spectrum(L, M, rm, x_a)
+        call solve_periodic_em(Kphi, KB, Kjphi, KjB, L, M, rm, x_a, ks, (1.0_dp, 0.0_dp), &
+            PERIODIC_PSI_EXTRAPOLATED, Phi_m, Br_m, info, g_m=g, Phi_S=Phi_S, Br_S=Br_S)
+        if (info /= 0) error stop 'thin layer slope: solve failed'
+        psi = 1.0_dp/(com_unit*ks)
+        S = s_rel*psi/x_a
+        do i = 1, nchk
+            x(i) = -x_a + 2.0_dp*x_a*real(i - 1, dp)/real(nchk - 1, dp)
+        end do
+        br = reconstruct_delta_phi(Br_m + S*Br_S, L, M, rm + x)
+        err = 0.0_dp
+        do i = 1, nchk
+            f = x(i)*erf(x(i)/(sqrt(2.0_dp)*delta)) &
+                + delta*sqrt(2.0_dp/pi)*exp(-0.5_dp*(x(i)/delta)**2)
+            e = erf(x(i)/(sqrt(2.0_dp)*delta))
+            ! Br/Br_ref = A/psi
+            analytic = 1.0_dp + s_rel*x(i)/x_a &
+                - com_unit*eps/x_a*(f - s_rel/x_a*delta**2*e)
+            err = max(err, abs(br(i) - analytic))
+        end do
+    end function thin_layer_slope_error
+
+    subroutine test_thin_layer_slope()
+        real(dp) :: e1, e2
+        e1 = thin_layer_slope_error(1.0e-2_dp, 2.0_dp)
+        e2 = thin_layer_slope_error(0.5e-2_dp, 2.0_dp)
+        call check('thin layer + slope eps=1e-2 vs first order', e1, 1.0e-3_dp)
+        call check('thin layer + slope error ratio (eps halved) ~ 4', abs(e1/e2 - 4.0_dp), 0.3_dp)
+    end subroutine test_thin_layer_slope
+
+    subroutine test_matching_algebra()
+        complex(dp) :: u1, u2, psi_unit, p, sp, u, S, jump_lhs, jump_rhs
+        real(dp) :: dprime, dmean, target, r
+        u1 = (2.3e12_dp, -1.1e12_dp)
+        u2 = (-4.0e11_dp, 7.0e11_dp)
+        psi_unit = 1.0_dp/(com_unit*(-0.11_dp))
+        dprime = -0.2_dp
+        dmean = 0.07_dp
+        target = 160.0_dp
+        r = 55.0_dp
+        call outer_slope_amplitude(u1, u2, psi_unit, dprime, dmean, target, r, sol, p, sp)
+        S = sp*p
+        u = p*u1 + S*u2
+        jump_lhs = -4.0_dp*pi/(sol*r)*u
+        jump_rhs = dprime*p*psi_unit - 2.0_dp*target/r
+        call check('matching: jump condition', abs(jump_lhs - jump_rhs)/abs(jump_rhs), 1.0e-13_dp)
+        call check('matching: mean slope condition', &
+            abs(S - (dmean*p*psi_unit - target/r))/abs(S), 1.0e-13_dp)
+        ! without the slope response (u2 = 0) p reduces to step 1:
+        ! p (u1 - u_delta) = I c/(2 pi), u_delta = -(c r/(4 pi)) Delta' psi_unit
+        call outer_slope_amplitude(u1, (0.0_dp, 0.0_dp), psi_unit, dprime, dmean, target, r, &
+            sol, p, sp)
+        call check('matching: u2 = 0 gives step 1', &
+            abs(p*(u1 + sol*r/(4.0_dp*pi)*dprime*psi_unit) - target*sol/(2.0_dp*pi)) &
+            /(target*sol/(2.0_dp*pi)), 1.0e-13_dp)
+    end subroutine test_matching_algebra
 
 end program test_periodic_em_solve

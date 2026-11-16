@@ -177,6 +177,12 @@ module IO_collection_m
             'Whether Ampere''s law is solved inside the period.', 'true/false')
         call h5_add(h5grpid, 'periodic_em_psi_definition', trim(periodic_em_psi_definition), &
             'Definition of the prescribed outer amplitude psi (EM periodic).', 'str')
+        call h5_add(h5grpid, 'periodic_outer_slope', periodic_outer_slope, &
+            'Whether the odd outer slope is matched (EM periodic).', 'true/false')
+        call h5_add(h5grpid, 'periodic_outer_target_current', periodic_outer_target_current, &
+            'Target current I for the outer-slope matching (c = 1 units).', 'statA/c')
+        call h5_add(h5grpid, 'periodic_outer_wall_radius', periodic_outer_wall_radius, &
+            'Ideal wall radius of the cylindrical outer region (<= 0: none).', 'cm')
 
         call h5_close_group(h5grpid)
 

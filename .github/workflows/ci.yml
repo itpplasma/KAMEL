@@ -128,7 +128,7 @@ jobs:
         run: ci/set_parallelism.sh
 
       - name: Build with make
-        run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
+        run: make all ${{ inputs.libneo_ref != '' && format('CMAKE_ARGS=-DITP_LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
       - name: Test golden-record harness
         run: make pytest
@@ -209,7 +209,7 @@ jobs:
         run: ci/set_parallelism.sh
 
       - name: Build with make
-        run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
+        run: make all ${{ inputs.libneo_ref != '' && format('CMAKE_ARGS=-DITP_LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
       - name: Test golden-record harness
         run: make pytest

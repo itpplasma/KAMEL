@@ -88,9 +88,11 @@ cmake --build build --parallel
 
 Dependency commits are pinned in `cmake/DependencyPins.cmake` and added
 through [ItpDeps](https://github.com/itpplasma/cmake-deps). To build another
-libneo branch, tag, or commit, pass `LIBNEO_REF=<ref>` to `make` or
-`-DITP_LIBNEO_REF=<ref>` to CMake. To use a local libneo checkout, use
-`LIBNEO_PATH=<dir>` or `-DFETCHCONTENT_SOURCE_DIR_LIBNEO=<dir>`.
+branch, tag, or commit of a dependency, pass `-DITP_<NAME>_REF=<ref>` to CMake,
+e.g. `-DITP_LIBNEO_REF=<ref>`. To use a local checkout, pass
+`-DFETCHCONTENT_SOURCE_DIR_<NAME>=<dir>`. With `make`, put these flags in
+`CMAKE_ARGS`, e.g. `make all CMAKE_ARGS=-DITP_LIBNEO_REF=<ref>`. They only take
+effect on a fresh configure, so run `make clean` first if `build/` exists.
 
 ## Run
 

@@ -158,7 +158,7 @@ contains
                                     bessel_in(0, b) * (plasma%spec(sp)%A1(j) + plasma%spec(sp)%A2(j) * (1-b)) &
                                     + plasma%spec(sp)%A2(j) * b * bessel_in(-1, b) &
                                 )&
-                                + 0.5d0 * plasma%spec(sp)%I21(j, 0) * plasma%spec(sp)%A2(j) * bessel_in(0, b) &
+                                + 0.5d0 * plasma%spec(sp)%I03(j, 0) * plasma%spec(sp)%A2(j) * bessel_in(0, b) &
                             )
                     end if
                 end do
@@ -809,7 +809,7 @@ contains
         ! I_0(0) = 1, I_{-1}(0) = 0, exp(-b_+) = 1, (1 - b_+) = 1 and the
         ! A2 * b_x * I_{-1}(b_x) term vanishing, and the Fourier phase = 1, the
         ! per-species signed FP core collapses to
-        !   -1/lambda_D^2 * vT^3/(omega_c*nu*sol) * ( I01*(A1+A2) + 0.5*I21*A2 ).
+        !   -1/lambda_D^2 * vT^3/(omega_c*nu*sol) * ( I01*(A1+A2) + 0.5*I03*A2 ).
         ! We fold I_0(0)=1 and I_{-1}(0)=0 in analytically (no bessel_in call),
         ! so this validates the kernel's argument assembly against math, not the
         ! Bessel routine. rho-B has NO Debye term. Only valid for the .false. path.
@@ -868,7 +868,7 @@ contains
                         (&
                             plasma%spec(sp)%I01(j, 0) &
                                 * (plasma%spec(sp)%A1(j) + plasma%spec(sp)%A2(j)) &
-                            + 0.5d0 * plasma%spec(sp)%I21(j, 0) * plasma%spec(sp)%A2(j) &
+                            + 0.5d0 * plasma%spec(sp)%I03(j, 0) * plasma%spec(sp)%A2(j) &
                         )
                 end if
             end do

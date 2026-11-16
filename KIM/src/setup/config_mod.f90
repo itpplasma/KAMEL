@@ -220,4 +220,18 @@ contains
 
     end function ifunc_model_for_species
 
+    logical function ifunc_model_conserves_energy(species_index) result(conserves)
+        ! Models 1 and 3 restore energy; then I03 = I21 analytically.
+
+        integer, intent(in) :: species_index
+
+        select case (ifunc_model_for_species(species_index))
+        case (IFUNC_MODEL_ENERGY, IFUNC_MODEL_ENERGY_MOMENTUM)
+            conserves = .true.
+        case default
+            conserves = .false.
+        end select
+
+    end function ifunc_model_conserves_energy
+
 end module config_m

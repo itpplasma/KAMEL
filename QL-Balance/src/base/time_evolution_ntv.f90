@@ -1,7 +1,8 @@
 module time_evolution_ntv
     use iso_fortran_env, only: dp => real64
     use time_evolution, only: TimeEvolution_t
-    use neort_lib, only: transport_data_t, equilibrium_t, neort_init, neort_get_equilibrium, &
+    use neort_lib, only: transport_data_t, equilibrium_t, flux_surface_t, neort_init, &
+                         neort_get_equilibrium, neort_get_flux_surface, &
                          neort_prepare_splines, neort_compute_at_s
 
     implicit none
@@ -33,21 +34,26 @@ contains
 
     subroutine initTimeEvolutionNTV(this)
         use baseparam_mod, only: am, Z_i, rsepar
-        use grid_mod, only: rmin
+        use grid_mod, only: rc, rmin
         use time_evolution, only: antenna_factor_max
         use neort_interface, only: meta_config_neort_t, read_neort_meta_config, &
                                    meta_config_neort_problem, read_equil_file, &
-                                   calculate_s_tor, calculate_coarse_s_tor
+                                   calculate_s_tor, calculate_coarse_s_tor, dpsi_pol_dr, &
+                                   poloidal_flux_problem
+        use plasma_parameters, only: qsaf
         use spline, only: spline_coeff, spline_val
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
         real(dp), dimension(:), allocatable :: r_eff, psi_tor, s_tor_equil
         real(dp), dimension(:, :), allocatable :: r_of_s_coeffs, s_of_r_coeffs
-        real(dp), dimension(:, :), allocatable :: s_splined, r_splined
+        real(dp), dimension(:, :), allocatable :: s_splined, r_splined, q_splined
+        real(dp), dimension(:, :), allocatable :: q_of_r_coeffs
+        real(dp), dimension(:), allocatable :: dpsi_pol_ds_neort, dpsi_pol_ds_kamel
         real(dp) :: s_min, s_max
         type(meta_config_neort_t) :: meta_config
-        integer :: s_size
+        type(flux_surface_t) :: surface
+        integer :: s_size, i
 
         character(len=*), parameter :: balance_config_file = "balance_conf.nml"
 
@@ -107,6 +113,24 @@ contains
         r_splined = spline_val(r_of_s_coeffs, s_tor)
         r = r_splined(:, 1)
 
+        ! The Boozer file and KAMEL's equilibrium must agree on the flux surfaces,
+        ! including the orientation that fixes the sign of dpsi_pol/ds. NEO-RT
+        ! defines Omega_tE through dPhi/ds = -sign_theta psi_pr / (q c) Omega_tE
+        ! (neort_profiles), so poloidal_flux_derivative has to be
+        ! sign_theta * iota * psi_pr: the denominator NEO-RT itself uses.
+        allocate (q_of_r_coeffs(size(rc) - 1, 5), q_splined(s_size, 3))
+        allocate (dpsi_pol_ds_neort(s_size), dpsi_pol_ds_kamel(s_size))
+        q_of_r_coeffs = spline_coeff(rc, qsaf)
+        q_splined = spline_val(q_of_r_coeffs, r)
+        dpsi_pol_ds_kamel = dpsi_pol_dr(r, q_splined(:, 1)) * r_splined(:, 2)
+        do i = 1, s_size
+            call neort_get_flux_surface(s_tor(i), surface)
+            dpsi_pol_ds_neort(i) = surface%poloidal_flux_derivative
+        end do
+        if (len_trim(poloidal_flux_problem(dpsi_pol_ds_neort, dpsi_pol_ds_kamel)) > 0) then
+            error stop trim(poloidal_flux_problem(dpsi_pol_ds_neort, dpsi_pol_ds_kamel))
+        end if
+
         ! Cache species parameters for parallel use (same mass/charge for both species)
         am1 = am
         am2 = am
@@ -120,6 +144,7 @@ contains
         deallocate (s_of_r_coeffs)
         deallocate (s_splined)
         deallocate (r_splined)
+        deallocate (q_of_r_coeffs, q_splined, dpsi_pol_ds_neort, dpsi_pol_ds_kamel)
     end subroutine initTimeEvolutionNTV
 
     subroutine runTimeEvolutionNTV(this)

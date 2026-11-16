@@ -22,9 +22,6 @@ set(EQUIL_SOURCES
 # Create the equilibrium library
 add_library(kamel_equil STATIC ${EQUIL_SOURCES})
 
-# Ensure libneo is built before kamel_equil (for module files)
-add_dependencies(kamel_equil LIBNEO::magfie)
-
 # Set properties for the library
 set_target_properties(kamel_equil PROPERTIES
     POSITION_INDEPENDENT_CODE ON

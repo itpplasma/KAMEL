@@ -142,7 +142,9 @@ module muller_root_finding
             end if
 
             dif = xnew - x3
-            if (abs(dif) < ep1*abs(xnew)) exit
+            ! A small update can also mean that Muller has stagnated.  Only
+            ! accept an actual dispersion root; the caller records fsave and
+            ! expects every returned point to satisfy ep2.
             if (abs(fsave) < ep2) exit
             if (.not. realrt .and. abs(fsave) >= hundrd*abs(fslast)) then
             ! Diverging - reduce step

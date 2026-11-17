@@ -19,6 +19,14 @@ module rhs_balance_m
     ! so the sources must not be added to q a second time; q = f - A·y keeps
     ! every term of f exactly once [B1, #199].
     !
+    ! Equilibrium sources [Markl2023 (22), (24), (25)]: dery_equisource holds, per
+    ! grid point, the particle source S_n^0, the source of the rotation frequency,
+    ! and the pressure sources (2/3) S_{w,e}^0 and (2/3) S_{w,i}^0. The rate of
+    ! temperature change they cause depends on the state,
+    !   dT/dt|_source = ((2/3) S_w^0 - T S_n^0) / n,
+    ! because particles supplied by S_n^0 dilute the plasma. This term and its
+    ! derivatives with respect to n and T enter f and A.
+    !
     ! Public API:
     !   - rhs_balance: Compute A (sparse) and q (returned in dy and rhsvec)
     !
@@ -82,6 +90,9 @@ module rhs_balance_m
     !---------------------------------------------------------------------------
     ! Public API
     !---------------------------------------------------------------------------
+    public :: convert_rates_to_equilibrium_sources
+    public :: compute_equilibrium_source_rates
+    public :: linearize_equilibrium_source_rates
     public :: initialize_rhs
     public :: rhs_balance
 
@@ -212,7 +223,7 @@ contains
         real(dp) :: Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, Gamma_ql_i_nl, Qe_nl, Qi_nl
         real(dp), dimension(4) :: flux_dif_lin_loc, flux_con_lin_loc
         real(dp), dimension(4) :: flux_dif_nl_loc, flux_con_nl_loc
-        real(dp), dimension(4) :: dot_params_loc
+        real(dp), dimension(4) :: dot_params_loc, source_rates
         real(dp), dimension(nbaleqs, npoib) :: fluxes_dif_nl
         real(dp), dimension(neqset) :: rate
 
@@ -385,6 +396,15 @@ contains
                 end do
             end do
 
+            ! Linearized equilibrium sources: only the probed point responds
+            do ipoi = ibeg, iend
+                i = nbaleqs * (ipoi - 1)
+                call linearize_equilibrium_source_rates(dery_equisource(i + 1:i + nbaleqs), &
+                                                        params(:, ipoi), params_lin(:, ipoi), &
+                                                        source_rates)
+                dy(i + 1:i + nbaleqs) = dy(i + 1:i + nbaleqs) + source_rates
+            end do
+
             ! Store non-zero elements
             ! Divide by perturbation size to get correct Jacobian entry:
             ! J[i,j] = dy[i] / delta_y[j]
@@ -428,7 +448,12 @@ contains
             ! instead would count them twice [B1, #199].
             if (k /= nz) error stop 'rhs_balance: Jacobian sparsity differs from the count pass'
             call compute_rate_at_state(npoi, fluxes_dif_nl, rate)
-            rhsvec = rate + dery_equisource
+            do ipoi = 1, npoi
+                i = nbaleqs * (ipoi - 1)
+                call compute_equilibrium_source_rates(dery_equisource(i + 1:i + nbaleqs), &
+                                                      params(:, ipoi), source_rates)
+                rhsvec(i + 1:i + nbaleqs) = rate(i + 1:i + nbaleqs) + source_rates
+            end do
             do i = 1, k
                 rhsvec(irow(i)) = rhsvec(irow(i)) - amat(i) * y(icol(i))
             end do
@@ -436,6 +461,52 @@ contains
         end if
 
     end subroutine rhs_balance
+
+    pure subroutine convert_rates_to_equilibrium_sources(rates, params_point, sources)
+        !
+        ! Convert the rates of change d(n, Vphi, Te, Ti)/dt that keep the state
+        ! params_point stationary into equilibrium sources in conserved form:
+        !   sources(1) = S_n^0                 particle source
+        !   sources(2)                         source of the rotation frequency
+        !   sources(3:4) = (2/3) S_{w,e/i}^0   pressure sources, from
+        !                  d(nT)/dt = n dT/dt + T dn/dt
+        !     [Markl2023 (22), (24), (25)]
+        !
+        real(dp), dimension(4), intent(in) :: rates, params_point
+        real(dp), dimension(4), intent(out) :: sources
+
+        sources(1:2) = rates(1:2)
+        sources(3:4) = params_point(1) * rates(3:4) + params_point(3:4) * rates(1)
+    end subroutine convert_rates_to_equilibrium_sources
+
+    pure subroutine compute_equilibrium_source_rates(sources, params_point, source_rates)
+        !
+        ! Rates of change d(n, Vphi, Te, Ti)/dt caused by the equilibrium sources at
+        ! the state params_point. For the temperatures
+        !   dT/dt = ((2/3) S_w^0 - T S_n^0) / n,
+        ! the second term being the dilution by the particle source.
+        !
+        real(dp), dimension(4), intent(in) :: sources, params_point
+        real(dp), dimension(4), intent(out) :: source_rates
+
+        source_rates(1:2) = sources(1:2)
+        source_rates(3:4) = (sources(3:4) - params_point(3:4) * sources(1)) / params_point(1)
+    end subroutine compute_equilibrium_source_rates
+
+    pure subroutine linearize_equilibrium_source_rates(sources, params_point, params_lin_point, &
+                                                       source_rates_lin)
+        !
+        ! Response of compute_equilibrium_source_rates to a perturbation
+        ! params_lin_point of the density and the temperatures.
+        !
+        real(dp), dimension(4), intent(in) :: sources, params_point, params_lin_point
+        real(dp), dimension(4), intent(out) :: source_rates_lin
+
+        source_rates_lin(1:2) = 0.0_dp
+        source_rates_lin(3:4) = -(params_lin_point(3:4) * sources(1) + &
+                                  (sources(3:4) - params_point(3:4) * sources(1)) * &
+                                  params_lin_point(1) / params_point(1)) / params_point(1)
+    end subroutine linearize_equilibrium_source_rates
 
     subroutine compute_rate_at_state(npoi, fluxes_dif_nl, rate)
         !

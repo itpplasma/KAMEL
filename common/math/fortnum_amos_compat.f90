@@ -72,6 +72,12 @@ subroutine zbesi(zr, zi, fnu, kode, n, cyr, cyi, nz, ierr)
     ierr = 0
 
     call bessel_i_complex_array(order0, n, z, kode == 2, seq, status)
+    ! AMOS ZBESI KODE=2 returns exp(-abs(real(z))) I_n(z).  Fortnum's
+    ! internal scaled convention is exp(-real(z)) I_n(z), so restore the
+    ! historical ABI in the left half-plane.
+    if (kode == 2 .and. real(z, dp) < 0.0_dp) then
+        seq = seq * exp(2.0_dp * real(z, dp))
+    end if
     do k = 1, n
         cyr(k) = real(seq(k), dp)
         cyi(k) = aimag(seq(k))

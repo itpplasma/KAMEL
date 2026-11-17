@@ -147,6 +147,13 @@ foreach(invalid_geometry nan_q nan_r unordered_r shape missing_q)
     set_tests_properties(test_signed_resonances_${invalid_geometry} PROPERTIES WILL_FAIL TRUE)
 endforeach()
 
+add_executable(test_zbesi_amos_scaling test_zbesi_amos_scaling.f90)
+set_target_properties(test_zbesi_amos_scaling PROPERTIES
+                      OUTPUT_NAME test_zbesi_amos_scaling.x)
+target_link_libraries(test_zbesi_amos_scaling KIM_lib fortnum_amos_compat)
+add_test(NAME test_zbesi_amos_scaling
+         COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_zbesi_amos_scaling.x)
+
 add_executable(test_profile_input ${CMAKE_SOURCE_DIR}/KIM/tests/test_profile_input.f90)
 set_target_properties(test_profile_input PROPERTIES
                         OUTPUT_NAME test_profile_input.x

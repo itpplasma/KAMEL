@@ -21,3 +21,15 @@ set_target_properties(
 )
 add_test(NAME test_hdf5_tools_api COMMAND test_hdf5_tools_api)
 set_tests_properties(test_hdf5_tools_api PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+
+add_executable(test_hdf5_output_session test/test_hdf5_output_session.f90)
+target_link_libraries(test_hdf5_output_session PRIVATE kamel_hdf5_tools)
+set_target_properties(
+    test_hdf5_output_session
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)
+add_test(NAME test_hdf5_output_session COMMAND test_hdf5_output_session)
+set_tests_properties(
+    test_hdf5_output_session
+    PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)

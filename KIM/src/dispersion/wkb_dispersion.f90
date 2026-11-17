@@ -115,7 +115,10 @@ module rt_WKB_dispersion_m
         use grid_m, only: rg_grid
         use IO_collection_m, only: write_complex_profile_abs, &
             track_root_branches, write_tracked_roots
-        use config_m, only: WKB_dispersion_mode, dispersion_output_path, WKB_solve_for_kr_squared
+        use config_m, only: WKB_dispersion_mode, dispersion_output_path, &
+                            WKB_solve_for_kr_squared, WKB_use_initial_root, &
+                            WKB_initial_root_real, WKB_initial_root_imag, &
+                            WKB_initial_root_profile
         use Function_Input_Module, only: f_ptr
 
         implicit none
@@ -123,10 +126,12 @@ module rt_WKB_dispersion_m
         complex(dp), intent(out) :: found_roots(:,:)
         integer, intent(inout) :: km
         complex(dp), allocatable :: fnv(:,:)
+        complex(dp), allocatable :: initial_root_profile(:)
         integer :: known, nmore, guess, maxits, nfound, ifail
         logical :: realrt
         real(dp) :: ep1, ep2
-        integer :: i, j
+        integer :: i, j, seed_unit, seed_status
+        real(dp) :: seed_radius, seed_real, seed_imag
         character(len=20) :: out_str
 
         ! Branch tracking arrays
@@ -147,11 +152,27 @@ module rt_WKB_dispersion_m
         allocate(n_roots_per_point(rg_grid%npts_b))
         allocate(all_multiplicities(km, rg_grid%npts_b))
         allocate(branch_id(km, rg_grid%npts_b))
+        allocate(initial_root_profile(rg_grid%npts_b))
 
         found_roots = (0.0_dp, 0.0_dp)
         fnv = (0.0_dp, 0.0_dp)
         all_multiplicities = 1  ! Muller doesn't compute multiplicities, assume 1
         branch_id = 0
+        initial_root_profile = (0.0_dp, 0.0_dp)
+
+        if (len_trim(WKB_initial_root_profile) > 0) then
+            open(newunit=seed_unit, file=trim(WKB_initial_root_profile), &
+                 status='old', action='read')
+            do j = 1, rg_grid%npts_b
+                read(seed_unit, *, iostat=seed_status) seed_radius, seed_real, seed_imag
+                if (seed_status /= 0) error stop 'invalid WKB initial-root profile'
+                if (abs(seed_radius - rg_grid%xb(j)) > 1.0d-8) then
+                    error stop 'WKB initial-root profile grid mismatch'
+                end if
+                initial_root_profile(j) = cmplx(seed_real, seed_imag, kind=dp)
+            end do
+            close(seed_unit)
+        end if
 
         if (nmore > km) then
             print *, "Error: nmore exceeds km in WKB dispersion root finding."
@@ -167,10 +188,19 @@ module rt_WKB_dispersion_m
                 stop "Unknown WKB dispersion mode"
         end select
 
+        if (WKB_use_initial_root) then
+            found_roots(1, 1) = cmplx(WKB_initial_root_real, &
+                                      WKB_initial_root_imag, kind=dp)
+            guess = 1
+        end if
+
         do j = 1, rg_grid%npts_b
 
             ! initial guesses (optional)
-            if (j > 1) then
+            if (len_trim(WKB_initial_root_profile) > 0) then
+                found_roots(1, j) = initial_root_profile(j)
+                guess = 1
+            else if (j > 1) then
                 do i=1, min(nmore, km)
                     found_roots(i, j) = found_roots(i, j-1)
                 end do
@@ -221,7 +251,7 @@ module rt_WKB_dispersion_m
         print *, 'Tracked branches written to output files.'
 
         ! Clean up branch tracking arrays
-        deallocate(n_roots_per_point, all_multiplicities, branch_id)
+        deallocate(n_roots_per_point, all_multiplicities, branch_id, initial_root_profile)
 
         contains
 

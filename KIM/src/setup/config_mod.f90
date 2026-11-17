@@ -46,6 +46,10 @@ module config_m
     integer :: WKB_broad_search_interval = 0          ! Run broad search every N points (0=only at start)
     real(dp) :: WKB_root_tolerance = 1.0d-6           ! |f(z)| tolerance for valid roots
     logical :: WKB_verbose = .false.                  ! Verbose dispersion solver output
+    logical :: WKB_use_initial_root = .false.         ! Seed the first Muller point explicitly
+    real(dp) :: WKB_initial_root_real = 0.0_dp        ! Real part of initial root (kr or kr^2)
+    real(dp) :: WKB_initial_root_imag = 0.0_dp        ! Imaginary part of initial root (kr or kr^2)
+    character(256) :: WKB_initial_root_profile = ''   ! Optional r, Re(root), Im(root) seed profile
 
     ! KIM_PERIODIC namelist variables (forced-periodicity electrostatic run-type).
     ! Window half-widths and Fourier cutoff are set in units of the resonant-

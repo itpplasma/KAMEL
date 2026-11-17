@@ -1,11 +1,13 @@
 !> calc_equil_diffusion_coeffs interpolates Da from profiles/Da.dat onto rb. The
 !> interpolation stencil must stay inside the Da grid, whether that grid ends
 !> before rb (Da is then held at its last value) or has more points than rb.
+!> The Da input is read once and reused until forget_da_profile is called.
 program test_diff_coeffs
     use QLBalance_kinds, only: dp
     use control_mod, only: ihdf5IO
     use paramscan_mod, only: viscosity_factor
     use PolyLagrangeInterpolation, only: get_lagr_stencil
+    use da_profile_m, only: forget_da_profile
     implicit none
 
     ihdf5IO = 0
@@ -19,6 +21,8 @@ program test_diff_coeffs
     call check_interpolation(nr=40, r_end=40.0_dp, npoib=50, label="Da grid shorter than rb")
     ! Da grid with more points than rb, covering all of it.
     call check_interpolation(nr=400, r_end=70.0_dp, npoib=50, label="Da grid longer than rb")
+
+    call check_da_read_once
 
 contains
 
@@ -51,14 +55,11 @@ contains
         character(len=*), intent(in) :: label
         real(dp), parameter :: r_start = 1.0_dp, rb_end = 60.0_dp, tolerance = 1.0e-4_dp
         real(dp) :: r_raw(nr), expected(npoib)
-        integer :: i, unit
+        integer :: i
 
         r_raw = [(r_start + (r_end - r_start) * (i - 1) / (nr - 1), i = 1, nr)]
-        open (newunit=unit, file="profiles/Da.dat", status="replace", action="write")
-        do i = 1, nr
-            write (unit, *) r_raw(i), da_model(r_raw(i))
-        end do
-        close (unit)
+        call write_da_file(r_raw, da_model(r_raw))
+        call forget_da_profile
 
         npoib_ = npoib
         if (allocated(rb)) deallocate (rb, dae11, dae12, dae22, dai11, dai12, dai22, dni22, &
@@ -82,5 +83,45 @@ contains
             error stop 1
         end if
     end subroutine check_interpolation
+
+    subroutine write_da_file(r, da)
+        real(dp), intent(in) :: r(:), da(:)
+        integer :: i, unit
+
+        open (newunit=unit, file="profiles/Da.dat", status="replace", action="write")
+        do i = 1, size(r)
+            write (unit, *) r(i), da(i)
+        end do
+        close (unit)
+    end subroutine write_da_file
+
+    !> calc_equil_diffusion_coeffs runs at every right-hand-side evaluation, so
+    !> it must not re-read the Da input each time.
+    subroutine check_da_read_once
+        use grid_mod, only: dae12
+        integer, parameter :: nr = 400, npoib = 50
+        real(dp), parameter :: r_end = 70.0_dp
+        real(dp) :: r_raw(nr), first(npoib)
+        integer :: i
+
+        call check_interpolation(nr=nr, r_end=r_end, npoib=npoib, label="before rewrite")
+        first = dae12
+
+        r_raw = [(1.0_dp + (r_end - 1.0_dp) * (i - 1) / (nr - 1), i = 1, nr)]
+        call write_da_file(r_raw, 2.0_dp * da_model(r_raw))
+
+        call calc_equil_diffusion_coeffs
+        if (any(dae12 /= first)) then
+            print '(a)', "FAIL: Da was re-read although the profile was already loaded"
+            error stop 1
+        end if
+
+        call forget_da_profile
+        call calc_equil_diffusion_coeffs
+        if (any(abs(dae12 - 2.0_dp * first) > 1.0e-12_dp * abs(first))) then
+            print '(a)', "FAIL: forget_da_profile did not make the next call reload Da"
+            error stop 1
+        end if
+    end subroutine check_da_read_once
 
 end program test_diff_coeffs

@@ -27,6 +27,7 @@ program test_rhs_source_consistency
     use paramscan_mod, only: viscosity_factor
     use resonances_mod, only: prop, numres
     use control_mod, only: ihdf5IO
+    use da_profile_m, only: forget_da_profile
     use wave_code_data, only: r, n, Te, Ti, q, Vth, Vz
     use matrix_mod, only: nz, irow, icol, amat, rhsvec
     use rhs_balance_m, only: initialize_rhs, rhs_balance
@@ -291,6 +292,7 @@ contains
         call h5_add(h5_id, '/da_estimation/Da', diffusion, [1], [npoib])
         call h5_close(h5_id)
         call h5_deinit()
+        call forget_da_profile()
     end subroutine write_anomalous_diffusion
 
     subroutine require(condition, message)

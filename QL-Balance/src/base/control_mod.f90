@@ -25,6 +25,10 @@ module control_mod
     ! later response; 'unit' keeps the constant-psi unit drive (Br_ref = 1 G)
     ! for the first transport step (behaviour before this switch).
     character(len=32) :: kim_periodic_initial_drive = 'target'
+    ! Gaussian width (std, in radial grid cells) applied to the E x B
+    ! frequency used by the electron drift-kinetic coefficients only;
+    ! 0 = pointwise (default, previous behaviour). Diagnostic switch.
+    real(dp) :: electron_er_smooth_cells = 0.0_dp
     ! Ideal wall radius for the outer region [cm]; <= 0: no wall (vacuum decay).
     real(dp) :: kim_periodic_wall_radius = -1.0_dp
     logical :: kim_transport_benchmark = .false.

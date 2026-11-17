@@ -11,7 +11,7 @@ subroutine read_config
                            kim_n_modes, kim_m_list, kim_n_list, &
                            kim_current_floor, kim_current_max_scale, kim_current_relaxation, &
                            kim_periodic_matching, kim_periodic_wall_radius, &
-                           kim_periodic_initial_drive, &
+                           kim_periodic_initial_drive, electron_er_smooth_cells, &
                            jpar_method, ion_transport_model_id, &
                            ION_TRANSPORT_INVALID
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
@@ -51,7 +51,8 @@ subroutine read_config
         I_par_toroidal, jpar_method, kim_current_floor, kim_current_max_scale, &
         kim_current_relaxation, kim_electron_transport_model, &
         kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode, &
-        kim_periodic_matching, kim_periodic_wall_radius, kim_periodic_initial_drive
+        kim_periodic_matching, kim_periodic_wall_radius, kim_periodic_initial_drive, &
+        electron_er_smooth_cells
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -93,6 +94,9 @@ subroutine read_config
     case default
         error stop 'equilibrium_sink_mode must be explicit or implicit'
     end select
+
+    if (.not. ieee_is_finite(electron_er_smooth_cells) .or. electron_er_smooth_cells < 0.0d0) &
+        error stop 'electron_er_smooth_cells must be finite and >= 0'
 
     if (kim_transport_benchmark) then
         if (trim(wave_code) /= 'KIM' .or. trim(kim_run_type) /= 'electrostatic_periodic') &
@@ -168,6 +172,7 @@ subroutine read_config
     call log_info(fmt_val("    kim_periodic_matching", trim(adjustl(kim_periodic_matching))))
     call log_info(fmt_val("    kim_periodic_wall_radius", kim_periodic_wall_radius, "cm"))
     call log_info(fmt_val("    kim_periodic_initial_drive", trim(adjustl(kim_periodic_initial_drive))))
+    call log_info(fmt_val("    electron_er_smooth_cells", electron_er_smooth_cells))
     call log_info(fmt_val("    kim_n_modes", kim_n_modes))
     if (kim_n_modes > 0) then
         write (*, "(A,100I5)") "    kim_m_list = ", kim_m_list(1:kim_n_modes)

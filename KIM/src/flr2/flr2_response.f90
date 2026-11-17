@@ -29,7 +29,8 @@ contains
 
     subroutine solve_flr2_response(background, mpol, ntor, major_radius, &
                                    toroidal_field, bpsi_over_bphi, options, &
-                                   phi, parcur_over_b0, stat)
+                                   phi, parcur_over_b0, stat, jpar_e, jpar_i, &
+                                   principal_coefficient)
         type(plasma_t), intent(in) :: background
         integer, intent(in) :: mpol, ntor
         real(dp), intent(in) :: major_radius
@@ -38,8 +39,11 @@ contains
         type(flr2_options_t), intent(in) :: options
         complex(dp), intent(out) :: phi(:), parcur_over_b0(:)
         integer, intent(out) :: stat
+        complex(dp), intent(out), optional :: jpar_e(:), jpar_i(:)
+        complex(dp), intent(out), optional :: principal_coefficient(:)
 
         integer :: i, include_phi, n, solver_stat, sp
+        logical :: need_species_currents
         real(dp) :: charge, current_switch, flr_switch, potential_switch
         real(dp) :: dphi_dr, mode_factor, rho2_factor
         complex(dp) :: factor_of_phi
@@ -50,9 +54,14 @@ contains
         complex(dp), allocatable :: b2_in(:), b2_out(:), b0(:)
         complex(dp), allocatable :: c2_in(:), c2_out(:), c0(:)
         complex(dp), allocatable :: d2_in(:), d2_out(:), d0(:)
+        complex(dp), allocatable :: c2_in_species(:,:), c2_out_species(:,:), c0_species(:,:)
+        complex(dp), allocatable :: d2_in_species(:,:), d2_out_species(:,:), d0_species(:,:)
 
         phi = (0.0_dp, 0.0_dp)
         parcur_over_b0 = (0.0_dp, 0.0_dp)
+        if (present(jpar_e)) jpar_e = (0.0_dp, 0.0_dp)
+        if (present(jpar_i)) jpar_i = (0.0_dp, 0.0_dp)
+        if (present(principal_coefficient)) principal_coefficient = (0.0_dp, 0.0_dp)
         stat = FLR2_RESPONSE_BAD_INPUT
         n = background%grid_size
 
@@ -60,13 +69,25 @@ contains
         if (.not. ieee_is_finite(major_radius) .or. major_radius <= 0.0_dp) return
         if (size(toroidal_field) /= n .or. size(bpsi_over_bphi) /= n &
             .or. size(phi) /= n .or. size(parcur_over_b0) /= n) return
+        if (present(jpar_e) .and. size(jpar_e) /= n) return
+        if (present(jpar_i) .and. size(jpar_i) /= n) return
+        if (present(principal_coefficient) .and. size(principal_coefficient) /= n) return
         if (.not. all(ieee_is_finite(toroidal_field))) return
         if (.not. finite_complex_1d(bpsi_over_bphi)) return
+        need_species_currents = present(jpar_e) .or. present(jpar_i)
 
         allocate(a2_in(n), a2_out(n), a0(n))
         allocate(b2_in(n), b2_out(n), b0(n))
         allocate(c2_in(n), c2_out(n), c0(n))
         allocate(d2_in(n), d2_out(n), d0(n))
+        if (need_species_currents) then
+            allocate(c2_in_species(n, 0:background%n_species - 1), &
+                     c2_out_species(n, 0:background%n_species - 1), &
+                     c0_species(n, 0:background%n_species - 1))
+            allocate(d2_in_species(n, 0:background%n_species - 1), &
+                     d2_out_species(n, 0:background%n_species - 1), &
+                     d0_species(n, 0:background%n_species - 1))
+        end if
 
         do i = 1, n
             mode_factor = real(mpol, dp) + background%q(i)*real(ntor, dp)
@@ -82,6 +103,14 @@ contains
             h_potential = (0.0_dp, 0.0_dp)
             f_current = (0.0_dp, 0.0_dp)
             g_current = (0.0_dp, 0.0_dp)
+            if (need_species_currents) then
+                c2_in_species(i, :) = (0.0_dp, 0.0_dp)
+                c2_out_species(i, :) = (0.0_dp, 0.0_dp)
+                c0_species(i, :) = (0.0_dp, 0.0_dp)
+                d2_in_species(i, :) = (0.0_dp, 0.0_dp)
+                d2_out_species(i, :) = (0.0_dp, 0.0_dp)
+                d0_species(i, :) = (0.0_dp, 0.0_dp)
+            end if
 
             do sp = 0, background%n_species - 1
                 if (background%spec(sp)%nu(i) <= 0.0_dp) return
@@ -118,6 +147,15 @@ contains
                 h_potential = h_potential + potential_switch*h_species
                 f_current = f_current + current_switch*f_species
                 g_current = g_current + current_switch*g_species
+
+                if (need_species_currents) then
+                    d0_species(i, sp) = -current_switch*f_species/(toroidal_field(i)*major_radius)
+                    d2_in_species(i, sp) = -current_switch*g_species*major_radius/toroidal_field(i)
+                    d2_out_species(i, sp) = d2_in_species(i, sp)
+                    c0_species(i, sp) = d0_species(i, sp)*factor_of_phi
+                    c2_in_species(i, sp) = d2_in_species(i, sp)*factor_of_phi
+                    c2_out_species(i, sp) = c2_in_species(i, sp)
+                end if
             end do
 
             b0(i) = -4.0_dp*pi*mode_factor*f_potential &
@@ -147,8 +185,62 @@ contains
             stat = solver_stat
             return
         end if
+        if (present(principal_coefficient)) principal_coefficient = a2_out + a2_in
+        if (present(jpar_e) .or. present(jpar_i)) then
+            call evaluate_species_currents(background%r_grid, bpsi_over_bphi, phi, &
+                c2_in_species, c2_out_species, c0_species, d2_in_species, &
+                d2_out_species, d0_species, options%include_potential_in_current, &
+                jpar_e, jpar_i)
+        end if
         stat = FLR2_RESPONSE_OK
     end subroutine solve_flr2_response
+
+    subroutine evaluate_species_currents(grid, drive, phi, c2_in, c2_out, c0, &
+                                         d2_in, d2_out, d0, include_phi, jpar_e, jpar_i)
+        real(dp), intent(in) :: grid(:)
+        complex(dp), intent(in) :: drive(:), phi(:)
+        complex(dp), intent(in) :: c2_in(:, 0:), c2_out(:, 0:), c0(:, 0:)
+        complex(dp), intent(in) :: d2_in(:, 0:), d2_out(:, 0:), d0(:, 0:)
+        logical, intent(in) :: include_phi
+        complex(dp), intent(out), optional :: jpar_e(:), jpar_i(:)
+
+        integer :: i, sp, n, n_species
+        real(dp) :: dxm, dxp, dxt
+        real(dp) :: weights(-1:1)
+        complex(dp) :: current
+
+        n = size(grid)
+        n_species = size(c0, 2)
+        if (present(jpar_e)) jpar_e = (0.0_dp, 0.0_dp)
+        if (present(jpar_i)) jpar_i = (0.0_dp, 0.0_dp)
+        do sp = 0, n_species - 1
+            do i = 1, n
+                if (i == 1 .or. i == n) then
+                    current = d0(i, sp)*drive(i)
+                    if (include_phi) current = current + c0(i, sp)*phi(i)
+                else
+                    dxp = grid(i + 1) - grid(i)
+                    dxm = grid(i) - grid(i - 1)
+                    dxt = dxp + dxm
+                    weights(-1) = 2.0_dp/(dxm*dxt)
+                    weights(0) = -2.0_dp/(dxm*dxp)
+                    weights(1) = 2.0_dp/(dxp*dxt)
+                    current = d2_out(i, sp)*sum(drive(i - 1:i + 1)*weights) &
+                        + sum(d2_in(i - 1:i + 1, sp)*drive(i - 1:i + 1)*weights) &
+                        + d0(i, sp)*drive(i)
+                    if (include_phi) current = current + c2_out(i, sp)* &
+                        sum(phi(i - 1:i + 1)*weights) &
+                        + sum(c2_in(i - 1:i + 1, sp)*phi(i - 1:i + 1)*weights) &
+                        + c0(i, sp)*phi(i)
+                end if
+                if (sp == 0) then
+                    if (present(jpar_e)) jpar_e(i) = current
+                else
+                    if (present(jpar_i)) jpar_i(i) = jpar_i(i) + current
+                end if
+            end do
+        end do
+    end subroutine evaluate_species_currents
 
     logical function valid_background(background, n)
         type(plasma_t), intent(in) :: background

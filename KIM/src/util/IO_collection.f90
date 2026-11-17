@@ -7,7 +7,36 @@ module IO_collection_m
 
     integer(HID_T) :: h5id
 
+    integer, parameter, public :: KIM_DIAGNOSTICS_INVALIDATE_OK = 0
+    integer, parameter, public :: KIM_DIAGNOSTICS_INVALIDATE_FAILED = 1
+
+    public :: invalidate_kim_diagnostics
+
     contains
+
+    subroutine invalidate_kim_diagnostics(filename, status)
+        ! Remove a previous flat diagnostics result before starting a new
+        ! run.  The caller must treat a nonzero status as fatal: retaining a
+        ! successful file after an early run failure is unsafe for scanners.
+        character(*), intent(in) :: filename
+        integer, intent(out) :: status
+
+        integer :: iunit, ios
+        logical :: exists
+
+        status = KIM_DIAGNOSTICS_INVALIDATE_OK
+        inquire(file=trim(filename), exist=exists)
+        if (.not. exists) return
+
+        open(newunit=iunit, file=trim(filename), status='old', action='read', &
+             iostat=ios)
+        if (ios /= 0) then
+            status = KIM_DIAGNOSTICS_INVALIDATE_FAILED
+            return
+        end if
+        close(iunit, status='delete', iostat=ios)
+        if (ios /= 0) status = KIM_DIAGNOSTICS_INVALIDATE_FAILED
+    end subroutine invalidate_kim_diagnostics
 
     subroutine initialize_hdf5_output()
 

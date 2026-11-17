@@ -515,8 +515,10 @@ module rt_electrostatic_periodic_m
         use kim_resonances_m, only: r_res
         use fields_m, only: EBdat, EBdat_t
         use fields_m, only: calculate_MA_field, calculate_E_in_rsp_from_cyl
+        use kim_diagnostics_m, only: compute_and_write_diagnostics
         use IO_collection_m, only: itoa, write_complex_profile_abs, &
-            write_periodic_scale_metadata
+            write_periodic_scale_metadata, invalidate_kim_diagnostics, &
+            KIM_DIAGNOSTICS_INVALIDATE_OK
 
         implicit none
 
@@ -533,6 +535,15 @@ module rt_electrostatic_periodic_m
         real(dp), allocatable :: r_win(:)
         real(dp) :: rm, rhoL_rm, dx_asis, dx_tr, L, k_max
         integer :: M, n_rg, info, i, reference_species, sp
+        integer :: diagnostics_status
+
+        ! Invalidate before any validation or solve.  A failed periodic run
+        ! must not leave a previous successful scan result behind.
+        call invalidate_kim_diagnostics(trim(output_path)//'kim_diagnostics.dat', &
+                                        diagnostics_status)
+        if (diagnostics_status /= KIM_DIAGNOSTICS_INVALIDATE_OK) then
+            error stop "electrostatic_periodic: could not invalidate kim_diagnostics.dat"
+        end if
 
         ! 1. Locate the resonant surface rm = r_res (q = -m/n) on the global plasma.
         call kim_prepare_resonances
@@ -660,6 +671,11 @@ module rt_electrostatic_periodic_m
         if (plasma%n_species > 1) then
             EBdat%jpar_i = sum(jpar_species(:, 1:plasma%n_species - 1), dim=2)
         end if
+
+        ! The periodic fields are now fully packed, including Es and the
+        ! electron/ion current split, so the shared diagnostics contract can
+        ! evaluate the resonant surface and integrate only the as-is window.
+        call compute_and_write_diagnostics(require_window=.true.)
         allocate(rho_B_i(size(rho_B)))
         rho_B_i = (0.0_dp, 0.0_dp)
         if (plasma%n_species > 1) then

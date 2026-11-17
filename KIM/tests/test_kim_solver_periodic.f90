@@ -21,8 +21,17 @@ program test_kim_solver_periodic
     !            window [rm - L/2, rm + L/2].
 
     use KIM_kinds_m, only: dp
+    use kim_diagnostics_m, only: compute_and_write_diagnostics, integrate_Ipar_window
 
     implicit none
+
+    character(len=512) :: argument
+
+    call get_environment_variable('KIM_EARLY_FAILURE', argument)
+    if (trim(argument) == '1') then
+        call run_periodic_early_failure_child()
+        error stop 'periodic early-failure child unexpectedly returned'
+    end if
 
     call test_legacy_conservation_default_reset()
     call test_run_type_end_to_end()
@@ -38,6 +47,60 @@ program test_kim_solver_periodic
     stop 0
 
 contains
+
+    subroutine assert_periodic_early_failure_clears_file()
+        use config_m, only: output_path
+
+        character(len=512) :: executable, command, out_file
+        integer :: child_status, iunit
+        logical :: exists
+
+        out_file = trim(output_path)//'kim_diagnostics.dat'
+        open(newunit=iunit, file=trim(out_file), status='replace', action='write')
+        write(iunit, '(A)') '# seeded successful diagnostics'
+        write(iunit, '(A)') '1 2 3 4 5 6'
+        close(iunit)
+
+        call get_command_argument(0, executable)
+        command = 'KIM_EARLY_FAILURE=1 "'//trim(executable)//'"'
+        call execute_command_line(trim(command), wait=.true., exitstat=child_status)
+        if (child_status == 0) error stop 'periodic early-failure child unexpectedly succeeded'
+
+        inquire(file=trim(out_file), exist=exists)
+        if (exists) error stop 'periodic early failure left stale diagnostics file'
+        print *, 'PASS: periodic early failure clears stale diagnostics'
+    end subroutine assert_periodic_early_failure_clears_file
+
+    subroutine run_periodic_early_failure_child()
+        use config_m, only: nml_config_path, profiles_in_memory, write_diagnostics_dat
+        use kim_solver_m, only: kim_profiles_t, kim_solver_t, KIM_OK
+
+        integer, parameter :: npts = 201
+        type(kim_profiles_t) :: prof
+        type(kim_solver_t) :: kim
+        integer :: i, stat
+        real(dp) :: fraction
+
+        allocate(prof%r(npts), prof%n(npts), prof%Te(npts), prof%Ti(npts), &
+                 prof%q(npts), prof%Er(npts))
+        do i = 1, npts
+            prof%r(i) = 2.0_dp + 58.0_dp * real(i - 1, dp) / real(npts - 1, dp)
+            fraction = (prof%r(i) - 2.0_dp) / 58.0_dp
+            prof%n(i) = 2.0e13_dp * (1.1_dp - prof%r(i) / 100.0_dp)
+            prof%Te(i) = 1.0e3_dp * (1.2_dp - prof%r(i) / 100.0_dp)
+            prof%Ti(i) = prof%Te(i)
+            prof%q(i) = 1.5_dp + 2.5_dp * fraction
+            prof%Er(i) = -0.5_dp
+        end do
+        nml_config_path = './KIM_config_periodic_run_test.nml'
+        profiles_in_memory = .true.
+        call kim%init(nml_config_path, run_type='electrostatic_periodic', &
+                      profiles=prof, stat=stat)
+        if (stat /= KIM_OK) error stop 'periodic early-failure child init failed'
+        write_diagnostics_dat = .false.
+        call kim%solve(m=-99, n=2, stat=stat)
+        error stop 'periodic early-failure child reached solve return'
+    end subroutine run_periodic_early_failure_child
 
     subroutine test_legacy_conservation_default_reset()
         use config_m, only: profiles_in_memory, nml_config_path, &
@@ -360,6 +423,10 @@ contains
         call kim_instance%run()
         print *, 'resonant radius rm = ', rm
 
+        call assert_periodic_diagnostics_file(EBdat)
+        call assert_periodic_diagnostics_rejects_invalid_contract()
+        call assert_periodic_early_failure_clears_file()
+
         if (periodic_match_global_kernel_approximations) then
             print *, 'FAIL: global-kernel approximation must default to false'
             error stop
@@ -478,6 +545,133 @@ contains
 
         call assert_scale_metadata(rho_i_rm)
     end subroutine test_run_type_end_to_end
+
+    subroutine assert_periodic_diagnostics_file(fields)
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+        use config_m, only: output_path
+        use fields_m, only: EBdat_t
+
+        type(EBdat_t), intent(in) :: fields
+        character(len=512) :: out_file, header, data_line
+        complex(dp) :: Ipar, Ipar_e, Ipar_i
+        real(dp) :: vals(6), extra, residual
+        integer :: iunit, ios, data_ios, extra_ios, i
+        logical :: exists
+
+        out_file = trim(output_path)//'kim_diagnostics.dat'
+        inquire(file=trim(out_file), exist=exists)
+        if (.not. exists) error stop 'periodic run did not write kim_diagnostics.dat'
+        open(newunit=iunit, file=trim(out_file), status='old', action='read')
+        read(iunit, '(A)', iostat=ios) header
+        read(iunit, '(A)', iostat=ios) data_line
+        if (ios == 0) then
+            read(data_line, *, iostat=data_ios) vals
+            if (data_ios /= 0) error stop 'periodic diagnostics does not contain exactly six values'
+            read(data_line, *, iostat=data_ios) vals, extra
+            if (data_ios == 0) error stop 'periodic diagnostics has more than six columns'
+        end if
+        read(iunit, '(A)', iostat=extra_ios) data_line
+        close(iunit)
+        if (ios /= 0) error stop 'periodic diagnostics file does not contain six values'
+        if (extra_ios == 0) error stop 'periodic diagnostics has more than one data record'
+        do i = 1, 6
+            if (.not. ieee_is_finite(vals(i))) then
+                error stop 'periodic diagnostics contains non-finite value'
+            end if
+        end do
+        if (vals(1) <= 0.0_dp .or. vals(6) <= 0.0_dp) then
+            error stop 'periodic diagnostics dqle22 and |Br| must be positive'
+        end if
+        Ipar = cmplx(vals(2), vals(3), dp)
+        Ipar_e = cmplx(vals(4), vals(5), dp)
+        Ipar_i = integrate_Ipar_window(size(fields%r_grid), fields%r_grid, fields%jpar_i, &
+                                        fields%r_resonance, fields%dx_asis)
+        if (abs(Ipar) <= 0.0_dp .or. abs(Ipar_e) <= 0.0_dp) then
+            error stop 'periodic diagnostics total and electron currents must be nonzero'
+        end if
+        residual = abs(Ipar - Ipar_e - Ipar_i) / abs(Ipar)
+        if (residual >= 1.0e-10_dp) then
+            print *, 'periodic diagnostics current residual = ', residual
+            error stop 'periodic diagnostics currents do not satisfy total=e+i'
+        end if
+        print *, 'PASS: periodic diagnostics file has six finite values; current residual = ', &
+                 residual
+    end subroutine assert_periodic_diagnostics_file
+
+    subroutine assert_periodic_diagnostics_rejects_invalid_contract()
+        use, intrinsic :: ieee_arithmetic, only: ieee_quiet_nan, ieee_value
+        use config_m, only: output_path
+        use fields_m, only: EBdat
+
+        character(len=512) :: out_file
+        complex(dp), allocatable :: phi_saved(:), jpar_i_saved(:)
+        real(dp) :: resonance_saved, dx_saved
+        logical :: exists
+
+        out_file = trim(output_path)//'kim_diagnostics.dat'
+        phi_saved = EBdat%Phi
+        jpar_i_saved = EBdat%jpar_i
+        resonance_saved = EBdat%r_resonance
+        dx_saved = EBdat%dx_asis
+
+        call remove_diagnostics_file(out_file)
+        EBdat%dx_asis = 0.0_dp
+        call compute_and_write_diagnostics(require_window=.true.)
+        inquire(file=trim(out_file), exist=exists)
+        if (exists) error stop 'periodic diagnostics accepted zero dx_asis'
+
+        EBdat%dx_asis = dx_saved
+        EBdat%r_resonance = ieee_value(0.0_dp, ieee_quiet_nan)
+        call remove_diagnostics_file(out_file)
+        call compute_and_write_diagnostics(require_window=.true.)
+        inquire(file=trim(out_file), exist=exists)
+        if (exists) error stop 'periodic diagnostics accepted non-finite resonance'
+
+        EBdat%r_resonance = resonance_saved
+        EBdat%Phi = phi_saved
+        deallocate(EBdat%Phi)
+        call remove_diagnostics_file(out_file)
+        call compute_and_write_diagnostics(require_window=.true.)
+        inquire(file=trim(out_file), exist=exists)
+        if (exists) error stop 'periodic diagnostics accepted missing Phi'
+
+        EBdat%Phi = phi_saved
+        EBdat%Phi(1) = ieee_value(0.0_dp, ieee_quiet_nan)
+        call remove_diagnostics_file(out_file)
+        call compute_and_write_diagnostics(require_window=.true.)
+        inquire(file=trim(out_file), exist=exists)
+        if (exists) error stop 'periodic diagnostics accepted non-finite Phi'
+
+        EBdat%Phi = phi_saved
+        deallocate(EBdat%jpar_i)
+        call remove_diagnostics_file(out_file)
+        call compute_and_write_diagnostics(require_window=.true.)
+        inquire(file=trim(out_file), exist=exists)
+        if (exists) error stop 'periodic diagnostics accepted missing jpar_i'
+
+        EBdat%jpar_i = jpar_i_saved
+        EBdat%jpar_i(1) = ieee_value(0.0_dp, ieee_quiet_nan)
+        call remove_diagnostics_file(out_file)
+        call compute_and_write_diagnostics(require_window=.true.)
+        inquire(file=trim(out_file), exist=exists)
+        if (exists) error stop 'periodic diagnostics accepted non-finite jpar_i'
+
+        EBdat%jpar_i = jpar_i_saved
+        call remove_diagnostics_file(out_file)
+        print *, 'PASS: periodic diagnostics rejects invalid window and packed fields'
+    end subroutine assert_periodic_diagnostics_rejects_invalid_contract
+
+    subroutine remove_diagnostics_file(path)
+        character(*), intent(in) :: path
+        integer :: iunit, ios
+        logical :: exists
+
+        inquire(file=trim(path), exist=exists)
+        if (exists) then
+            open(newunit=iunit, file=trim(path), status='old', action='read', iostat=ios)
+            if (ios == 0) close(iunit, status='delete')
+        end if
+    end subroutine remove_diagnostics_file
 
     subroutine assert_scale_metadata(expected_rho)
         use constants_m, only: pi
@@ -770,7 +964,7 @@ contains
         write(iunit, '(A)') ' data_verbosity = 0'
         write(iunit, '(A)') ' calculate_asymptotics = .false.'
         write(iunit, '(A)') " h5_out_file = 'KIM_species_jpar.h5'"
-        write(iunit, '(A)') ' write_diagnostics_dat = .false.'
+        write(iunit, '(A)') ' write_diagnostics_dat = .true.'
         write(iunit, '(A)') '/'
         write(iunit, '(A)') '&KIM_SETUP'
         write(iunit, '(A)') ' btor = -18000.0'

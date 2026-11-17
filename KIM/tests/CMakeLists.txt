@@ -147,6 +147,15 @@ foreach(invalid_geometry nan_q nan_r unordered_r shape missing_q)
     set_tests_properties(test_signed_resonances_${invalid_geometry} PROPERTIES WILL_FAIL TRUE)
 endforeach()
 
+add_executable(test_local_dispersion_geometry
+               ${CMAKE_SOURCE_DIR}/KIM/tests/test_local_dispersion_geometry.f90)
+set_target_properties(test_local_dispersion_geometry PROPERTIES
+                      OUTPUT_NAME test_local_dispersion_geometry.x
+                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+target_link_libraries(test_local_dispersion_geometry KIM_lib)
+add_test(NAME test_local_dispersion_geometry
+         COMMAND ${CMAKE_BINARY_DIR}/tests/test_local_dispersion_geometry.x)
+
 add_executable(test_zbesi_amos_scaling test_zbesi_amos_scaling.f90)
 set_target_properties(test_zbesi_amos_scaling PROPERTIES
                       OUTPUT_NAME test_zbesi_amos_scaling.x)

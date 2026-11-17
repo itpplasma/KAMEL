@@ -234,6 +234,8 @@ module rt_WKB_dispersion_m
             use KIM_kinds_m, only: dp
             use grid_m, only: rg_grid
             use config_m, only: WKB_solve_for_kr_squared
+            use local_dispersion_geometry_m, only: local_bessel_argument, &
+                                                   local_laplacian_wavenumber_squared
 
             implicit none
 
@@ -259,7 +261,8 @@ module rt_WKB_dispersion_m
 
             do sp = 0, plasma%n_species-1
 
-                kr_rho_squared = kr_squared * plasma%spec(sp)%rho_L(j)**2.0d0
+                kr_rho_squared = local_bessel_argument(kr_squared, plasma%ks(j), &
+                                                       plasma%spec(sp)%rho_L(j))
 
                 ! calculate modified Bessel functions I0 and I1 with complex argument
                 call zbesi(real(kr_rho_squared, kind=dp), &
@@ -303,7 +306,8 @@ module rt_WKB_dispersion_m
             end do
 
             ! neglect linear term, accurate enough
-            f = kr_squared + plasma%kp(j)**2.0d0 - f
+            f = local_laplacian_wavenumber_squared(kr_squared, plasma%ks(j), &
+                                                   plasma%kp(j)) - f
 
         end subroutine dispersion_KIM
 
@@ -370,6 +374,8 @@ module rt_WKB_dispersion_m
         use KIM_kinds_m, only: dp
         use Function_Input_Module, only: rg_index
         use config_m, only: WKB_solve_for_kr_squared
+        use local_dispersion_geometry_m, only: local_bessel_argument, &
+                                               local_laplacian_wavenumber_squared
 
         implicit none
 
@@ -397,7 +403,8 @@ module rt_WKB_dispersion_m
 
         do sp = 0, plasma%n_species-1
 
-            kr_rho_squared = kr_squared * plasma%spec(sp)%rho_L(j)**2.0d0
+            kr_rho_squared = local_bessel_argument(kr_squared, plasma%ks(j), &
+                                                   plasma%spec(sp)%rho_L(j))
 
             call zbesi(real(kr_rho_squared, kind=dp), &
                        dimag(kr_rho_squared), &
@@ -421,7 +428,8 @@ module rt_WKB_dispersion_m
 
         end do
 
-        f = kr_squared + plasma%kp(j)**2.0d0 - f
+        f = local_laplacian_wavenumber_squared(kr_squared, plasma%ks(j), &
+                                               plasma%kp(j)) - f
 
     end subroutine test_dispersion_KIM
 

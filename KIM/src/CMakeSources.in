@@ -50,7 +50,8 @@ set(KIM_background_equilibrium background_equilibrium/species_mod.f90
                             background_equilibrium/periodic_background.f90
 )
 
-set(KIM_dispersion  dispersion/fun_input.f90
+set(KIM_dispersion  dispersion/local_dispersion_geometry.f90
+                    dispersion/fun_input.f90
                     dispersion/wkb_dispersion.f90
                     dispersion/root_finding.f90
 )

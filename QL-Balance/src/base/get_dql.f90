@@ -31,7 +31,8 @@ subroutine get_dql
     use baseparam_mod, only: Z_i, e_charge, am, p_mass, c, e_mass, ev, rtor, pi, rsepar
     use control_mod, only: irf, suppression_mode, misalign_diffusion, type_of_run, wave_code, &
                            is_time_evolution_run, &
-                          jpar_method
+                          jpar_method, electron_er_smooth_cells
+    use electron_er_smoothing_m, only: gauss_smooth_cells
     use time_evolution, only: save_prof_time_step, time_ind, br_formfactor, br_vac_res, &
         periodic_response_trial
     use h5mod
@@ -62,6 +63,7 @@ subroutine get_dql
     real(dp) :: ion_tensor(2, 2, npoib)
     real(dp) :: weight
     real(dp), dimension(npoib) :: vT_e, vT_i, nu_e, nu_i
+    real(dp), dimension(:), allocatable :: om_E_pointwise, dPhi0_electron
 
     real(dp), DIMENSION(:), ALLOCATABLE :: dqle11_loc
     real(dp), DIMENSION(:), ALLOCATABLE :: dqle12_loc
@@ -232,7 +234,18 @@ subroutine get_dql
         ! Electrons retain the established drift-kinetic Heyn/Markl
         ! coefficients. The ion model is selectable for periodic KIM so
         ! both formalisms can be compared using the same physical fields.
-        call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
+        if (electron_er_smooth_cells > 0.0d0) then
+            ! Electron coefficients see a radially smoothed Er; om_E is
+            ! restored afterwards for the ions and all diagnostics.
+            om_E_pointwise = om_E
+            dPhi0_electron = dPhi0
+            call gauss_smooth_cells(dPhi0_electron, electron_er_smooth_cells)
+            om_E = ks * c * dPhi0_electron / B0
+            call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
+            om_E = om_E_pointwise
+        else
+            call calc_transport_coeffs_ornuhl(npoib, vT_e, nu_e, de11, de12, de21, de22)
+        end if
         if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()) then
             call select_periodic_ion_transport(i_mn, vT_i, nu_i, ion_tensor)
             di11 = ion_tensor(1, 1, :)

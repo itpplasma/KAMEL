@@ -1,30 +1,39 @@
-set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 
-
-function (add_fortran_test name)
+function(add_fortran_test name)
     add_test(NAME ${name} COMMAND ${name}.x)
-    set_tests_properties(${name} PROPERTIES  FAIL_REGULAR_EXPRESSION "STOP")
+    set_tests_properties(${name} PROPERTIES FAIL_REGULAR_EXPRESSION "STOP")
 endfunction()
 
 add_executable(test_sparse.x test_sparse.f90)
-target_link_libraries(test_sparse.x PUBLIC sparse SuiteSparse::umfpack_wrappers SuiteSparse::umfpack)
+target_link_libraries(
+    test_sparse.x
+    PUBLIC sparse SuiteSparse::umfpack_wrappers SuiteSparse::umfpack
+)
 target_include_directories(test_sparse.x PUBLIC "${UMFPACK_INCLUDE_DIR}")
 add_fortran_test(test_sparse)
 
 add_executable(test_sparse_oracle.x test_sparse_oracle.f90)
-target_link_libraries(test_sparse_oracle.x PRIVATE
-    sparse SuiteSparse::umfpack_wrappers SuiteSparse::umfpack)
+target_link_libraries(
+    test_sparse_oracle.x
+    PRIVATE sparse SuiteSparse::umfpack_wrappers SuiteSparse::umfpack
+)
 add_fortran_test(test_sparse_oracle)
 
 # Singular system must stop with an UMFPACK error (ERROR STOP, nonzero exit).
 # A normal return prints NO_ERROR_STOP and fails; a crash prints nothing and fails.
 add_executable(test_sparse_singular.x test_sparse_singular.f90)
-target_link_libraries(test_sparse_singular.x PRIVATE
-    sparse SuiteSparse::umfpack_wrappers SuiteSparse::umfpack)
+target_link_libraries(
+    test_sparse_singular.x
+    PRIVATE sparse SuiteSparse::umfpack_wrappers SuiteSparse::umfpack
+)
 add_test(NAME test_sparse_singular COMMAND test_sparse_singular.x)
-set_tests_properties(test_sparse_singular PROPERTIES
-    PASS_REGULAR_EXPRESSION "UMFPACK singular matrix"
-    FAIL_REGULAR_EXPRESSION "NO_ERROR_STOP")
+set_tests_properties(
+    test_sparse_singular
+    PROPERTIES
+        PASS_REGULAR_EXPRESSION "UMFPACK singular matrix"
+        FAIL_REGULAR_EXPRESSION "NO_ERROR_STOP"
+)
 
 # THE FOLLOWING TEST IS BROKEN, AS 'balance_conf.nml' IS NOT FOUND CORRECTLY
 # add_executable(test_D_one_over_nu.x test_D_one_over_nu.f90)
@@ -67,8 +76,10 @@ add_executable(test_diff_coeffs.x test_diff_coeffs.f90)
 target_link_libraries(test_diff_coeffs.x PUBLIC ql-balance_lib)
 add_fortran_test(test_diff_coeffs)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/diff_coeffs/profiles)
-set_tests_properties(test_diff_coeffs PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/diff_coeffs)
+set_tests_properties(
+    test_diff_coeffs
+    PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/diff_coeffs
+)
 
 # Namelist text stored as /run_info/balancenml
 add_executable(test_run_info.x test_run_info.f90)
@@ -89,10 +100,14 @@ add_fortran_test(test_ntv_feedback)
 add_executable(test_ntv_antenna_scaling.x test_ntv_antenna_scaling.f90)
 target_link_libraries(test_ntv_antenna_scaling.x PUBLIC ql-balance_lib)
 add_fortran_test(test_ntv_antenna_scaling)
-add_test(NAME test_ntv_antenna_scaling_zero_reference
-         COMMAND test_ntv_antenna_scaling.x zero_reference)
-set_tests_properties(test_ntv_antenna_scaling_zero_reference PROPERTIES
-                     PASS_REGULAR_EXPRESSION "needs a positive reference antenna factor")
+add_test(
+    NAME test_ntv_antenna_scaling_zero_reference
+    COMMAND test_ntv_antenna_scaling.x zero_reference
+)
+set_tests_properties(
+    test_ntv_antenna_scaling_zero_reference
+    PROPERTIES PASS_REGULAR_EXPRESSION "needs a positive reference antenna factor"
+)
 
 add_executable(test_neort_config.x test_neort_config.f90)
 target_link_libraries(test_neort_config.x PUBLIC ql-balance_lib)
@@ -117,27 +132,33 @@ add_fortran_test(test_kim_adapter)
 add_executable(test_vel_integral.x test_vel_integral.f90)
 target_link_libraries(test_vel_integral.x PUBLIC ql-balance_lib)
 add_fortran_test(test_vel_integral)
-configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
-               ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml COPYONLY)
+configure_file(
+    ${CMAKE_SOURCE_DIR}/KIM/tests/test_data/KIM_config_em_small.nml
+    ${CMAKE_BINARY_DIR}/tests/KIM_config_em_small.nml
+    COPYONLY
+)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/profiles)
 foreach(profile_file n.dat q.dat Te.dat Ti.dat)
-    configure_file(${CMAKE_SOURCE_DIR}/KIM/tests/test_data/${profile_file}
-                   ${CMAKE_BINARY_DIR}/tests/profiles/${profile_file} COPYONLY)
+    configure_file(
+        ${CMAKE_SOURCE_DIR}/KIM/tests/test_data/${profile_file}
+        ${CMAKE_BINARY_DIR}/tests/profiles/${profile_file}
+        COPYONLY
+    )
 endforeach()
-set_tests_properties(test_kim_adapter PROPERTIES
-                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+set_tests_properties(test_kim_adapter PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 
 add_executable(test_hdf5_diagnostic_writers.x test_hdf5_diagnostic_writers.f90)
 target_link_libraries(test_hdf5_diagnostic_writers.x PUBLIC ql-balance_lib)
 add_fortran_test(test_hdf5_diagnostic_writers)
-set_tests_properties(test_hdf5_diagnostic_writers PROPERTIES
-                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+set_tests_properties(
+    test_hdf5_diagnostic_writers
+    PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+)
 
 add_executable(test_output_streaming.x test_output_streaming.f90)
 target_link_libraries(test_output_streaming.x PUBLIC ql-balance_lib)
 add_fortran_test(test_output_streaming)
-set_tests_properties(test_output_streaming PROPERTIES
-                     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+set_tests_properties(test_output_streaming PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 
 add_executable(test_periodic_embedding.x test_periodic_embedding.f90)
 target_link_libraries(test_periodic_embedding.x PUBLIC ql-balance_lib)
@@ -155,8 +176,10 @@ add_executable(test_periodic_kim_coupling.x test_periodic_kim_coupling.f90)
 target_link_libraries(test_periodic_kim_coupling.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_kim_coupling)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_kim_coupling)
-set_tests_properties(test_periodic_kim_coupling PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_kim_coupling)
+set_tests_properties(
+    test_periodic_kim_coupling
+    PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_kim_coupling
+)
 
 add_executable(test_transport_smoothing.x test_transport_smoothing.f90)
 target_link_libraries(test_transport_smoothing.x PUBLIC ql-balance_lib)
@@ -170,19 +193,36 @@ target_link_libraries(test_periodic_target_current.x PUBLIC ql-balance_lib)
 target_include_directories(test_periodic_target_current.x PRIVATE ${CMAKE_BINARY_DIR}/OBJS/kim)
 add_fortran_test(test_periodic_target_current)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_target_current)
-set_tests_properties(test_periodic_target_current PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_target_current)
+set_tests_properties(
+    test_periodic_target_current
+    PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_target_current
+)
 
 add_executable(test_periodic_response_normalization.x test_periodic_response_normalization.f90)
 target_link_libraries(test_periodic_response_normalization.x PUBLIC ql-balance_lib)
-target_include_directories(test_periodic_response_normalization.x PRIVATE
-    ${CMAKE_BINARY_DIR}/OBJS/kim)
+target_include_directories(
+    test_periodic_response_normalization.x
+    PRIVATE ${CMAKE_BINARY_DIR}/OBJS/kim
+)
 add_fortran_test(test_periodic_response_normalization)
 
-foreach(invalid_case geometry_duplicate geometry_descending geometry_nan geometry_inf
-        bounds_nan bounds_inf bounds_reversed bounds_empty bounds_outside grid_shape)
-    add_test(NAME test_periodic_current_${invalid_case}
-        COMMAND test_periodic_current_normalization.x ${invalid_case})
+foreach(
+    invalid_case
+    geometry_duplicate
+    geometry_descending
+    geometry_nan
+    geometry_inf
+    bounds_nan
+    bounds_inf
+    bounds_reversed
+    bounds_empty
+    bounds_outside
+    grid_shape
+)
+    add_test(
+        NAME test_periodic_current_${invalid_case}
+        COMMAND test_periodic_current_normalization.x ${invalid_case}
+    )
     set_tests_properties(test_periodic_current_${invalid_case} PROPERTIES WILL_FAIL TRUE)
 endforeach()
 
@@ -190,18 +230,23 @@ add_executable(test_periodic_multimode_feedback.x test_periodic_multimode_feedba
 target_link_libraries(test_periodic_multimode_feedback.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_multimode_feedback)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_feedback)
-set_tests_properties(test_periodic_multimode_feedback PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_feedback)
+set_tests_properties(
+    test_periodic_multimode_feedback
+    PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_feedback
+)
 
 foreach(case wrong_sign outside)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_reject_${case})
-    add_test(NAME test_periodic_reject_${case}
-        COMMAND ${CMAKE_COMMAND}
-            -DTEST_EXECUTABLE=$<TARGET_FILE:test_periodic_multimode_feedback.x>
-            -DCASE=${case}
-            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_periodic_nonresonant.cmake)
-    set_tests_properties(test_periodic_reject_${case} PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_reject_${case})
+    add_test(
+        NAME test_periodic_reject_${case}
+        COMMAND
+            ${CMAKE_COMMAND} -DTEST_EXECUTABLE=$<TARGET_FILE:test_periodic_multimode_feedback.x>
+            -DCASE=${case} -P ${CMAKE_CURRENT_SOURCE_DIR}/check_periodic_nonresonant.cmake
+    )
+    set_tests_properties(
+        test_periodic_reject_${case}
+        PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_reject_${case}
+    )
 endforeach()
 
 add_executable(test_periodic_multimode_assembly.x test_periodic_multimode_assembly.f90)
@@ -209,8 +254,10 @@ target_link_libraries(test_periodic_multimode_assembly.x PUBLIC ql-balance_lib)
 target_include_directories(test_periodic_multimode_assembly.x PRIVATE ${CMAKE_BINARY_DIR}/OBJS/kim)
 add_fortran_test(test_periodic_multimode_assembly)
 file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_assembly)
-set_tests_properties(test_periodic_multimode_assembly PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_assembly)
+set_tests_properties(
+    test_periodic_multimode_assembly
+    PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_multimode_assembly
+)
 add_executable(test_periodic_amplitude_state.x test_periodic_amplitude_state.f90)
 target_link_libraries(test_periodic_amplitude_state.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_amplitude_state)
@@ -218,37 +265,65 @@ add_fortran_test(test_periodic_amplitude_state)
 add_executable(test_periodic_restart_adapter.x test_periodic_restart_adapter.f90)
 target_link_libraries(test_periodic_restart_adapter.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_restart_adapter)
-set_tests_properties(test_periodic_restart_adapter PROPERTIES
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+set_tests_properties(
+    test_periodic_restart_adapter
+    PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
+)
 
-foreach(case mode_count metadata_shape guard_no_stat invalid_initialize reject_fresh)
-    add_test(NAME test_periodic_amplitude_${case}
-        COMMAND test_periodic_amplitude_state.x ${case})
+foreach(
+    case
+    mode_count
+    metadata_shape
+    guard_no_stat
+    invalid_initialize
+    reject_fresh
+)
+    add_test(NAME test_periodic_amplitude_${case} COMMAND test_periodic_amplitude_state.x ${case})
     set_tests_properties(test_periodic_amplitude_${case} PROPERTIES WILL_FAIL TRUE)
 endforeach()
-foreach(test periodic_checkpoint periodic_checkpoint_reader periodic_time_evolution time_history_restart
-        timestep_controller)
+foreach(
+    test
+    periodic_checkpoint
+    periodic_checkpoint_reader
+    periodic_time_evolution
+    time_history_restart
+    timestep_controller
+)
     add_executable(test_${test}.x test_${test}.f90)
     target_link_libraries(test_${test}.x PUBLIC ql-balance_lib)
     add_fortran_test(test_${test})
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/tests/${test})
-    set_tests_properties(test_${test} PROPERTIES
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/${test})
+    set_tests_properties(
+        test_${test}
+        PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/${test}
+    )
 endforeach()
 
-foreach(case version phase partial modes status duplicate nonfinite)
-    add_test(NAME test_periodic_checkpoint_${case}
-        COMMAND test_periodic_checkpoint.x ${case})
-    set_tests_properties(test_periodic_checkpoint_${case} PROPERTIES WILL_FAIL TRUE
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_checkpoint)
+foreach(
+    case
+    version
+    phase
+    partial
+    modes
+    status
+    duplicate
+    nonfinite
+)
+    add_test(NAME test_periodic_checkpoint_${case} COMMAND test_periodic_checkpoint.x ${case})
+    set_tests_properties(
+        test_periodic_checkpoint_${case}
+        PROPERTIES WILL_FAIL TRUE WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_checkpoint
+    )
 endforeach()
 
 add_executable(test_periodic_workflow_validation.x test_periodic_workflow_validation.f90)
 target_link_libraries(test_periodic_workflow_validation.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_workflow_validation)
 foreach(case duplicate shape bparallel)
-    add_test(NAME test_periodic_workflow_${case}
-        COMMAND test_periodic_workflow_validation.x ${case})
+    add_test(
+        NAME test_periodic_workflow_${case}
+        COMMAND test_periodic_workflow_validation.x ${case}
+    )
     set_tests_properties(test_periodic_workflow_${case} PROPERTIES WILL_FAIL TRUE)
 endforeach()
 

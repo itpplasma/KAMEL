@@ -5,43 +5,38 @@ find_package(BLAS REQUIRED)
 find_package(OpenMP REQUIRED COMPONENTS C)
 
 set(UMFPACK_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libumfpack${CMAKE_STATIC_LIBRARY_SUFFIX})
-set(SUITESPARSE_CONFIG_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libsuitesparseconfig${CMAKE_STATIC_LIBRARY_SUFFIX})
+set(SUITESPARSE_CONFIG_LIBRARY_PATH
+    ${CMAKE_BINARY_DIR}/install/lib/libsuitesparseconfig${CMAKE_STATIC_LIBRARY_SUFFIX}
+)
 set(AMD_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libamd${CMAKE_STATIC_LIBRARY_SUFFIX})
 set(SUITESPARSE_INCLUDE_DIR ${CMAKE_BINARY_DIR}/install/include/suitesparse)
 set(UMFPACK_INCLUDE_DIR ${CMAKE_BINARY_DIR}/install/include/suitesparse)
 
-execute_process(
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${SUITESPARSE_INCLUDE_DIR}
-)
+execute_process(COMMAND ${CMAKE_COMMAND} -E make_directory ${SUITESPARSE_INCLUDE_DIR})
 
 ExternalProject_Add(
     SuiteSparse
-    DOWNLOAD_EXTRACT_TIMESTAMP
-    URL https://github.com/DrTimothyAldenDavis/SuiteSparse/archive/refs/tags/v7.8.3.tar.gz
+    DOWNLOAD_EXTRACT_TIMESTAMP URL
+    https://github.com/DrTimothyAldenDavis/SuiteSparse/archive/refs/tags/v7.8.3.tar.gz
     URL_HASH MD5=242e38ecfc8a3e3aa6b7d8d44849c5cf
     CMAKE_ARGS
-        -GNinja
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -GNinja -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         #-DCMAKE_C_FLAGS=${CMAKE_C_FLAGS}
         #-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}
         #-DBUILD_SHARED_LIBS=OFF
-        -DSUITESPARSE_ENABLE_PROJECTS=umfpack
-        -DUMFPACK_USE_CHOLMOD=OFF
+        -DSUITESPARSE_ENABLE_PROJECTS=umfpack -DUMFPACK_USE_CHOLMOD=OFF
         -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/install
     BUILD_IN_SOURCE FALSE
-
-    UPDATE_COMMAND "" # ignore any potential updates
-
+    UPDATE_COMMAND
+        "" # ignore any potential updates
     BUILD_COMMAND
-        ${CMAKE_COMMAND} --build <BINARY_DIR> --target
-            UMFPACK UMFPACK_static AMD AMD_static
-            SuiteSparseConfig SuiteSparseConfig_static
+        ${CMAKE_COMMAND} --build <BINARY_DIR> --target UMFPACK UMFPACK_static AMD AMD_static
+        SuiteSparseConfig SuiteSparseConfig_static
     COMMAND ${CMAKE_COMMAND} -P <BINARY_DIR>/SuiteSparse_config/cmake_install.cmake
     COMMAND ${CMAKE_COMMAND} -P <BINARY_DIR>/AMD/cmake_install.cmake
     COMMAND ${CMAKE_COMMAND} -P <BINARY_DIR>/UMFPACK/cmake_install.cmake
-
-    INSTALL_COMMAND "" # not needed
-
+    INSTALL_COMMAND
+        "" # not needed
     BUILD_BYPRODUCTS
         ${UMFPACK_LIBRARY_PATH}
         ${SUITESPARSE_CONFIG_LIBRARY_PATH}
@@ -50,31 +45,39 @@ ExternalProject_Add(
 )
 
 set(UMFPACK_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libumfpack${CMAKE_STATIC_LIBRARY_SUFFIX})
-set(SUITESPARSE_CONFIG_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libsuitesparseconfig${CMAKE_STATIC_LIBRARY_SUFFIX})
+set(SUITESPARSE_CONFIG_LIBRARY_PATH
+    ${CMAKE_BINARY_DIR}/install/lib/libsuitesparseconfig${CMAKE_STATIC_LIBRARY_SUFFIX}
+)
 set(AMD_LIBRARY_PATH ${CMAKE_BINARY_DIR}/install/lib/libamd${CMAKE_STATIC_LIBRARY_SUFFIX})
 set(UMFPACK_INCLUDE_DIR ${CMAKE_BINARY_DIR}/install/include/suitesparse)
 
 ExternalProject_Get_Property(SuiteSparse SOURCE_DIR)
 
 add_library(SuiteSparse::suitesparse_config STATIC IMPORTED)
-set_target_properties(SuiteSparse::suitesparse_config PROPERTIES
-    IMPORTED_LOCATION ${SUITESPARSE_CONFIG_LIBRARY_PATH}
-    INTERFACE_INCLUDE_DIRECTORIES ${SUITESPARSE_INCLUDE_DIR}
-    INTERFACE_LINK_LIBRARIES "BLAS::BLAS;OpenMP::OpenMP_C"
+set_target_properties(
+    SuiteSparse::suitesparse_config
+    PROPERTIES
+        IMPORTED_LOCATION ${SUITESPARSE_CONFIG_LIBRARY_PATH}
+        INTERFACE_INCLUDE_DIRECTORIES ${SUITESPARSE_INCLUDE_DIR}
+        INTERFACE_LINK_LIBRARIES "BLAS::BLAS;OpenMP::OpenMP_C"
 )
 
 add_library(SuiteSparse::amd STATIC IMPORTED)
-set_target_properties(SuiteSparse::amd PROPERTIES
-    IMPORTED_LOCATION ${AMD_LIBRARY_PATH}
-    INTERFACE_INCLUDE_DIRECTORIES ${SUITESPARSE_INCLUDE_DIR}
-    INTERFACE_LINK_LIBRARIES SuiteSparse::suitesparse_config
+set_target_properties(
+    SuiteSparse::amd
+    PROPERTIES
+        IMPORTED_LOCATION ${AMD_LIBRARY_PATH}
+        INTERFACE_INCLUDE_DIRECTORIES ${SUITESPARSE_INCLUDE_DIR}
+        INTERFACE_LINK_LIBRARIES SuiteSparse::suitesparse_config
 )
 
 add_library(SuiteSparse::umfpack STATIC IMPORTED)
-set_target_properties(SuiteSparse::umfpack PROPERTIES
-    IMPORTED_LOCATION ${UMFPACK_LIBRARY_PATH}
-    INTERFACE_INCLUDE_DIRECTORIES ${SUITESPARSE_INCLUDE_DIR}
-    INTERFACE_LINK_LIBRARIES SuiteSparse::amd
+set_target_properties(
+    SuiteSparse::umfpack
+    PROPERTIES
+        IMPORTED_LOCATION ${UMFPACK_LIBRARY_PATH}
+        INTERFACE_INCLUDE_DIRECTORIES ${SUITESPARSE_INCLUDE_DIR}
+        INTERFACE_LINK_LIBRARIES SuiteSparse::amd
 )
 
 set(UMFPACK_WRAPPERS

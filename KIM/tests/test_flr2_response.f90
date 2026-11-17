@@ -68,8 +68,8 @@ program test_flr2_response
     d0_electron = -f_electron/(background%B0(1)*major_radius)
     expected_current = cmplx(d0_electron, 0.0_dp, dp)*bpsi_over_bphi(1)
     current_scale = abs(expected_current)
-    if (maxval(abs(phi)) > tol) then
-        write(*,*) 'FAIL: disabled potential should be zero: ', phi
+    if (maxval(abs(phi - phi_reference)) > tol*max(1.0_dp, maxval(abs(phi_reference)))) then
+        write(*,*) 'FAIL: current switch changed solved Phi: ', phi, phi_reference
         stop 1
     end if
     if (maxval(abs(current - expected_current)) > &

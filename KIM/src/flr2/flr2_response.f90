@@ -42,7 +42,7 @@ contains
         complex(dp), intent(out), optional :: jpar_e(:), jpar_i(:)
         complex(dp), intent(out), optional :: principal_coefficient(:)
 
-        integer :: i, include_phi, n, solver_stat, sp
+        integer :: i, n, solver_stat, sp
         logical :: need_species_currents
         real(dp) :: charge, current_switch, flr_switch, potential_switch
         real(dp) :: dphi_dr, mode_factor, rho2_factor
@@ -176,8 +176,15 @@ contains
             c2_out(i) = c2_in(i)
         end do
 
-        include_phi = merge(1, 0, options%include_potential_in_current)
-        call solve_flr2_tridiagonal(include_phi, background%r_grid, bpsi_over_bphi, &
+        ! The potential equation is independent of current attribution.  The
+        ! include_potential_in_current switch only suppresses the C[Phi]
+        ! contribution after Phi has been solved, while D[b] remains active.
+        if (.not. options%include_potential_in_current) then
+            c2_in = (0.0_dp, 0.0_dp)
+            c2_out = (0.0_dp, 0.0_dp)
+            c0 = (0.0_dp, 0.0_dp)
+        end if
+        call solve_flr2_tridiagonal(1, background%r_grid, bpsi_over_bphi, &
                                     a2_in, a2_out, a0, b2_in, b2_out, b0, &
                                     c2_in, c2_out, c0, d2_in, d2_out, d0, &
                                     phi, parcur_over_b0, solver_stat)

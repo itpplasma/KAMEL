@@ -120,11 +120,14 @@ contains
         values = real(buffer, real32)
     end subroutine h5_get_float
 
+    !> Skipped where h5dump is missing. dash returns 127 for a missing command,
+    !> which gfortran reports as an invalid command line unless cmdstat is given.
     subroutine check_h5dump(path)
         character(len=*), intent(in) :: path
-        integer :: status
-        call execute_command_line("command -v h5dump > /dev/null", exitstat=status)
-        if (status /= 0) return
+        integer :: status, command_status
+        call execute_command_line("command -v h5dump > /dev/null 2>&1", exitstat=status, &
+            cmdstat=command_status)
+        if (command_status /= 0 .or. status /= 0) return
         call execute_command_line("h5dump -H "//path//" > /dev/null", exitstat=status)
         if (status /= 0) error stop "h5dump rejects the output file"
     end subroutine check_h5dump

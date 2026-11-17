@@ -7,7 +7,6 @@ function (add_fortran_test name)
 endfunction()
 
 add_executable(test_sparse.x test_sparse.f90)
-add_dependencies(test_sparse.x sparse)
 target_link_libraries(test_sparse.x PUBLIC sparse SuiteSparse::umfpack_wrappers SuiteSparse::umfpack)
 target_include_directories(test_sparse.x PUBLIC "${UMFPACK_INCLUDE_DIR}")
 add_fortran_test(test_sparse)

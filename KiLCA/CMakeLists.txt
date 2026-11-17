@@ -107,9 +107,6 @@ set (kilca_eigparam_main progs/main_eig_param.f90)
 # Dependencies
 # Dependencies are provided by the top-level project via cmake/Dependencies.cmake
 
-# include paths:
-set (libs_root_path ${CMAKE_BINARY_DIR}/external-install)
-
 set(EXTERNAL_LIBS fortnum_amos_compat lapack blas SUNDIALS::cvode SUNDIALS::nvecserial fortnum sundials_fcvode_mod)
 
 # configure a header file to pass some of the CMake settings to the source code
@@ -253,7 +250,6 @@ set_target_properties(kilca_lib PROPERTIES
     OUTPUT_NAME ${kilca_lib}
     ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/install/lib/
     Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/OBJS/kilca/)
-add_dependencies(kilca_lib ${EXTERNAL_LIBS})
 # libneo objects pulled into the KiLCA link closure use OMP critical sections
 # (GOMP_critical_*). Carry the OpenMP runtime on kilca_lib's PUBLIC interface so
 # every consumer (KIM_exe, ql-balance_lib, and all KIM tests) inherits it and no
@@ -290,7 +286,6 @@ target_include_directories(kilca_lib PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/solver
     ${CMAKE_CURRENT_SOURCE_DIR}/spline
     # External dependencies
-    ${sundials_include_path}
     ${fortnum_SOURCE_DIR}/include
 )
 
@@ -299,7 +294,6 @@ set_target_properties(kilca_normal_exe PROPERTIES
     OUTPUT_NAME ${kilca_normal_exe}
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
 target_include_directories (kilca_normal_exe PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
-add_dependencies(kilca_normal_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_normal_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (kilca_eigparam_exe ${kilca_eigparam_main})
@@ -307,7 +301,6 @@ set_target_properties(kilca_eigparam_exe PROPERTIES
     OUTPUT_NAME ${kilca_eigparam_exe}
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
 target_include_directories (kilca_eigparam_exe PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
-add_dependencies(kilca_eigparam_exe ${EXTERNAL_LIBS})
 target_link_libraries (kilca_eigparam_exe kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (post_proc post_processing/main_post_proc.f90 post_processing/save_fortran.f90)
@@ -315,7 +308,6 @@ set_target_properties(post_proc PROPERTIES
     OUTPUT_NAME post_processor_${KiLCA_ARCHITECTURE}
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin/)
 target_include_directories (post_proc PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
-add_dependencies(post_proc ${EXTERNAL_LIBS})
 target_link_libraries (post_proc kilca_lib ${EXTERNAL_LIBS})
 
 add_executable (test_spline tests/test_spline.f90)
@@ -323,7 +315,6 @@ set_target_properties(test_spline PROPERTIES
     OUTPUT_NAME test_spline.x
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 target_include_directories (test_spline PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
-add_dependencies(test_spline kilca_lib)
 target_link_libraries (test_spline kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_spline COMMAND ${CMAKE_BINARY_DIR}/tests/test_spline.x)
 
@@ -331,7 +322,6 @@ add_executable (test_hyper1f1 tests/test_hyper1f1.f90)
 set_target_properties(test_hyper1f1 PROPERTIES
     OUTPUT_NAME test_hyper1f1.x
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
-add_dependencies(test_hyper1f1 kilca_lib)
 target_link_libraries (test_hyper1f1 kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_hyper1f1 COMMAND ${CMAKE_BINARY_DIR}/tests/test_hyper1f1.x)
 
@@ -340,7 +330,6 @@ set_target_properties(test_neville PROPERTIES
     OUTPUT_NAME test_neville.x
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
 target_include_directories (test_neville PRIVATE ${PROJECT_BINARY_DIR}/OBJS/kilca/)
-add_dependencies(test_neville kilca_lib)
 target_link_libraries (test_neville kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_neville COMMAND ${CMAKE_BINARY_DIR}/tests/test_neville.x)
 
@@ -348,7 +337,6 @@ add_executable (test_antenna_settings tests/test_antenna_settings.f90)
 set_target_properties(test_antenna_settings PROPERTIES
     OUTPUT_NAME test_antenna_settings.x
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
-add_dependencies(test_antenna_settings kilca_lib)
 target_link_libraries (test_antenna_settings kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_antenna_settings COMMAND ${CMAKE_BINARY_DIR}/tests/test_antenna_settings.x)
 set_tests_properties(test_antenna_settings PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
@@ -357,7 +345,6 @@ add_executable (test_output_settings tests/test_output_settings.f90)
 set_target_properties(test_output_settings PROPERTIES
     OUTPUT_NAME test_output_settings.x
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
-add_dependencies(test_output_settings kilca_lib)
 target_link_libraries (test_output_settings kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_output_settings COMMAND ${CMAKE_BINARY_DIR}/tests/test_output_settings.x)
 set_tests_properties(test_output_settings PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
@@ -366,7 +353,6 @@ add_executable (test_back_sett tests/test_back_sett.f90)
 set_target_properties(test_back_sett PROPERTIES
     OUTPUT_NAME test_back_sett.x
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
-add_dependencies(test_back_sett kilca_lib)
 target_link_libraries (test_back_sett kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_back_sett COMMAND ${CMAKE_BINARY_DIR}/tests/test_back_sett.x)
 set_tests_properties(test_back_sett PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
@@ -375,7 +361,6 @@ add_executable (test_eigmode_sett tests/test_eigmode_sett.f90)
 set_target_properties(test_eigmode_sett PROPERTIES
     OUTPUT_NAME test_eigmode_sett.x
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
-add_dependencies(test_eigmode_sett kilca_lib)
 target_link_libraries (test_eigmode_sett kilca_lib ${EXTERNAL_LIBS})
 add_test(NAME test_eigmode_sett COMMAND ${CMAKE_BINARY_DIR}/tests/test_eigmode_sett.x)
 set_tests_properties(test_eigmode_sett PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)

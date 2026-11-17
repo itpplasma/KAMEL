@@ -26,7 +26,6 @@ set_target_properties(KIM_lib PROPERTIES
                         ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/")
 
 # Use the shared sparse target instead of bundling a local copy
-add_dependencies(KIM_lib sparse)
 target_link_libraries(KIM_lib PUBLIC sparse)
 target_include_directories(KIM_lib PUBLIC "${CMAKE_BINARY_DIR}/OBJS/sparse/")
 

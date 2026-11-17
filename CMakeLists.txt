@@ -90,7 +90,9 @@ else()
     set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -fopenmp -O2 -mtune=generic -g -fbacktrace -Wall -Wextra -Wconversion -Wno-external-argument-mismatch")
 endif()
 
-enable_testing()
+# KAMEL defines BUILD_TESTING itself instead of relying on a dependency that
+# includes CTest; -DBUILD_TESTING=OFF skips the tests guarded by it.
+include(CTest)
 
 include(${CMAKE_SOURCE_DIR}/cmake/Dependencies.cmake)
 

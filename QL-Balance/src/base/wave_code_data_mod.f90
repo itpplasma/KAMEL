@@ -70,6 +70,9 @@ module wave_code_data
     real(8), allocatable, dimension(:) :: rep, idPhi0; !electric potential, Gauss units
     double precision :: antenna_factor
     double precision :: I_par_toroidal = 0.0d0
+    ! Namelist I_par_toroidal (full coil current); the coil ramp scales the
+    ! working target I_par_toroidal from it.
+    double precision :: I_par_toroidal_full = 0.0d0
 
     character(1024) :: path2profs = './profiles/'; ! path to background profiles
 end module

@@ -12,6 +12,7 @@ subroutine read_config
                            kim_current_floor, kim_current_max_scale, kim_current_relaxation, &
                            kim_periodic_matching, kim_periodic_wall_radius, &
                            kim_periodic_initial_drive, electron_er_smooth_cells, &
+                           kim_periodic_coil_ramp, is_time_evolution_run, &
                            jpar_method, ion_transport_model_id, &
                            ION_TRANSPORT_INVALID
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
@@ -19,7 +20,8 @@ subroutine read_config
     use h5mod, only: path2inp, path2out, path2time
     use paramscan_mod, only: viscosity_factor
     use time_evolution
-    use wave_code_data, only: flre_path, vac_path, antenna_factor, I_par_toroidal
+    use wave_code_data, only: flre_path, vac_path, antenna_factor, I_par_toroidal, &
+                              I_par_toroidal_full
     use logger_m, only: set_log_level, log_info, fmt_val
     use run_info_m, only: set_run_config
     use periodic_workflow_validation_m, only: validate_periodic_workflow, &
@@ -52,7 +54,7 @@ subroutine read_config
         kim_current_relaxation, kim_electron_transport_model, &
         kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode, &
         kim_periodic_matching, kim_periodic_wall_radius, kim_periodic_initial_drive, &
-        electron_er_smooth_cells
+        electron_er_smooth_cells, kim_periodic_coil_ramp
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -94,6 +96,16 @@ subroutine read_config
     case default
         error stop 'equilibrium_sink_mode must be explicit or implicit'
     end select
+
+    I_par_toroidal_full = I_par_toroidal
+    if (kim_periodic_coil_ramp) then
+        if (trim(wave_code) /= 'KIM' .or. trim(kim_run_type) /= 'electrostatic_periodic' .or. &
+                .not. is_time_evolution_run(type_of_run)) &
+            error stop 'kim_periodic_coil_ramp requires periodic KIM TimeEvolution'
+        if (I_par_toroidal <= 0.0d0) error stop 'kim_periodic_coil_ramp requires I_par_toroidal > 0'
+        if (antenna_factor <= 0.0d0) error stop 'kim_periodic_coil_ramp requires antenna_factor > 0'
+        if (ramp_up_mode == 4) error stop 'kim_periodic_coil_ramp is incompatible with ramp_up_mode 4'
+    end if
 
     if (.not. ieee_is_finite(electron_er_smooth_cells) .or. electron_er_smooth_cells < 0.0d0) &
         error stop 'electron_er_smooth_cells must be finite and >= 0'
@@ -173,6 +185,7 @@ subroutine read_config
     call log_info(fmt_val("    kim_periodic_wall_radius", kim_periodic_wall_radius, "cm"))
     call log_info(fmt_val("    kim_periodic_initial_drive", trim(adjustl(kim_periodic_initial_drive))))
     call log_info(fmt_val("    electron_er_smooth_cells", electron_er_smooth_cells))
+    call log_info(fmt_val("    kim_periodic_coil_ramp", kim_periodic_coil_ramp))
     call log_info(fmt_val("    kim_n_modes", kim_n_modes))
     if (kim_n_modes > 0) then
         write (*, "(A,100I5)") "    kim_m_list = ", kim_m_list(1:kim_n_modes)

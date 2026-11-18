@@ -16,24 +16,22 @@ set(source_files
 )
 
 add_library(fouriermodes STATIC ${source_files})
-set_target_properties(fouriermodes PROPERTIES
-    LINKER_LANGUAGE Fortran
-    OUTPUT_NAME fouriermodes
-    ARCHIVE_OUTPUT_DIRECTORY ${lib}
-    Fortran_MODULE_DIRECTORY ${objs}
+set_target_properties(
+    fouriermodes
+    PROPERTIES
+        LINKER_LANGUAGE Fortran
+        OUTPUT_NAME fouriermodes
+        ARCHIVE_OUTPUT_DIRECTORY ${lib}
+        Fortran_MODULE_DIRECTORY ${objs}
 )
 
 # kamel_equil provides mag, rhs1 and RK4D for equilibrium tracing.
-target_link_libraries(fouriermodes PUBLIC
-    kamel_equil
-    LIBNEO::magfie
-)
-target_include_directories(fouriermodes PUBLIC
-    ${KAMEL_EQUIL_INCLUDE_DIRS}
-)
+target_link_libraries(fouriermodes PUBLIC kamel_equil LIBNEO::magfie)
+target_include_directories(fouriermodes PUBLIC ${KAMEL_EQUIL_INCLUDE_DIRS})
 
 add_executable(fouriermodes.x ${src}/fouriermodes.f90)
 target_link_libraries(fouriermodes.x PUBLIC fouriermodes)
-set_target_properties(fouriermodes.x PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin
+set_target_properties(
+    fouriermodes.x
+    PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/install/bin
 )

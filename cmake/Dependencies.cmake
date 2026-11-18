@@ -15,19 +15,28 @@ include(FetchSUNDIALS)
 # quadrature, ODE, root finding). The Fortran target `fortnum` backs the
 # KIM/KiLCA Fortran sources; ${fortnum_SOURCE_DIR}/include holds fortnum.h for
 # the C/C++ sources. Added before libneo, which asks for fortnum as well.
-itp_add_dependency(fortnum REF ${KAMEL_FORTNUM_REF}
+itp_add_dependency(
+    fortnum
+    REF ${KAMEL_FORTNUM_REF}
     GIT_REPOSITORY https://github.com/lazy-fortran/fortnum.git
-    TARGET fortnum)
+    TARGET fortnum
+)
 FetchContent_GetProperties(fortnum)
 
 if(APPLE)
-    execute_process(COMMAND xcrun --show-sdk-path OUTPUT_VARIABLE _kamel_sdk
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
+    execute_process(
+        COMMAND xcrun --show-sdk-path
+        OUTPUT_VARIABLE _kamel_sdk
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
     set(ZLIB_INCLUDE_DIR "${_kamel_sdk}/usr/include" CACHE PATH "" FORCE)
 endif()
-itp_add_dependency(fortio REF ${KAMEL_FORTIO_REF}
+itp_add_dependency(
+    fortio
+    REF ${KAMEL_FORTIO_REF}
     GIT_REPOSITORY https://github.com/lazy-fortran/fortio.git
-    TARGET fortio)
+    TARGET fortio
+)
 if(APPLE AND TARGET ZLIB::ZLIB)
     get_target_property(_zlib_real ZLIB::ZLIB ALIASED_TARGET)
     if(NOT _zlib_real)
@@ -37,20 +46,25 @@ if(APPLE AND TARGET ZLIB::ZLIB)
         get_target_property(_zlib_includes ${_zlib_real} INTERFACE_INCLUDE_DIRECTORIES)
         if(_zlib_includes)
             list(FILTER _zlib_includes EXCLUDE REGEX "/MacOSX\\.sdk/usr/include/?$")
-            set_property(TARGET ${_zlib_real} PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${_zlib_includes}")
+            set_property(
+                TARGET ${_zlib_real}
+                PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${_zlib_includes}"
+            )
         endif()
     endif()
 endif()
 
 # QL-Balance sparse module (shared dependency)
 set(QLBALANCE_BASE "${CMAKE_SOURCE_DIR}/QL-Balance/src/base")
-file(GLOB SPARSE_SOURCES
-    "${QLBALANCE_BASE}/sparse_mod.f90"
-)
+file(GLOB SPARSE_SOURCES "${QLBALANCE_BASE}/sparse_mod.f90")
 add_library(sparse STATIC ${SPARSE_SOURCES})
-set_target_properties(sparse PROPERTIES LINKER_LANGUAGE Fortran
-                        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/"
-                        Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/OBJS/sparse/")
+set_target_properties(
+    sparse
+    PROPERTIES
+        LINKER_LANGUAGE Fortran
+        ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/install/lib/"
+        Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/OBJS/sparse/"
+)
 
 # Link sparse to SuiteSparse UMFPACK
 target_link_libraries(sparse PUBLIC SuiteSparse::umfpack_wrappers SuiteSparse::umfpack)
@@ -62,6 +76,9 @@ target_include_directories(sparse PUBLIC "${QLBALANCE_BASE}")
 itp_add_dependency(libneo REF ${KAMEL_LIBNEO_REF} TARGET LIBNEO::magfie)
 
 # NEO-RT (NTV torque in QL-Balance).
-itp_add_dependency(neo_rt REF ${KAMEL_NEO_RT_REF}
+itp_add_dependency(
+    neo_rt
+    REF ${KAMEL_NEO_RT_REF}
     GIT_REPOSITORY https://github.com/itpplasma/NEO-RT.git
-    TARGET neo_rt)
+    TARGET neo_rt
+)

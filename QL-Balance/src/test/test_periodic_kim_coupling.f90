@@ -18,7 +18,7 @@ program test_periodic_kim_coupling
     implicit none
 
     integer, parameter :: npts = 401
-    real(8) :: input_r(npts), input_profiles(npts, 5)
+    real(8) :: input_r(npts), input_profiles(npts, 5), input_vth(npts)
     real(8) :: initial_tensor(2, 2, npts), initial_weights(npts)
     real(8) :: initial_nue(npts), initial_nui(npts), initial_b0(npts)
     complex(8) :: initial_es(npts), initial_br(npts)
@@ -38,7 +38,10 @@ program test_periodic_kim_coupling
     Ti = Te
     q = 1.5d0 + 2.5d0*(r - 2.0d0)/58.0d0
     dPhi0 = 0.5d0
-    Vth = 0.0d0
+    ! Poloidal rotation is a QL-Balance input that is not evolved; the KIM
+    ! adapter must not overwrite it (it enters QL-Balance's Er).
+    Vth = 5.0d4*(1.0d0 - r/100.0d0)
+    input_vth = Vth
     Vz = 0.0d0
     input_profiles(:, 1) = n
     input_profiles(:, 2) = Te
@@ -58,6 +61,8 @@ program test_periodic_kim_coupling
     call kim_get_wave_fields(1)
     call check_response()
     call check_input_profiles()
+    call require(maxval(abs(Vth - input_vth)) == 0.0d0, &
+        'KIM solve overwrote the QL-Balance poloidal rotation Vth')
     call check_transport_benchmark()
     initial_tensor = kim_D_ion_modes(:, :, :, 1)
     initial_weights = kim_transition_weights(:, 1)

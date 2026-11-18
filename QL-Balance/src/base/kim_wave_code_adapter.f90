@@ -778,7 +778,9 @@ contains
                 call clamp_to_balance(kim_plasma_npts, kim_plasma_r, background%nu_i, &
                     dim_r, nrad_inside, bal_r, wcd_nui)
 
-                wcd_Vth = 0.0d0
+                ! Vth (poloidal rotation) is a QL-Balance input that is not
+                ! evolved and enters its Er; KIM gets Er directly (dPhi0), so
+                ! Vth must not be reset here.
                 wcd_Vz = 0.0d0
             end if
 

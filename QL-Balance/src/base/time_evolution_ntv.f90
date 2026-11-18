@@ -128,13 +128,19 @@ contains
         end do
     end subroutine runTimeEvolutionNTV
 
+    !> The NTV diagnostic written by neo_rt shares the output session of the base step.
     subroutine doStep(this)
         use time_evolution, only: doStepBase => doStep
+        use control_mod, only: ihdf5IO
+        use h5mod, only: path2out
+        use KAMEL_hdf5_tools, only: h5_begin_output_session, h5_end_output_session
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
+        if (ihdf5IO == 1) call h5_begin_output_session(trim(path2out))
         call neo_rt
         call doStepBase(this%TimeEvolution_t)
+        if (ihdf5IO == 1) call h5_end_output_session()
     end subroutine doStep
 
     subroutine neo_rt

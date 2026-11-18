@@ -212,7 +212,18 @@ module time_evolution
         end do
     end subroutine runTimeEvolution
 
+    !> One time step. Its output writes share one open path2out (an output
+    !> session) instead of opening and closing the file for each write.
     subroutine doStep(this, stat)
+        class(TimeEvolution_t), intent(inout) :: this
+        integer, intent(out), optional :: stat
+
+        if (ihdf5IO == 1) call h5_begin_output_session(trim(path2out))
+        call do_step_writing_output(this, stat)
+        if (ihdf5IO == 1) call h5_end_output_session()
+    end subroutine doStep
+
+    subroutine do_step_writing_output(this, stat)
         use baseparam_mod, only: factolmax, factolred
         use kim_wave_code_adapter_m, only: kim_periodic_mode_selected
         use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
@@ -307,7 +318,7 @@ module time_evolution
         call stop_if_antenna_fac_max_reached
 
         call ramp_coil
-    end subroutine doStep
+    end subroutine do_step_writing_output
 
     subroutine sync_periodic_amplitude_trial()
         use kim_wave_code_adapter_m, only: kim_current_records, kim_periodic_scale_modes, &

@@ -39,7 +39,10 @@ class KiLCA_zone_flre(InpOut):
         "max_cycharm": 1,  # highest cyclotron harmonic normally should exceed the flre order
         "flag_corr": 1,  # flag if correction term should be used in conductivity: use for flre order =1 only
         "splinedeg": 5,  # splines degree for C matrices, the degree for K matrices is computed in the code: NK = NC + N + 1
-        "cond_maxdim": 3001,  # maximum dimension of the radial grid for conductivity matrices: default=3001
+        # maximum dimension of the radial grid for conductivity matrices. 3001 (the
+        # KiLCA default) leaves the resonant B_r of AUG 33353 (6,2) 15 % too large;
+        # 9001, 27001 and 81001 agree to 4e-4.
+        "cond_maxdim": 9001,
         "reswidth": 3.0,  # resonant layer width
         "outer_err": 1e-6,  # error parameter used for adaptive radial grid generation outside the resonant layer: default=1.0e-6
         "inner_err": 1e-6,  # error parameter used for adaptive radial grid generation in the resonant layer: default=1.0e-6

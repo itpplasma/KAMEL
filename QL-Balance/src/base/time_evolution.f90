@@ -6,6 +6,7 @@ module time_evolution
     use QLBalance_kinds, only: dp
     use logger_m, only: log_debug, log_info
     use periodic_amplitude_state_m, only: periodic_amplitudes
+    use rhs_balance_m, only: refresh_state_diagnostics
 
     implicit none
 
@@ -294,10 +295,7 @@ module time_evolution
         call reset_timstep_arr_w_timstep
         call write_time_info
         call relax_plasma_parameters
-
-        timstep_arr = 0.0d0
-        call evolvestep(timstep, eps)
-        timstep_arr = timstep
+        call refresh_state_diagnostics
         time = time + step_taken
 
         call log_debug("msg_time_info")
@@ -506,9 +504,7 @@ module time_evolution
             call set_time_step
             call reset_timstep_arr_w_timstep
             call relax_plasma_parameters
-            timstep_arr = 0.0_dp
-            call evolvestep(timstep, eps)
-            timstep_arr = timstep
+            call refresh_state_diagnostics
 
             ! Stage the response for the candidate profiles before either is
             ! committed. A guarded response cannot replace the accepted one.

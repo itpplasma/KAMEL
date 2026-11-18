@@ -46,6 +46,12 @@ add_executable(test_evolvestep_stationary.x test_evolvestep_stationary.f90)
 target_link_libraries(test_evolvestep_stationary.x PUBLIC ql-balance_lib)
 add_fortran_test(test_evolvestep_stationary)
 
+# Without RMP a temperature offset must decay (equilibrium sources of particles
+# and energy, not of temperature)
+add_executable(test_equilibrium_source_stability.x test_equilibrium_source_stability.f90)
+target_link_libraries(test_equilibrium_source_stability.x PUBLIC ql-balance_lib)
+add_fortran_test(test_equilibrium_source_stability)
+
 # Parameter-scan profile rescaling
 add_executable(test_paramscan.x test_paramscan.f90)
 target_link_libraries(test_paramscan.x PUBLIC ql-balance_lib)

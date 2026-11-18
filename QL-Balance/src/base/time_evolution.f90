@@ -531,6 +531,7 @@ module time_evolution
                 .not. all(ieee_is_finite(timscal)) .or. &
                 maxval(timscal) >= tol*factolmax) then
                 last_periodic_rejections = last_periodic_rejections + 1
+                call log_periodic_rejection(trial_dt)
                 params = accepted_profiles
                 call periodic_amplitudes%reject()
                 trial_dt = trial_dt*factolred
@@ -553,6 +554,8 @@ module time_evolution
             call periodic_amplitudes%accept(stat=ierr)
             if (ierr /= 0) then
                 last_periodic_rejections = last_periodic_rejections + 1
+                write (*, '(a,i0,a,es12.4)') ' periodic step rejected: amplitude guard status ', &
+                    ierr, ' at dt = ', trial_dt
                 exit
             end if
             call publish_periodic_response()
@@ -593,6 +596,19 @@ module time_evolution
         call hold_prev_transp_coeffs
         call failed_step(1)
     contains
+        subroutine log_periodic_rejection(dt_try)
+            use grid_mod, only: rc
+            real(dp), intent(in) :: dt_try
+            integer :: iworst
+            iworst = maxloc(timscal, 1)
+            write (*, '(a,es12.4,a,l1,a,l1,a,es12.4,a,es12.4,a,f10.5,a,es12.4)') &
+                ' periodic step rejected: dt = ', dt_try, &
+                ', finite = ', all(ieee_is_finite(params)), &
+                ', n > 0 = ', all(params(1,:) > 0.0_dp), &
+                ', max timscal = ', maxval(timscal), ' (limit ', tol*factolmax, &
+                ') at r = ', rc(iworst), ', timstep_min = ', timstep_min
+        end subroutine log_periodic_rejection
+
         subroutine failed_step(code)
             integer, intent(in) :: code
             if (present(stat)) then

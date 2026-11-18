@@ -189,6 +189,10 @@ add_executable(test_electron_er_smoothing.x test_electron_er_smoothing.f90)
 target_link_libraries(test_electron_er_smoothing.x PUBLIC ql-balance_lib)
 add_fortran_test(test_electron_er_smoothing)
 
+add_executable(test_periodic_coil_ramp.x test_periodic_coil_ramp.f90)
+target_link_libraries(test_periodic_coil_ramp.x PUBLIC ql-balance_lib)
+add_fortran_test(test_periodic_coil_ramp)
+
 add_executable(test_periodic_current_normalization.x test_periodic_current_normalization.f90)
 target_link_libraries(test_periodic_current_normalization.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_current_normalization)

@@ -72,7 +72,7 @@ module transp_coeffs_mod
         !   So: antenna_factor = (I_par_toroidal * c / (2*pi * |Ipar|))^2
         !
         use wave_code_data, only: antenna_factor, I_par_toroidal
-        use control_mod, only: wave_code, kim_run_type
+        use control_mod, only: wave_code, kim_run_type, kim_periodic_coil_ramp
         use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
         use grid_mod, only: Ipar
 
@@ -88,6 +88,9 @@ module transp_coeffs_mod
         if (trim(wave_code) == 'KIM' .and. trim(kim_run_type) == 'electrostatic_periodic') then
             if (.not. ieee_is_finite(I_par_toroidal)) error stop 'non-finite target current'
             if (I_par_toroidal <= 0.0d0) return
+            ! Coil ramp: antenna_factor keeps the ramp value (it sets the
+            ! target current); D is not scaled by it.
+            if (kim_periodic_coil_ramp) return
             antenna_factor = 1.0d0
             write(*,*) 'Periodic KIM response already target-current normalized; antenna_factor = 1'
             return

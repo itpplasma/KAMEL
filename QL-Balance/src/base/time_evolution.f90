@@ -23,6 +23,8 @@ module time_evolution
     real(dp) :: accepted_current_floor = 1.0e-30_dp, accepted_max_scale = 1.0e12_dp
     real(dp) :: accepted_antenna_factor = 1.0_dp
     real(dp), allocatable :: periodic_transport_unscaled(:,:)
+    ! Target current the cached periodic transport is normalized to (coil ramp).
+    real(dp) :: periodic_transport_target = 0.0_dp
     integer :: periodic_completed_steps = 0
     integer :: time_ind
 
@@ -156,6 +158,7 @@ module time_evolution
         call calc_geometric_parameter_profiles
         call initialize_get_dql
         call initialize_antenna_factor
+        call apply_coil_ramp_to_target
         call det_balance_eqs_source_terms
 
         ! Preserve the established step-zero profile output. There is no
@@ -342,25 +345,49 @@ module time_evolution
         periodic_transport_unscaled(6,:) = dqli12
         periodic_transport_unscaled(7,:) = dqli21
         periodic_transport_unscaled(8,:) = dqli22
+        periodic_transport_target = periodic_amplitudes%accepted_target_current
     end subroutine cache_periodic_transport
 
     subroutine apply_periodic_transport()
         use grid_mod, only: dqle11, dqle12, dqle21, dqle22, &
             dqli11, dqli12, dqli21, dqli22
-        use wave_code_data, only: antenna_factor
+        use wave_code_data, only: antenna_factor, I_par_toroidal
         use transp_coeffs_mod, only: compute_antenna_factor_from_Ipar
+        real(dp) :: scale
         if (.not. allocated(periodic_transport_unscaled)) &
             error stop 'missing accepted periodic transport'
         call compute_antenna_factor_from_Ipar
-        dqle11 = periodic_transport_unscaled(1,:)*antenna_factor
-        dqle12 = periodic_transport_unscaled(2,:)*antenna_factor
-        dqle21 = periodic_transport_unscaled(3,:)*antenna_factor
-        dqle22 = periodic_transport_unscaled(4,:)*antenna_factor
-        dqli11 = periodic_transport_unscaled(5,:)*antenna_factor
-        dqli12 = periodic_transport_unscaled(6,:)*antenna_factor
-        dqli21 = periodic_transport_unscaled(7,:)*antenna_factor
-        dqli22 = periodic_transport_unscaled(8,:)*antenna_factor
+        ! With the coil ramp the response is normalized to the ramped target
+        ! current; antenna_factor then only records the ramp. D ~ |s|^2 ~ I^2,
+        ! so the cached transport follows the current target until the next
+        ! response (as the legacy D_unit * antenna_factor does).
+        scale = antenna_factor
+        if (kim_periodic_coil_ramp) then
+            if (periodic_transport_target <= 0.0_dp) &
+                error stop 'coil ramp: cached transport has no target current'
+            scale = (I_par_toroidal/periodic_transport_target)**2
+        end if
+        dqle11 = periodic_transport_unscaled(1,:)*scale
+        dqle12 = periodic_transport_unscaled(2,:)*scale
+        dqle21 = periodic_transport_unscaled(3,:)*scale
+        dqle22 = periodic_transport_unscaled(4,:)*scale
+        dqli11 = periodic_transport_unscaled(5,:)*scale
+        dqli12 = periodic_transport_unscaled(6,:)*scale
+        dqli21 = periodic_transport_unscaled(7,:)*scale
+        dqli22 = periodic_transport_unscaled(8,:)*scale
     end subroutine apply_periodic_transport
+
+    subroutine apply_coil_ramp_to_target()
+        !! Periodic coil ramp: working target current from the ramp antenna
+        !! factor (see periodic_coil_ramp_m).
+        use wave_code_data, only: antenna_factor, I_par_toroidal, I_par_toroidal_full
+        use periodic_coil_ramp_m, only: coil_ramp_target
+        if (.not. kim_periodic_coil_ramp) return
+        I_par_toroidal = coil_ramp_target(I_par_toroidal_full, antenna_factor, &
+                                          antenna_factor_max)
+        write (*, '(a,es14.6,a,es14.6)') '   coil ramp: antenna_factor = ', antenna_factor, &
+            ', target current = ', I_par_toroidal
+    end subroutine apply_coil_ramp_to_target
 
     subroutine initialize_periodic_response(stat)
         use QLbalance_diag, only: timscal_dql, timscal_dqli, rate_dql
@@ -540,6 +567,7 @@ module time_evolution
             call check_linear_discr_pen_ratio
             call stop_if_antenna_fac_max_reached
             call ramp_coil
+            call apply_coil_ramp_to_target
             if (.not. suppression_mode) call write_kin_profile_at_time_index
             call stop_if_time_step_too_small
             return

@@ -29,6 +29,11 @@ module control_mod
     ! frequency used by the electron drift-kinetic coefficients only;
     ! 0 = pointwise (default, previous behaviour). Diagnostic switch.
     real(dp) :: electron_er_smooth_cells = 0.0_dp
+    ! Periodic KIM TimeEvolution: ramp the target current with the coil
+    ! current, I = I_par_toroidal*sqrt(antenna_factor/antenna_factor_max),
+    ! antenna_factor from ramp_up_mode as for KiLCA. .false.: fixed target
+    ! (previous behaviour).
+    logical :: kim_periodic_coil_ramp = .false.
     ! Ideal wall radius for the outer region [cm]; <= 0: no wall (vacuum decay).
     real(dp) :: kim_periodic_wall_radius = -1.0_dp
     logical :: kim_transport_benchmark = .false.

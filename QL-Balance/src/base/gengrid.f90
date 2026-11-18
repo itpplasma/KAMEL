@@ -92,7 +92,7 @@
     else
       neqset=nbaleqs*npoic
     endif
-    allocate(y(neqset),dery(neqset),dery_equisource(neqset))
+    allocate(y(neqset),dery(neqset),dery_equisource(neqset),equisource_reference(neqset))
     !allocate(alpha(neqset*neqset))
     allocate(source_term(neqset))
 

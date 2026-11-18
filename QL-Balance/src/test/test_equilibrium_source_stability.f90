@@ -12,8 +12,9 @@ program test_equilibrium_source_stability
     !! boundary. With the temperature-dependent neoclassical ion heat conductivity
     !! and the one-sided convective difference it then grows.
     !!
-    !! Asserted: after 4 s (about 1.2 radial diffusion times a^2/D^a of the fixture)
-    !! the offset of T_e and T_i has decayed to less than 10 % of its initial value
+    !! Asserted, for fixed (explicit) and for state-dependent (implicit) sinks:
+    !! after 4 s (about 1.2 radial diffusion times a^2/D^a of the fixture) the
+    !! offset of T_e and T_i has decayed to less than 10 % of its initial value
     !! everywhere, and the density stays at its equilibrium profile.
     use QLBalance_kinds, only: dp
     use grid_mod, only: rb, rc, npoib, npoi, rmin, rmax, npoimin, iboutype, gg_factor, &
@@ -24,7 +25,7 @@ program test_equilibrium_source_stability
     use baseparam_mod, only: am, rtor, Z_i, btor, rsepar, ev
     use paramscan_mod, only: viscosity_factor
     use resonances_mod, only: prop, numres
-    use control_mod, only: ihdf5IO
+    use control_mod, only: ihdf5IO, equilibrium_sink_mode
     use wave_code_data, only: r, n, Te, Ti, q, Vth, Vz
     use recstep_mod, only: timstep_arr
     use h5mod, only: path2inp, h5_id, group_id_1, h5_create, h5_define_group, &
@@ -39,7 +40,8 @@ program test_equilibrium_source_stability
     real(dp), parameter :: density_tol = 1.0e-6_dp
     real(dp), allocatable :: input_r(:), equilibrium(:, :)
     real(dp) :: remaining(3:4), density_change
-    integer :: num_failed, istep, ieq
+    integer :: num_failed, imode
+    character(len=8), parameter :: sink_modes(2) = ['explicit', 'implicit']
     external :: gengrid, allocate_wave_code_data, calc_geometric_parameter_profiles
     external :: det_balance_eqs_source_terms, evolvestep
 
@@ -48,26 +50,17 @@ program test_equilibrium_source_stability
     allocate (timstep_arr(neqset))
     timstep_arr = time_step
 
-    call det_balance_eqs_source_terms()
-    equilibrium = params(:, 1:npoi)
-
-    params(3:4, 1:npoi) = equilibrium(3:4, :) + temperature_offset * ev
-    do istep = 1, num_steps
-        call evolvestep(time_step, 1.0e-8_dp)
+    do imode = 1, size(sink_modes)
+        equilibrium_sink_mode = sink_modes(imode)
+        call decay_of_temperature_offset(remaining, density_change)
+        print '(A,A,A,F5.2,A,2ES10.2)', '  ', sink_modes(imode), &
+            ' sinks: remaining fraction of the offset after ', &
+            num_steps * time_step, ' s (Te, Ti):', remaining
+        print '(A,ES10.2)', '  relative change of the density:', density_change
+        call require(remaining(3) < remaining_offset_tol, 'T_e offset does not decay')
+        call require(remaining(4) < remaining_offset_tol, 'T_i offset does not decay')
+        call require(density_change < density_tol, 'density left its equilibrium profile')
     end do
-
-    do ieq = 3, 4
-        remaining(ieq) = maxval(abs(params(ieq, 1:npoi) - equilibrium(ieq, :))) / &
-                         (temperature_offset * ev)
-    end do
-    density_change = maxval(abs(params(1, 1:npoi) - equilibrium(1, :)) / equilibrium(1, :))
-
-    print '(A,F5.2,A,2ES10.2)', '  remaining fraction of the offset after ', &
-        num_steps * time_step, ' s (Te, Ti):', remaining
-    print '(A,ES10.2)', '  relative change of the density:', density_change
-    call require(remaining(3) < remaining_offset_tol, 'T_e offset does not decay')
-    call require(remaining(4) < remaining_offset_tol, 'T_i offset does not decay')
-    call require(density_change < density_tol, 'density left its equilibrium profile')
 
     if (num_failed > 0) then
         print *, 'TESTS FAILED: ', num_failed
@@ -76,6 +69,26 @@ program test_equilibrium_source_stability
     print *, 'PASS: the unperturbed equilibrium is stable against a temperature offset'
 
 contains
+
+    subroutine decay_of_temperature_offset(remaining, density_change)
+        real(dp), intent(out) :: remaining(3:4), density_change
+        integer :: istep, ieq
+
+        if (allocated(equilibrium)) params(:, 1:npoi) = equilibrium
+        call det_balance_eqs_source_terms()
+        equilibrium = params(:, 1:npoi)
+
+        params(3:4, 1:npoi) = equilibrium(3:4, :) + temperature_offset * ev
+        do istep = 1, num_steps
+            call evolvestep(time_step, 1.0e-8_dp)
+        end do
+
+        do ieq = 3, 4
+            remaining(ieq) = maxval(abs(params(ieq, 1:npoi) - equilibrium(ieq, :))) / &
+                             (temperature_offset * ev)
+        end do
+        density_change = maxval(abs(params(1, 1:npoi) - equilibrium(1, :)) / equilibrium(1, :))
+    end subroutine decay_of_temperature_offset
 
     subroutine setup_plasma()
         real(dp), allocatable :: diffusion(:), pedestal(:)

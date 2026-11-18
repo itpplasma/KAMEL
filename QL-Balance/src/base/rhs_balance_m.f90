@@ -201,7 +201,8 @@ contains
                             torque_density_e, torque_density_i, torque_density_ntv, &
                             sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i, &
                             Ercov_lin, fluxes_con_nl, Gamma_ql_e_frozen, Gamma_ql_i_frozen, &
-                            dery_equisource
+                            dery_equisource, equisource_reference
+        use control_mod, only: equilibrium_sink_mode
         use plasma_parameters, only: params, ddr_params_lin, params_lin, params_b_lin, &
                                      params_b, dot_params, ddr_params_nl
         use baseparam_mod, only: Z_i, am
@@ -226,6 +227,9 @@ contains
         real(dp), dimension(4) :: dot_params_loc, source_rates
         real(dp), dimension(nbaleqs, npoib) :: fluxes_dif_nl
         real(dp), dimension(neqset) :: rate
+        logical :: implicit_sinks
+
+        implicit_sinks = trim(equilibrium_sink_mode) == 'implicit'
 
         if (iboutype .eq. 1) then
             npoi = npoic - 1
@@ -400,7 +404,9 @@ contains
             do ipoi = ibeg, iend
                 i = nbaleqs * (ipoi - 1)
                 call linearize_equilibrium_source_rates(dery_equisource(i + 1:i + nbaleqs), &
-                                                        params(:, ipoi), params_lin(:, ipoi), &
+                                                        params(:, ipoi), &
+                                                        equisource_reference(i + 1:i + nbaleqs), &
+                                                        implicit_sinks, params_lin(:, ipoi), &
                                                         source_rates)
                 dy(i + 1:i + nbaleqs) = dy(i + 1:i + nbaleqs) + source_rates
             end do
@@ -451,7 +457,9 @@ contains
             do ipoi = 1, npoi
                 i = nbaleqs * (ipoi - 1)
                 call compute_equilibrium_source_rates(dery_equisource(i + 1:i + nbaleqs), &
-                                                      params(:, ipoi), source_rates)
+                                                      params(:, ipoi), &
+                                                      equisource_reference(i + 1:i + nbaleqs), &
+                                                      implicit_sinks, source_rates)
                 rhsvec(i + 1:i + nbaleqs) = rate(i + 1:i + nbaleqs) + source_rates
             end do
             do i = 1, k
@@ -479,33 +487,80 @@ contains
         sources(3:4) = params_point(1) * rates(3:4) + params_point(3:4) * rates(1)
     end subroutine convert_rates_to_equilibrium_sources
 
-    pure subroutine compute_equilibrium_source_rates(sources, params_point, source_rates)
+    pure subroutine apply_equilibrium_sinks(sources, params_point, reference, &
+                                            implicit_sinks, effective)
+        !
+        ! Equilibrium sources acting at the state params_point. With implicit
+        ! sinks, negative source densities are scaled with the local state
+        ! relative to the reference state (n_0, T_0) at which they were determined:
+        !   S_n      -> S_n n / n_0                 where S_n < 0
+        !   (2/3)S_w -> (2/3)S_w n T / (n_0 T_0)    where S_w < 0
+        ! Positive densities stay fixed. Both forms agree at the reference state.
+        !
+        real(dp), dimension(4), intent(in) :: sources, params_point, reference
+        logical, intent(in) :: implicit_sinks
+        real(dp), dimension(4), intent(out) :: effective
+        integer :: ieq
+
+        effective = sources
+        if (.not. implicit_sinks) return
+        if (sources(1) < 0.0_dp) effective(1) = sources(1) * params_point(1) / reference(1)
+        do ieq = 3, 4
+            if (sources(ieq) < 0.0_dp) effective(ieq) = sources(ieq) * &
+                params_point(1) * params_point(ieq) / (reference(1) * reference(ieq))
+        end do
+    end subroutine apply_equilibrium_sinks
+
+    pure subroutine compute_equilibrium_source_rates(sources, params_point, reference, &
+                                                     implicit_sinks, source_rates)
         !
         ! Rates of change d(n, Vphi, Te, Ti)/dt caused by the equilibrium sources at
         ! the state params_point. For the temperatures
         !   dT/dt = ((2/3) S_w^0 - T S_n^0) / n,
         ! the second term being the dilution by the particle source.
         !
-        real(dp), dimension(4), intent(in) :: sources, params_point
+        real(dp), dimension(4), intent(in) :: sources, params_point, reference
+        logical, intent(in) :: implicit_sinks
         real(dp), dimension(4), intent(out) :: source_rates
+        real(dp), dimension(4) :: effective
 
-        source_rates(1:2) = sources(1:2)
-        source_rates(3:4) = (sources(3:4) - params_point(3:4) * sources(1)) / params_point(1)
+        call apply_equilibrium_sinks(sources, params_point, reference, implicit_sinks, effective)
+        source_rates(1:2) = effective(1:2)
+        source_rates(3:4) = (effective(3:4) - params_point(3:4) * effective(1)) / params_point(1)
     end subroutine compute_equilibrium_source_rates
 
-    pure subroutine linearize_equilibrium_source_rates(sources, params_point, params_lin_point, &
+    pure subroutine linearize_equilibrium_source_rates(sources, params_point, reference, &
+                                                       implicit_sinks, params_lin_point, &
                                                        source_rates_lin)
         !
         ! Response of compute_equilibrium_source_rates to a perturbation
         ! params_lin_point of the density and the temperatures.
         !
-        real(dp), dimension(4), intent(in) :: sources, params_point, params_lin_point
+        real(dp), dimension(4), intent(in) :: sources, params_point, reference
+        logical, intent(in) :: implicit_sinks
+        real(dp), dimension(4), intent(in) :: params_lin_point
         real(dp), dimension(4), intent(out) :: source_rates_lin
+        real(dp), dimension(4) :: effective, effective_lin
+        integer :: ieq
 
-        source_rates_lin(1:2) = 0.0_dp
-        source_rates_lin(3:4) = -(params_lin_point(3:4) * sources(1) + &
-                                  (sources(3:4) - params_point(3:4) * sources(1)) * &
-                                  params_lin_point(1) / params_point(1)) / params_point(1)
+        call apply_equilibrium_sinks(sources, params_point, reference, implicit_sinks, effective)
+        effective_lin = 0.0_dp
+        if (implicit_sinks) then
+            if (sources(1) < 0.0_dp) effective_lin(1) = sources(1) * params_lin_point(1) / &
+                                                        reference(1)
+            do ieq = 3, 4
+                if (sources(ieq) < 0.0_dp) effective_lin(ieq) = sources(ieq) * &
+                    (params_lin_point(1) * params_point(ieq) + &
+                     params_point(1) * params_lin_point(ieq)) / (reference(1) * reference(ieq))
+            end do
+        end if
+
+        source_rates_lin(1) = effective_lin(1)
+        source_rates_lin(2) = 0.0_dp
+        source_rates_lin(3:4) = (effective_lin(3:4) - params_lin_point(3:4) * effective(1) - &
+                                 params_point(3:4) * effective_lin(1) - &
+                                 (effective(3:4) - params_point(3:4) * effective(1)) * &
+                                 params_lin_point(1) / params_point(1)) / params_point(1)
     end subroutine linearize_equilibrium_source_rates
 
     subroutine compute_rate_at_state(npoi, fluxes_dif_nl, rate)

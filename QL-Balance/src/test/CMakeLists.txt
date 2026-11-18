@@ -52,6 +52,11 @@ add_executable(test_equilibrium_source_stability.x test_equilibrium_source_stabi
 target_link_libraries(test_equilibrium_source_stability.x PUBLIC ql-balance_lib)
 add_fortran_test(test_equilibrium_source_stability)
 
+# Equilibrium source rates with explicit and implicit sinks
+add_executable(test_equilibrium_sinks.x test_equilibrium_sinks.f90)
+target_link_libraries(test_equilibrium_sinks.x PUBLIC ql-balance_lib)
+add_fortran_test(test_equilibrium_sinks)
+
 # Parameter-scan profile rescaling
 add_executable(test_paramscan.x test_paramscan.f90)
 target_link_libraries(test_paramscan.x PUBLIC ql-balance_lib)

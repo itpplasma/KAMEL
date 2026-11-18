@@ -1,6 +1,7 @@
 program test_neort_grid
     use iso_fortran_env, only: dp => real64
-    use neort_interface, only: calculate_s_tor, poloidal_flux_problem, read_equil_file
+    use neort_interface, only: calculate_coarse_s_tor, calculate_s_tor, outer_s_of_grid, &
+                               poloidal_flux_problem, read_equil_file
     use control_mod, only: equil_path
 
     implicit none
@@ -12,6 +13,7 @@ program test_neort_grid
     call test_s_is_flux_over_boundary_flux()
     call test_equil_file_with_seven_columns()
     call test_poloidal_flux_consistency()
+    call test_s_max_ends_grid()
 
     if (num_failed > 0) then
         print '(A,I0)', "FAILED assertions: ", num_failed
@@ -79,6 +81,22 @@ contains
         call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) > 0, &
                          "opposite orientation rejected")
     end subroutine test_poloidal_flux_consistency
+
+    subroutine test_s_max_ends_grid()
+        ! The default s_max = 1 keeps the grid ending at s(rsepar), a smaller
+        ! s_max moves its outer end inward with the same number of points.
+        real(dp), dimension(5) :: s_tor
+
+        call calculate_coarse_s_tor(s_tor, 0.2_dp, outer_s_of_grid(1.0_dp, 1.0_dp), 5)
+        call assert_equal(s_tor(5), 1.0_dp, "default grid ends at s(rsepar) = 1")
+        call calculate_coarse_s_tor(s_tor, 0.2_dp, outer_s_of_grid(0.98_dp, 1.0_dp), 5)
+        call assert_equal(s_tor(5), 0.98_dp, "default grid ends at s(rsepar) < 1")
+
+        call calculate_coarse_s_tor(s_tor, 0.2_dp, outer_s_of_grid(1.0_dp, 0.6_dp), 5)
+        call assert_equal(s_tor(1), 0.2_dp, "s_max keeps the inner end")
+        call assert_equal(s_tor(2), 0.3_dp, "s_max shrinks the spacing")
+        call assert_equal(s_tor(5), 0.6_dp, "s_max ends the grid")
+    end subroutine test_s_max_ends_grid
 
     subroutine assert_true(condition, label)
         logical, intent(in) :: condition

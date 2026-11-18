@@ -95,6 +95,7 @@ module rhs_balance_m
     public :: linearize_equilibrium_source_rates
     public :: initialize_rhs
     public :: rhs_balance
+    public :: refresh_state_diagnostics
 
     !---------------------------------------------------------------------------
     ! Public for testing (pure helper functions)
@@ -219,11 +220,9 @@ contains
         real(dp), dimension(neqset) :: y_lin
 
         ! Local variables for flux computation
-        type(thermodynamic_forces_t) :: forces_lin, forces_nl
+        type(thermodynamic_forces_t) :: forces_lin
         real(dp) :: Gamma_tot_e_lin, Gamma_tot_i_lin, Gamma_ql_e_lin, Gamma_ql_i_lin, Qe_lin, Qi_lin
-        real(dp) :: Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, Gamma_ql_i_nl, Qe_nl, Qi_nl
         real(dp), dimension(4) :: flux_dif_lin_loc, flux_con_lin_loc
-        real(dp), dimension(4) :: flux_dif_nl_loc, flux_con_nl_loc
         real(dp), dimension(4) :: dot_params_loc, source_rates
         real(dp), dimension(nbaleqs, npoib) :: fluxes_dif_nl
         real(dp), dimension(neqset) :: rate
@@ -245,46 +244,7 @@ contains
 
         ! Prepare frozen state: evaluate all quantities at actual plasma state
         ! that should be held fixed during Jacobian probing
-
-        ! Copy y to params
-        do ipoi = 1, npoi
-            do ieq = 1, nbaleqs
-                i = nbaleqs * (ipoi - 1) + ieq
-                params(ieq, ipoi) = y(i)
-            end do
-        end do
-
-        ! Interpolate to boundary points
-        call project_params_to_boundary_grid(params, ipbeg, ipend, deriv_coef, reint_coef, &
-                                             params_b, ddr_params_nl)
-
-        ! Compute E0r at actual state
-        call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
-                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
-
-        ! Compute diffusion coefficients at actual state
-        call calc_equil_diffusion_coeffs
-
-        ! Compute forces and convective fluxes at ALL boundary points,
-        ! storing frozen QL fluxes for complete linearization
-        do ipoi = 1, npoib
-            call compute_fluxes_at_boundary(ipoi, ddr_params_nl, params_b, Ercov(ipoi), dae11, &
-                                            dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
-                                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
-                                            dqli22, visca, gpp_av, Sb, Z_i, forces_nl, &
-                                            Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, &
-                                            Gamma_ql_i_nl, Qe_nl, Qi_nl, flux_dif_nl_loc, &
-                                            flux_con_nl_loc)
-
-            fluxes_dif_nl(:, ipoi) = flux_dif_nl_loc
-            fluxes_con_nl(:, ipoi) = flux_con_nl_loc
-            Gamma_ql_e_frozen(ipoi) = Gamma_ql_e_nl
-            Gamma_ql_i_frozen(ipoi) = Gamma_ql_i_nl
-        end do
-
-        ! Apply boundary condition: zero flux at inner boundary
-        fluxes_dif_nl(:, 1) = 0.0_dp
-        fluxes_con_nl(:, 1) = 0.0_dp
+        call evaluate_state(npoi, y, fluxes_dif_nl)
 
         ! Jacobian probing loop
         nshift = 4
@@ -563,6 +523,132 @@ contains
                                  params_lin_point(1) / params_point(1)) / params_point(1)
     end subroutine linearize_equilibrium_source_rates
 
+    subroutine refresh_state_diagnostics()
+        !
+        ! Evaluate the state-dependent quantities at the current params without
+        ! building the Jacobian: params_b, ddr_params_nl, Ercov, the transport
+        ! coefficients, the boundary fluxes, and the RMP sources (torque_density_e/i,
+        ! polforce, qlheat_e/i). They are identical to what rhs_balance leaves behind
+        ! when evaluated at the same params.
+        !
+        use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib
+        use plasma_parameters, only: params
+
+        implicit none
+
+        integer :: ipoi, ieq, npoi
+        real(dp), dimension(neqset) :: y
+        real(dp), dimension(nbaleqs, npoib) :: fluxes_dif_nl
+
+        if (iboutype .eq. 1) then
+            npoi = npoic - 1
+        else
+            npoi = npoic
+        end if
+        do ipoi = 1, npoi
+            do ieq = 1, nbaleqs
+                y(nbaleqs * (ipoi - 1) + ieq) = params(ieq, ipoi)
+            end do
+        end do
+
+        call evaluate_state(npoi, y, fluxes_dif_nl)
+        call compute_sources_at_state()
+
+    end subroutine refresh_state_diagnostics
+
+    subroutine evaluate_state(npoi, y, fluxes_dif_nl)
+        !
+        ! Set params from y and evaluate the frozen state that the Jacobian probing
+        ! holds fixed: boundary values and gradients, E0r, transport coefficients,
+        ! and the fluxes at all boundary points (zero at the inner boundary).
+        !
+        use grid_mod, only: nbaleqs, neqset, npoib, Sb, deriv_coef, ipbeg, ipend, rb, &
+                            reint_coef, dae11, dae12, dae22, dai11, dai12, dai22, dni22, visca, &
+                            gpp_av, dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
+                            dqli22, sqrt_g_times_B_theta_over_c, Ercov, fluxes_con_nl, &
+                            Gamma_ql_e_frozen, Gamma_ql_i_frozen
+        use plasma_parameters, only: params, params_b, ddr_params_nl
+        use baseparam_mod, only: Z_i
+        use wave_code_data, only: q, Vth
+
+        implicit none
+
+        integer, intent(in) :: npoi
+        real(dp), dimension(neqset), intent(in) :: y
+        real(dp), dimension(nbaleqs, npoib), intent(out) :: fluxes_dif_nl
+
+        integer :: ipoi, ieq, i
+        type(thermodynamic_forces_t) :: forces_nl
+        real(dp) :: Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, Gamma_ql_i_nl, Qe_nl, Qi_nl
+        real(dp), dimension(4) :: flux_dif_nl_loc, flux_con_nl_loc
+
+        ! Copy y to params
+        do ipoi = 1, npoi
+            do ieq = 1, nbaleqs
+                i = nbaleqs * (ipoi - 1) + ieq
+                params(ieq, ipoi) = y(i)
+            end do
+        end do
+
+        ! Interpolate to boundary points
+        call project_params_to_boundary_grid(params, ipbeg, ipend, deriv_coef, reint_coef, &
+                                             params_b, ddr_params_nl)
+
+        ! Compute E0r at actual state
+        call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
+                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
+
+        ! Compute diffusion coefficients at actual state
+        call calc_equil_diffusion_coeffs
+
+        ! Compute forces and convective fluxes at ALL boundary points,
+        ! storing frozen QL fluxes for complete linearization
+        do ipoi = 1, npoib
+            call compute_fluxes_at_boundary(ipoi, ddr_params_nl, params_b, Ercov(ipoi), dae11, &
+                                            dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
+                                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
+                                            dqli22, visca, gpp_av, Sb, Z_i, forces_nl, &
+                                            Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, &
+                                            Gamma_ql_i_nl, Qe_nl, Qi_nl, flux_dif_nl_loc, &
+                                            flux_con_nl_loc)
+
+            fluxes_dif_nl(:, ipoi) = flux_dif_nl_loc
+            fluxes_con_nl(:, ipoi) = flux_con_nl_loc
+            Gamma_ql_e_frozen(ipoi) = Gamma_ql_e_nl
+            Gamma_ql_i_frozen(ipoi) = Gamma_ql_i_nl
+        end do
+
+        ! Apply boundary condition: zero flux at inner boundary
+        fluxes_dif_nl(:, 1) = 0.0_dp
+        fluxes_con_nl(:, 1) = 0.0_dp
+
+    end subroutine evaluate_state
+
+    subroutine compute_sources_at_state()
+        !
+        ! RMP-induced sources at the state (full products, not linearized), with
+        ! the torque densities torque_density_e/i for diagnostics.
+        !
+        use grid_mod, only: npoib, torque_density_e, torque_density_i, torque_density_ntv, &
+                            sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i, &
+                            Gamma_ql_e_frozen, Gamma_ql_i_frozen
+        use baseparam_mod, only: Z_i, am
+
+        implicit none
+
+        integer :: ipoi
+
+        do ipoi = 1, npoib
+            call compute_rmp_induced_sources(Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
+                                             0.0_dp, 0.0_dp, Ercov(ipoi), 0.0_dp, &
+                                             sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
+                                             torque_density_ntv(ipoi), polforce(ipoi), &
+                                             qlheat_e(ipoi), qlheat_i(ipoi), &
+                                             torque_density_e(ipoi), torque_density_i(ipoi))
+        end do
+
+    end subroutine compute_sources_at_state
+
     subroutine compute_rate_at_state(npoi, fluxes_dif_nl, rate)
         !
         ! Evaluate the right-hand side f(y) of the balance equations at the current
@@ -590,14 +676,7 @@ contains
         integer :: ipoi
         real(dp), dimension(4) :: dot_params_loc
 
-        do ipoi = 1, npoib
-            call compute_rmp_induced_sources(Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
-                                             0.0_dp, 0.0_dp, Ercov(ipoi), 0.0_dp, &
-                                             sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
-                                             torque_density_ntv(ipoi), polforce(ipoi), &
-                                             qlheat_e(ipoi), qlheat_i(ipoi), &
-                                             torque_density_e(ipoi), torque_density_i(ipoi))
-        end do
+        call compute_sources_at_state()
 
         ! The state itself takes the role of the probe perturbation: fluxes at the
         ! state, params as the upwinded quantity and params_b at the inner boundary.

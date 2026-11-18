@@ -66,6 +66,11 @@ add_executable(test_equilibrium_sinks.x test_equilibrium_sinks.f90)
 target_link_libraries(test_equilibrium_sinks.x PUBLIC ql-balance_lib)
 add_fortran_test(test_equilibrium_sinks)
 
+# State diagnostics after a step without a dt = 0 implicit solve
+add_executable(test_state_diagnostics_refresh.x test_state_diagnostics_refresh.f90)
+target_link_libraries(test_state_diagnostics_refresh.x PUBLIC ql-balance_lib)
+add_fortran_test(test_state_diagnostics_refresh)
+
 # Parameter-scan profile rescaling
 add_executable(test_paramscan.x test_paramscan.f90)
 target_link_libraries(test_paramscan.x PUBLIC ql-balance_lib)

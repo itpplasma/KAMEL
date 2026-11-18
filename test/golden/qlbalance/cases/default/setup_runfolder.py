@@ -53,7 +53,12 @@ if _python_dir and _python_dir not in sys.path:
     sys.path.insert(0, _python_dir)
 
 from balance_interface import QL_Balance_interface
+from KiLCA_interface.KiLCA_zone_flre import KiLCA_zone_flre
 from utility import create_parabolic_profiles_from_res_surf
+
+# Pin the KiLCA conductivity grid so that the case keeps its inputs when the
+# interface default changes; ref and cur builds then see identical inputs.
+GOLDEN_KILCA_CONDUCTIVITY_GRID = 3001
 
 
 def setup_runfolder(run_path: str, nml_template: str = "") -> None:
@@ -94,6 +99,8 @@ def setup_runfolder(run_path: str, nml_template: str = "") -> None:
     a = 67.0  # cm, plasma radius (outside profiles have small constant values)
 
     Btor = -17000  # toroidal magnetic field on axis in Gauss
+
+    KiLCA_zone_flre.data["cond_maxdim"] = GOLDEN_KILCA_CONDUCTIVITY_GRID
 
     bi = QL_Balance_interface(run_path=run_path, shot=0, time=0, name="test")
     bi.read_config_nml(path=nml_template)

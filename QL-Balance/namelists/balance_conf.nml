@@ -85,6 +85,7 @@
  boozer_file = ""
  boozer_pert_file = ""  ! required, e.g. a GPEC perturbation .bc file
  amount_of_s = 100
+ s_max = 1.0  ! outer end of the s grid (0 < s_max <= 1), used if below s(rsepar); NTV torque is zero beyond
  antenna_factor_exponent = 1.0  ! NTV torque ~ (antenna_factor/antenna_factor_max)**exponent; antenna_factor ~ dB^2
  ! NEO-RT settings: keys listed here override NEO-RT's defaults; delete a key to use
  ! NEO-RT's default for it.

@@ -6,7 +6,8 @@ subroutine det_balance_eqs_source_terms
     ! so that the dilution by the particle source enters the temperature equations
     ! (see rhs_balance_m).
 
-    use grid_mod, only : y, dery, dery_equisource, nbaleqs, set_boundary_condition, npoi
+    use grid_mod, only : y, dery, dery_equisource, equisource_reference, nbaleqs, &
+                         set_boundary_condition, npoi
     use plasma_parameters, only: params
     use control_mod, only: data_verbosity
     use logger_m, only: log_debug
@@ -31,6 +32,8 @@ subroutine det_balance_eqs_source_terms
             y(i)=params(ieq,ipoi)
         enddo
     enddo
+
+    equisource_reference=y
 
     call log_debug("Before initialize_rhs")
     call initialize_rhs(y,dery)

@@ -665,6 +665,7 @@ module time_evolution
         use recstep_mod, only: timstep_arr, tim_stack, y_stack, nstack, tol
         use wave_code_data, only: q, dPhi0, Vth, I_par_toroidal, antenna_factor
         use kim_wave_code_adapter_m, only: kim_set_boundary_drive
+        use control_mod, only: equilibrium_sink_mode
         type(periodic_restart_t), intent(in) :: payload
         type(periodic_restart_t) :: ramp_payload
         integer :: count
@@ -696,6 +697,8 @@ module time_evolution
         timscal_dql = payload%timscal_dql
         timscal_dqli = payload%timscal_dqli
         rate_dql = payload%rate_dql
+        if (trim(equilibrium_sink_mode) /= 'explicit') &
+            error stop 'periodic restart does not store the equilibrium reference state'
         dery_equisource = payload%dery_equisource
         time = payload%time
         timstep = payload%next_dt

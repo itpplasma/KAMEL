@@ -18,6 +18,38 @@ module h5mod
 
     contains
 
+    !> Select how fortio writes path2out. Call once after read_config, before
+    !> the first write.
+    !>
+    !> QL-Balance opens and closes path2out many times per time step. With
+    !> fortio's default in-memory writer every close rewrites the complete
+    !> file image (float32 and int32 payloads one element per write call), so
+    !> the cost per step grows with the number of stored steps and is dominated
+    !> by file-system latency on network file systems. In streaming mode each
+    !> dataset payload is written once when it is added and a close only
+    !> rewrites the metadata.
+    !>
+    !> Streaming requires a fresh image: an existing path2out is replaced, not
+    !> extended. A restart (readfromtimestep > 0) continues the histories
+    !> already stored in path2out, so it keeps the in-memory writer and extends
+    !> the file as before.
+    subroutine prepare_output_file()
+
+        use logger_m, only: log_info
+
+        if (readfromtimestep > 0) then
+            h5_stream_write = .false.
+            h5_truncate_existing = .false.
+            call log_info("    output: extending "//trim(path2out)// &
+                " (restart; in-memory writer)")
+            return
+        end if
+        h5_stream_write = .true.
+        h5_truncate_existing = .true.
+        call log_info("    output: new streaming file "//trim(path2out))
+
+    end subroutine prepare_output_file
+
     subroutine write_reason_for_stop_to_h5(reason)
 
         implicit none

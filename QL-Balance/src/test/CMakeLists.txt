@@ -346,3 +346,7 @@ add_fortran_test(test_ipar_history)
 add_executable(test_br_ramp_residual.x test_br_ramp_residual.f90)
 target_link_libraries(test_br_ramp_residual.x PUBLIC ql-balance_lib)
 add_fortran_test(test_br_ramp_residual)
+
+add_executable(test_island_width_iota_derivative.x test_island_width_iota_derivative.f90)
+target_link_libraries(test_island_width_iota_derivative.x PUBLIC ql-balance_lib)
+add_fortran_test(test_island_width_iota_derivative)

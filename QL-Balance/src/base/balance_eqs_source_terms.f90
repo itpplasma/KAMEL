@@ -1,20 +1,26 @@
 subroutine det_balance_eqs_source_terms
 
-    ! calculates source terms in the balance equations. Is determined by assuming steady state.
+    ! Determines the equilibrium sources of the balance equations by assuming that
+    ! the current state is stationary without them. They are stored in conserved
+    ! form, as sources of particles and of pressure [Markl2023 (22), (24), (25)],
+    ! so that the dilution by the particle source enters the temperature equations
+    ! (see rhs_balance_m).
 
-    use grid_mod, only : y, dery, dery_equisource, nbaleqs, set_boundary_condition, npoi
+    use grid_mod, only : y, dery, dery_equisource, equisource_reference, nbaleqs, &
+                         set_boundary_condition, npoi
     use plasma_parameters, only: params
     use control_mod, only: data_verbosity
     use logger_m, only: log_debug
     use h5mod
     use matrix_mod
     use QLBalance_kinds, only: dp
-    use rhs_balance_m, only: rhs_balance, initialize_rhs
+    use rhs_balance_m, only: rhs_balance, initialize_rhs, convert_rates_to_equilibrium_sources
 
     implicit none
 
     integer :: ipoi, ieq, i, k
     real(dp) :: x
+    real(dp), dimension(4) :: sources
 
     call log_debug("Generating starting source")
 
@@ -26,6 +32,8 @@ subroutine det_balance_eqs_source_terms
             y(i)=params(ieq,ipoi)
         enddo
     enddo
+
+    equisource_reference=y
 
     call log_debug("Before initialize_rhs")
     call initialize_rhs(y,dery)
@@ -39,6 +47,13 @@ subroutine det_balance_eqs_source_terms
     end do
 
     dery_equisource=dery_equisource-rhsvec
+
+    do ipoi=1,npoi
+        i=nbaleqs*(ipoi-1)
+        call convert_rates_to_equilibrium_sources(dery_equisource(i+1:i+nbaleqs), &
+                                                  params(:,ipoi), sources)
+        dery_equisource(i+1:i+nbaleqs)=sources
+    enddo
 
     if (data_verbosity >= 2) then
         call write_balance_eqs_source_terms

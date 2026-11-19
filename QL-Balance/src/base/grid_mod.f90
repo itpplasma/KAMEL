@@ -19,6 +19,8 @@ module grid_mod
     real(dp), dimension(:), allocatable :: Ercov
     real(dp), dimension(:),   allocatable :: sqg_bthet_overcavg,Ercovavg
     real(dp), dimension(:),   allocatable :: y,dery,dery_equisource
+    !> State at which the equilibrium sources were determined (n_0, T_0)
+    real(dp), dimension(:),   allocatable :: equisource_reference
     real(dp), dimension(:),   allocatable :: dae11,dae12,dae22
     real(dp), dimension(:),   allocatable :: dai11,dai12,dai22
     real(dp), dimension(:), allocatable :: dni22, visca, polforce

@@ -7,7 +7,7 @@ subroutine read_config
                            kim_config_path, kim_config_sha256, kim_profiles_from_balance, &
                            kim_run_type, kim_ion_transport_model, kim_transport_benchmark, &
                            kim_electron_transport_model, &
-                           kim_bparallel_source, kim_benchmark_mode, &
+                           kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode, &
                            kim_n_modes, kim_m_list, kim_n_list, &
                            kim_current_floor, kim_current_max_scale, kim_current_relaxation, &
                            jpar_method, ion_transport_model_id, &
@@ -48,7 +48,7 @@ subroutine read_config
         kim_n_modes, kim_m_list, kim_n_list, &
         I_par_toroidal, jpar_method, kim_current_floor, kim_current_max_scale, &
         kim_current_relaxation, kim_electron_transport_model, &
-        kim_bparallel_source, kim_benchmark_mode
+        kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -76,6 +76,12 @@ subroutine read_config
                 kim_current_relaxation <= 0.0d0 .or. kim_current_relaxation > 1.0d0) &
             error stop 'invalid current normalization setting'
     end if
+
+    select case (trim(equilibrium_sink_mode))
+    case ('explicit', 'implicit')
+    case default
+        error stop 'equilibrium_sink_mode must be explicit or implicit'
+    end select
 
     if (kim_transport_benchmark) then
         if (trim(wave_code) /= 'KIM' .or. trim(kim_run_type) /= 'electrostatic_periodic') &
@@ -134,6 +140,7 @@ subroutine read_config
     call log_info(fmt_val("    gyro_current_study", gyro_current_study))
     call log_info(fmt_val("    viscosity_factor", viscosity_factor))
     call log_info(fmt_val("    misalign_diffusion", misalign_diffusion))
+    call log_info(fmt_val("    equilibrium_sink_mode", trim(equilibrium_sink_mode)))
     call log_info(fmt_val("    equil_path", trim(adjustl(equil_path))))
     call log_info(fmt_val("    ihdf5IO", ihdf5IO))
     call log_info(fmt_val("    set_constant_time_step", set_constant_time_step))

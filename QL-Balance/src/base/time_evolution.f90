@@ -6,6 +6,7 @@ module time_evolution
     use QLBalance_kinds, only: dp
     use logger_m, only: log_debug, log_info
     use periodic_amplitude_state_m, only: periodic_amplitudes
+    use rhs_balance_m, only: refresh_state_diagnostics
 
     implicit none
 
@@ -211,7 +212,18 @@ module time_evolution
         end do
     end subroutine runTimeEvolution
 
+    !> One time step. Its output writes share one open path2out (an output
+    !> session) instead of opening and closing the file for each write.
     subroutine doStep(this, stat)
+        class(TimeEvolution_t), intent(inout) :: this
+        integer, intent(out), optional :: stat
+
+        if (ihdf5IO == 1) call h5_begin_output_session(trim(path2out))
+        call do_step_writing_output(this, stat)
+        if (ihdf5IO == 1) call h5_end_output_session()
+    end subroutine doStep
+
+    subroutine do_step_writing_output(this, stat)
         use baseparam_mod, only: factolmax, factolred
         use kim_wave_code_adapter_m, only: kim_periodic_mode_selected
         use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
@@ -294,10 +306,7 @@ module time_evolution
         call reset_timstep_arr_w_timstep
         call write_time_info
         call relax_plasma_parameters
-
-        timstep_arr = 0.0d0
-        call evolvestep(timstep, eps)
-        timstep_arr = timstep
+        call refresh_state_diagnostics
         time = time + step_taken
 
         call log_debug("msg_time_info")
@@ -309,7 +318,7 @@ module time_evolution
         call stop_if_antenna_fac_max_reached
 
         call ramp_coil
-    end subroutine doStep
+    end subroutine do_step_writing_output
 
     subroutine sync_periodic_amplitude_trial()
         use kim_wave_code_adapter_m, only: kim_current_records, kim_periodic_scale_modes, &
@@ -506,9 +515,7 @@ module time_evolution
             call set_time_step
             call reset_timstep_arr_w_timstep
             call relax_plasma_parameters
-            timstep_arr = 0.0_dp
-            call evolvestep(timstep, eps)
-            timstep_arr = timstep
+            call refresh_state_diagnostics
 
             ! Stage the response for the candidate profiles before either is
             ! committed. A guarded response cannot replace the accepted one.
@@ -665,6 +672,7 @@ module time_evolution
         use recstep_mod, only: timstep_arr, tim_stack, y_stack, nstack, tol
         use wave_code_data, only: q, dPhi0, Vth, I_par_toroidal, antenna_factor
         use kim_wave_code_adapter_m, only: kim_set_boundary_drive
+        use control_mod, only: equilibrium_sink_mode
         type(periodic_restart_t), intent(in) :: payload
         type(periodic_restart_t) :: ramp_payload
         integer :: count
@@ -696,6 +704,8 @@ module time_evolution
         timscal_dql = payload%timscal_dql
         timscal_dqli = payload%timscal_dqli
         rate_dql = payload%rate_dql
+        if (trim(equilibrium_sink_mode) /= 'explicit') &
+            error stop 'periodic restart does not store the equilibrium reference state'
         dery_equisource = payload%dery_equisource
         time = payload%time
         timstep = payload%next_dt

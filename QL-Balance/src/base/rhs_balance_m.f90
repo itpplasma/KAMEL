@@ -19,6 +19,14 @@ module rhs_balance_m
     ! so the sources must not be added to q a second time; q = f - A·y keeps
     ! every term of f exactly once [B1, #199].
     !
+    ! Equilibrium sources [Markl2023 (22), (24), (25)]: dery_equisource holds, per
+    ! grid point, the particle source S_n^0, the source of the rotation frequency,
+    ! and the pressure sources (2/3) S_{w,e}^0 and (2/3) S_{w,i}^0. The rate of
+    ! temperature change they cause depends on the state,
+    !   dT/dt|_source = ((2/3) S_w^0 - T S_n^0) / n,
+    ! because particles supplied by S_n^0 dilute the plasma. This term and its
+    ! derivatives with respect to n and T enter f and A.
+    !
     ! Public API:
     !   - rhs_balance: Compute A (sparse) and q (returned in dy and rhsvec)
     !
@@ -82,8 +90,12 @@ module rhs_balance_m
     !---------------------------------------------------------------------------
     ! Public API
     !---------------------------------------------------------------------------
+    public :: convert_rates_to_equilibrium_sources
+    public :: compute_equilibrium_source_rates
+    public :: linearize_equilibrium_source_rates
     public :: initialize_rhs
     public :: rhs_balance
+    public :: refresh_state_diagnostics
 
     !---------------------------------------------------------------------------
     ! Public for testing (pure helper functions)
@@ -190,7 +202,8 @@ contains
                             torque_density_e, torque_density_i, torque_density_ntv, &
                             sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i, &
                             Ercov_lin, fluxes_con_nl, Gamma_ql_e_frozen, Gamma_ql_i_frozen, &
-                            dery_equisource
+                            dery_equisource, equisource_reference
+        use control_mod, only: equilibrium_sink_mode
         use plasma_parameters, only: params, ddr_params_lin, params_lin, params_b_lin, &
                                      params_b, dot_params, ddr_params_nl
         use baseparam_mod, only: Z_i, am
@@ -207,14 +220,15 @@ contains
         real(dp), dimension(neqset) :: y_lin
 
         ! Local variables for flux computation
-        type(thermodynamic_forces_t) :: forces_lin, forces_nl
+        type(thermodynamic_forces_t) :: forces_lin
         real(dp) :: Gamma_tot_e_lin, Gamma_tot_i_lin, Gamma_ql_e_lin, Gamma_ql_i_lin, Qe_lin, Qi_lin
-        real(dp) :: Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, Gamma_ql_i_nl, Qe_nl, Qi_nl
         real(dp), dimension(4) :: flux_dif_lin_loc, flux_con_lin_loc
-        real(dp), dimension(4) :: flux_dif_nl_loc, flux_con_nl_loc
-        real(dp), dimension(4) :: dot_params_loc
+        real(dp), dimension(4) :: dot_params_loc, source_rates
         real(dp), dimension(nbaleqs, npoib) :: fluxes_dif_nl
         real(dp), dimension(neqset) :: rate
+        logical :: implicit_sinks
+
+        implicit_sinks = trim(equilibrium_sink_mode) == 'implicit'
 
         if (iboutype .eq. 1) then
             npoi = npoic - 1
@@ -230,46 +244,7 @@ contains
 
         ! Prepare frozen state: evaluate all quantities at actual plasma state
         ! that should be held fixed during Jacobian probing
-
-        ! Copy y to params
-        do ipoi = 1, npoi
-            do ieq = 1, nbaleqs
-                i = nbaleqs * (ipoi - 1) + ieq
-                params(ieq, ipoi) = y(i)
-            end do
-        end do
-
-        ! Interpolate to boundary points
-        call project_params_to_boundary_grid(params, ipbeg, ipend, deriv_coef, reint_coef, &
-                                             params_b, ddr_params_nl)
-
-        ! Compute E0r at actual state
-        call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
-                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
-
-        ! Compute diffusion coefficients at actual state
-        call calc_equil_diffusion_coeffs
-
-        ! Compute forces and convective fluxes at ALL boundary points,
-        ! storing frozen QL fluxes for complete linearization
-        do ipoi = 1, npoib
-            call compute_fluxes_at_boundary(ipoi, ddr_params_nl, params_b, Ercov(ipoi), dae11, &
-                                            dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
-                                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
-                                            dqli22, visca, gpp_av, Sb, Z_i, forces_nl, &
-                                            Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, &
-                                            Gamma_ql_i_nl, Qe_nl, Qi_nl, flux_dif_nl_loc, &
-                                            flux_con_nl_loc)
-
-            fluxes_dif_nl(:, ipoi) = flux_dif_nl_loc
-            fluxes_con_nl(:, ipoi) = flux_con_nl_loc
-            Gamma_ql_e_frozen(ipoi) = Gamma_ql_e_nl
-            Gamma_ql_i_frozen(ipoi) = Gamma_ql_i_nl
-        end do
-
-        ! Apply boundary condition: zero flux at inner boundary
-        fluxes_dif_nl(:, 1) = 0.0_dp
-        fluxes_con_nl(:, 1) = 0.0_dp
+        call evaluate_state(npoi, y, fluxes_dif_nl)
 
         ! Jacobian probing loop
         nshift = 4
@@ -385,6 +360,17 @@ contains
                 end do
             end do
 
+            ! Linearized equilibrium sources: only the probed point responds
+            do ipoi = ibeg, iend
+                i = nbaleqs * (ipoi - 1)
+                call linearize_equilibrium_source_rates(dery_equisource(i + 1:i + nbaleqs), &
+                                                        params(:, ipoi), &
+                                                        equisource_reference(i + 1:i + nbaleqs), &
+                                                        implicit_sinks, params_lin(:, ipoi), &
+                                                        source_rates)
+                dy(i + 1:i + nbaleqs) = dy(i + 1:i + nbaleqs) + source_rates
+            end do
+
             ! Store non-zero elements
             ! Divide by perturbation size to get correct Jacobian entry:
             ! J[i,j] = dy[i] / delta_y[j]
@@ -428,7 +414,14 @@ contains
             ! instead would count them twice [B1, #199].
             if (k /= nz) error stop 'rhs_balance: Jacobian sparsity differs from the count pass'
             call compute_rate_at_state(npoi, fluxes_dif_nl, rate)
-            rhsvec = rate + dery_equisource
+            do ipoi = 1, npoi
+                i = nbaleqs * (ipoi - 1)
+                call compute_equilibrium_source_rates(dery_equisource(i + 1:i + nbaleqs), &
+                                                      params(:, ipoi), &
+                                                      equisource_reference(i + 1:i + nbaleqs), &
+                                                      implicit_sinks, source_rates)
+                rhsvec(i + 1:i + nbaleqs) = rate(i + 1:i + nbaleqs) + source_rates
+            end do
             do i = 1, k
                 rhsvec(irow(i)) = rhsvec(irow(i)) - amat(i) * y(icol(i))
             end do
@@ -436,6 +429,225 @@ contains
         end if
 
     end subroutine rhs_balance
+
+    pure subroutine convert_rates_to_equilibrium_sources(rates, params_point, sources)
+        !
+        ! Convert the rates of change d(n, Vphi, Te, Ti)/dt that keep the state
+        ! params_point stationary into equilibrium sources in conserved form:
+        !   sources(1) = S_n^0                 particle source
+        !   sources(2)                         source of the rotation frequency
+        !   sources(3:4) = (2/3) S_{w,e/i}^0   pressure sources, from
+        !                  d(nT)/dt = n dT/dt + T dn/dt
+        !     [Markl2023 (22), (24), (25)]
+        !
+        real(dp), dimension(4), intent(in) :: rates, params_point
+        real(dp), dimension(4), intent(out) :: sources
+
+        sources(1:2) = rates(1:2)
+        sources(3:4) = params_point(1) * rates(3:4) + params_point(3:4) * rates(1)
+    end subroutine convert_rates_to_equilibrium_sources
+
+    pure subroutine apply_equilibrium_sinks(sources, params_point, reference, &
+                                            implicit_sinks, effective)
+        !
+        ! Equilibrium sources acting at the state params_point. With implicit
+        ! sinks, negative source densities are scaled with the local state
+        ! relative to the reference state (n_0, T_0) at which they were determined:
+        !   S_n      -> S_n n / n_0                 where S_n < 0
+        !   (2/3)S_w -> (2/3)S_w n T / (n_0 T_0)    where S_w < 0
+        ! Positive densities stay fixed. Both forms agree at the reference state.
+        !
+        real(dp), dimension(4), intent(in) :: sources, params_point, reference
+        logical, intent(in) :: implicit_sinks
+        real(dp), dimension(4), intent(out) :: effective
+        integer :: ieq
+
+        effective = sources
+        if (.not. implicit_sinks) return
+        if (sources(1) < 0.0_dp) effective(1) = sources(1) * params_point(1) / reference(1)
+        do ieq = 3, 4
+            if (sources(ieq) < 0.0_dp) effective(ieq) = sources(ieq) * &
+                params_point(1) * params_point(ieq) / (reference(1) * reference(ieq))
+        end do
+    end subroutine apply_equilibrium_sinks
+
+    pure subroutine compute_equilibrium_source_rates(sources, params_point, reference, &
+                                                     implicit_sinks, source_rates)
+        !
+        ! Rates of change d(n, Vphi, Te, Ti)/dt caused by the equilibrium sources at
+        ! the state params_point. For the temperatures
+        !   dT/dt = ((2/3) S_w^0 - T S_n^0) / n,
+        ! the second term being the dilution by the particle source.
+        !
+        real(dp), dimension(4), intent(in) :: sources, params_point, reference
+        logical, intent(in) :: implicit_sinks
+        real(dp), dimension(4), intent(out) :: source_rates
+        real(dp), dimension(4) :: effective
+
+        call apply_equilibrium_sinks(sources, params_point, reference, implicit_sinks, effective)
+        source_rates(1:2) = effective(1:2)
+        source_rates(3:4) = (effective(3:4) - params_point(3:4) * effective(1)) / params_point(1)
+    end subroutine compute_equilibrium_source_rates
+
+    pure subroutine linearize_equilibrium_source_rates(sources, params_point, reference, &
+                                                       implicit_sinks, params_lin_point, &
+                                                       source_rates_lin)
+        !
+        ! Response of compute_equilibrium_source_rates to a perturbation
+        ! params_lin_point of the density and the temperatures.
+        !
+        real(dp), dimension(4), intent(in) :: sources, params_point, reference
+        logical, intent(in) :: implicit_sinks
+        real(dp), dimension(4), intent(in) :: params_lin_point
+        real(dp), dimension(4), intent(out) :: source_rates_lin
+        real(dp), dimension(4) :: effective, effective_lin
+        integer :: ieq
+
+        call apply_equilibrium_sinks(sources, params_point, reference, implicit_sinks, effective)
+        effective_lin = 0.0_dp
+        if (implicit_sinks) then
+            if (sources(1) < 0.0_dp) effective_lin(1) = sources(1) * params_lin_point(1) / &
+                                                        reference(1)
+            do ieq = 3, 4
+                if (sources(ieq) < 0.0_dp) effective_lin(ieq) = sources(ieq) * &
+                    (params_lin_point(1) * params_point(ieq) + &
+                     params_point(1) * params_lin_point(ieq)) / (reference(1) * reference(ieq))
+            end do
+        end if
+
+        source_rates_lin(1) = effective_lin(1)
+        source_rates_lin(2) = 0.0_dp
+        source_rates_lin(3:4) = (effective_lin(3:4) - params_lin_point(3:4) * effective(1) - &
+                                 params_point(3:4) * effective_lin(1) - &
+                                 (effective(3:4) - params_point(3:4) * effective(1)) * &
+                                 params_lin_point(1) / params_point(1)) / params_point(1)
+    end subroutine linearize_equilibrium_source_rates
+
+    subroutine refresh_state_diagnostics()
+        !
+        ! Evaluate the state-dependent quantities at the current params without
+        ! building the Jacobian: params_b, ddr_params_nl, Ercov, the transport
+        ! coefficients, the boundary fluxes, and the RMP sources (torque_density_e/i,
+        ! polforce, qlheat_e/i). They are identical to what rhs_balance leaves behind
+        ! when evaluated at the same params.
+        !
+        use grid_mod, only: nbaleqs, neqset, iboutype, npoic, npoib
+        use plasma_parameters, only: params
+
+        implicit none
+
+        integer :: ipoi, ieq, npoi
+        real(dp), dimension(neqset) :: y
+        real(dp), dimension(nbaleqs, npoib) :: fluxes_dif_nl
+
+        if (iboutype .eq. 1) then
+            npoi = npoic - 1
+        else
+            npoi = npoic
+        end if
+        do ipoi = 1, npoi
+            do ieq = 1, nbaleqs
+                y(nbaleqs * (ipoi - 1) + ieq) = params(ieq, ipoi)
+            end do
+        end do
+
+        call evaluate_state(npoi, y, fluxes_dif_nl)
+        call compute_sources_at_state()
+
+    end subroutine refresh_state_diagnostics
+
+    subroutine evaluate_state(npoi, y, fluxes_dif_nl)
+        !
+        ! Set params from y and evaluate the frozen state that the Jacobian probing
+        ! holds fixed: boundary values and gradients, E0r, transport coefficients,
+        ! and the fluxes at all boundary points (zero at the inner boundary).
+        !
+        use grid_mod, only: nbaleqs, neqset, npoib, Sb, deriv_coef, ipbeg, ipend, rb, &
+                            reint_coef, dae11, dae12, dae22, dai11, dai12, dai22, dni22, visca, &
+                            gpp_av, dqle11, dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
+                            dqli22, sqrt_g_times_B_theta_over_c, Ercov, fluxes_con_nl, &
+                            Gamma_ql_e_frozen, Gamma_ql_i_frozen
+        use plasma_parameters, only: params, params_b, ddr_params_nl
+        use baseparam_mod, only: Z_i
+        use wave_code_data, only: q, Vth
+
+        implicit none
+
+        integer, intent(in) :: npoi
+        real(dp), dimension(neqset), intent(in) :: y
+        real(dp), dimension(nbaleqs, npoib), intent(out) :: fluxes_dif_nl
+
+        integer :: ipoi, ieq, i
+        type(thermodynamic_forces_t) :: forces_nl
+        real(dp) :: Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, Gamma_ql_i_nl, Qe_nl, Qi_nl
+        real(dp), dimension(4) :: flux_dif_nl_loc, flux_con_nl_loc
+
+        ! Copy y to params
+        do ipoi = 1, npoi
+            do ieq = 1, nbaleqs
+                i = nbaleqs * (ipoi - 1) + ieq
+                params(ieq, ipoi) = y(i)
+            end do
+        end do
+
+        ! Interpolate to boundary points
+        call project_params_to_boundary_grid(params, ipbeg, ipend, deriv_coef, reint_coef, &
+                                             params_b, ddr_params_nl)
+
+        ! Compute E0r at actual state
+        call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
+                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
+
+        ! Compute diffusion coefficients at actual state
+        call calc_equil_diffusion_coeffs
+
+        ! Compute forces and convective fluxes at ALL boundary points,
+        ! storing frozen QL fluxes for complete linearization
+        do ipoi = 1, npoib
+            call compute_fluxes_at_boundary(ipoi, ddr_params_nl, params_b, Ercov(ipoi), dae11, &
+                                            dae12, dae22, dai11, dai12, dai22, dni22, dqle11, &
+                                            dqle12, dqle21, dqle22, dqli11, dqli12, dqli21, &
+                                            dqli22, visca, gpp_av, Sb, Z_i, forces_nl, &
+                                            Gamma_tot_e_nl, Gamma_tot_i_nl, Gamma_ql_e_nl, &
+                                            Gamma_ql_i_nl, Qe_nl, Qi_nl, flux_dif_nl_loc, &
+                                            flux_con_nl_loc)
+
+            fluxes_dif_nl(:, ipoi) = flux_dif_nl_loc
+            fluxes_con_nl(:, ipoi) = flux_con_nl_loc
+            Gamma_ql_e_frozen(ipoi) = Gamma_ql_e_nl
+            Gamma_ql_i_frozen(ipoi) = Gamma_ql_i_nl
+        end do
+
+        ! Apply boundary condition: zero flux at inner boundary
+        fluxes_dif_nl(:, 1) = 0.0_dp
+        fluxes_con_nl(:, 1) = 0.0_dp
+
+    end subroutine evaluate_state
+
+    subroutine compute_sources_at_state()
+        !
+        ! RMP-induced sources at the state (full products, not linearized), with
+        ! the torque densities torque_density_e/i for diagnostics.
+        !
+        use grid_mod, only: npoib, torque_density_e, torque_density_i, torque_density_ntv, &
+                            sqrt_g_times_B_theta_over_c, Ercov, polforce, qlheat_e, qlheat_i, &
+                            Gamma_ql_e_frozen, Gamma_ql_i_frozen
+        use baseparam_mod, only: Z_i, am
+
+        implicit none
+
+        integer :: ipoi
+
+        do ipoi = 1, npoib
+            call compute_rmp_induced_sources(Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
+                                             0.0_dp, 0.0_dp, Ercov(ipoi), 0.0_dp, &
+                                             sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
+                                             torque_density_ntv(ipoi), polforce(ipoi), &
+                                             qlheat_e(ipoi), qlheat_i(ipoi), &
+                                             torque_density_e(ipoi), torque_density_i(ipoi))
+        end do
+
+    end subroutine compute_sources_at_state
 
     subroutine compute_rate_at_state(npoi, fluxes_dif_nl, rate)
         !
@@ -464,14 +676,7 @@ contains
         integer :: ipoi
         real(dp), dimension(4) :: dot_params_loc
 
-        do ipoi = 1, npoib
-            call compute_rmp_induced_sources(Gamma_ql_e_frozen(ipoi), Gamma_ql_i_frozen(ipoi), &
-                                             0.0_dp, 0.0_dp, Ercov(ipoi), 0.0_dp, &
-                                             sqrt_g_times_B_theta_over_c(ipoi), Z_i, am, &
-                                             torque_density_ntv(ipoi), polforce(ipoi), &
-                                             qlheat_e(ipoi), qlheat_i(ipoi), &
-                                             torque_density_e(ipoi), torque_density_i(ipoi))
-        end do
+        call compute_sources_at_state()
 
         ! The state itself takes the role of the probe perturbation: fluxes at the
         ! state, params as the upwinded quantity and params_b at the inner boundary.

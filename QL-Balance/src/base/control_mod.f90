@@ -28,6 +28,10 @@ module control_mod
     logical :: timing_mode         ! added by Markus Markl 06.04.2021
     integer :: log_level = 3         ! maps to LVL_INFO
     logical :: suppression_mode    ! added by Markus Markl 13.04.2021
+    !> Treatment of negative equilibrium source densities (local sinks):
+    !> 'explicit' keeps them fixed, 'implicit' scales them with the local
+    !> density and pressure relative to the initial state.
+    character(len=16) :: equilibrium_sink_mode = 'explicit'
     logical :: misalign_diffusion ! trigger the calculation and addition of the diffusion due to misaligned equipotentials and flux surfaces
     character(len=32) :: jpar_method = 'conductivity'  ! 'conductivity' or 'curlB'
     integer :: data_verbosity = 1    ! standard output

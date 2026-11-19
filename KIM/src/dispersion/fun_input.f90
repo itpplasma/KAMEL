@@ -96,6 +96,8 @@ MODULE Function_Input_Module
             use constants_m, only: com_unit
             use kim_kinds_m, only: dp
             use config_m, only: WKB_solve_for_kr_squared
+            use local_dispersion_geometry_m, only: local_bessel_argument, &
+                                                   local_laplacian_wavenumber_squared
 
             implicit none
             complex(dp), intent(in) :: kr
@@ -129,7 +131,8 @@ MODULE Function_Input_Module
 
             do sp = 0, plasma%n_species-1
 
-                kr_rho_squared = kr_squared * plasma%spec(sp)%rho_L(j)**2.0d0
+                kr_rho_squared = local_bessel_argument(kr_squared, plasma%ks(j), &
+                                                       plasma%spec(sp)%rho_L(j))
 
                 ! calculate modified Bessel functions I0 and I1 with complex argument
                 call zbesi(real(kr_rho_squared, kind=dp), &
@@ -172,7 +175,8 @@ MODULE Function_Input_Module
 
             end do
 
-            D_of_kr = kr_squared + plasma%kp(j)**2.0d0 - D_of_kr
+            D_of_kr = local_laplacian_wavenumber_squared(kr_squared, plasma%ks(j), &
+                                                         plasma%kp(j)) - D_of_kr
 
         end subroutine
 

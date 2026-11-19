@@ -29,7 +29,9 @@ subroutine kim_read_config
                         WKB_solve_for_kr_squared, &
                         WKB_max_tracked_branches, WKB_branch_search_halfwidth, &
                         WKB_broad_search_halfwidth, WKB_broad_search_interval, &
-                        WKB_root_tolerance, WKB_verbose
+                        WKB_root_tolerance, WKB_verbose, WKB_use_initial_root, &
+                        WKB_initial_root_real, WKB_initial_root_imag, &
+                        WKB_initial_root_profile
 
     namelist /KIM_IO/ profile_location, hdf5_input, hdf5_output, &
                         log_level, data_verbosity, output_path, calculate_asymptotics, &
@@ -143,6 +145,12 @@ subroutine kim_read_config
             trim(ion_temperature_gradient_model)
         error stop 'ion_temperature_gradient_model must be full, zero_A2, or zero_Tprime'
     end if
+    ! A weight of 1 or more gives a zero Larmor band (log(1/tau) <= 0), so the
+    ! global kernels would silently keep only the diagonal neighbours.
+    if (.not. (kernel_taper_skip_threshold > 0.0d0 .and. kernel_taper_skip_threshold < 1.0d0)) then
+        write(*,*) 'Invalid kernel_taper_skip_threshold: ', kernel_taper_skip_threshold
+        error stop 'kernel_taper_skip_threshold is a taper weight and must lie in (0, 1)'
+    end if
 
     resolved_electron_ifunc_conservation_model = resolve_ifunc_model( &
         electron_ifunc_conservation_model, boole_energy_conservation)
@@ -183,6 +191,12 @@ subroutine kim_read_config
 
     if (ion_fp_collision_scale <= 0.0_dp) then
         error stop 'ion_fp_collision_scale must be > 0 for FP collision kernels'
+    end if
+
+    ! Only the P1 hat basis is implemented; the electron kernel rejects
+    ! anything else, but only after setup.
+    if (spline_base /= 1) then
+        error stop 'spline_base must be 1: only the P1 hat basis is implemented'
     end if
 
     select case (trim(ion_collision_model))

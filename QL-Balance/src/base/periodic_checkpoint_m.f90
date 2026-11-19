@@ -121,7 +121,7 @@ contains
                                                  'br_abs', 'br_abs_time', 'br_abs_antenna_factor', &
                                              'dqle22_res_time', 'dae22_res_time', 'bif_criterion', &
                                                  'Ipar_time', 'br_formfactor', 'br_vac_res', &
-                                         'stack_present', 'tim_stack', 'y_stack', 'dery_equisource']
+                                         'stack_present', 'tim_stack', 'y_stack', 'equilibrium_sources']
         real(dp) :: scalars(33), boundary(2)
         integer :: integers(10)
         call validate_modes(m, n)
@@ -224,7 +224,7 @@ contains
         call h5_add(file_id, root//'scalars', scalars, [1], [size(scalars)])
         call h5_add(file_id, root//'integers', integers, [1], [size(integers)])
         call h5_add(file_id, root//'boundary_br', boundary, [1], [2])
-        call h5_add(file_id, root//'dery_equisource', payload%dery_equisource, &
+        call h5_add(file_id, root//'equilibrium_sources', payload%dery_equisource, &
                     [1], [size(payload%dery_equisource)])
         call h5_add(file_id, root//'params', payload%params, [1, 1], shape(payload%params))
         call h5_add(file_id, root//'rc', payload%rc, [1], [size(payload%rc)])
@@ -385,7 +385,7 @@ contains
         if (integers(10) /= 0 .and. integers(10) /= 1) error stop 'invalid checkpoint logical'
         payload%scratch = integers(10) == 1
         payload%boundary_br = cmplx(boundary(1), boundary(2), dp)
-        call get_vector(file_id, root//'dery_equisource', payload%dery_equisource)
+        call get_vector(file_id, root//'equilibrium_sources', payload%dery_equisource)
         call get_matrix(file_id, root//'params', payload%params)
         call get_vector(file_id, root//'rc', payload%rc)
         call get_vector(file_id, root//'rb', payload%rb)

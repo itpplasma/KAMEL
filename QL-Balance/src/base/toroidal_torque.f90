@@ -1,7 +1,8 @@
 subroutine calculate_total_toroidal_torque(time_index)
     use iso_fortran_env, only: dp => real64
     use baseparam_mod, only: pi, rtor ! rtor is the major radius
-    use grid_mod, only: T_EM_phi_e, T_EM_phi_i, T_tot_phi_e, T_tot_phi_i
+    use grid_mod, only: torque_density_e, torque_density_i, torque_density_ntv, &
+                        T_tot_phi_e, T_tot_phi_i, T_tot_phi_ntv
     use simpson_integration, only: simpson_nonequi
     use wave_code_data, only: r
 
@@ -9,17 +10,19 @@ subroutine calculate_total_toroidal_torque(time_index)
 
     integer, intent(in) :: time_index
 
-    call simpson_nonequi(T_tot_phi_e(time_index), r, r * T_EM_phi_e)
-    call simpson_nonequi(T_tot_phi_i(time_index), r, r * T_EM_phi_i)
+    call simpson_nonequi(T_tot_phi_e(time_index), r, r * torque_density_e)
+    call simpson_nonequi(T_tot_phi_i(time_index), r, r * torque_density_i)
+    call simpson_nonequi(T_tot_phi_ntv(time_index), r, r * torque_density_ntv)
 
     T_tot_phi_e(time_index) = T_tot_phi_e(time_index) * 4.0_dp * pi**2 * rtor
     T_tot_phi_i(time_index) = T_tot_phi_i(time_index) * 4.0_dp * pi**2 * rtor
+    T_tot_phi_ntv(time_index) = T_tot_phi_ntv(time_index) * 4.0_dp * pi**2 * rtor
 
 end subroutine calculate_total_toroidal_torque
 
 subroutine write_total_toroidal_torque_to_file(time_index)
     use iso_fortran_env, only: dp => real64
-    use grid_mod, only: T_tot_phi_e, T_tot_phi_i
+    use grid_mod, only: T_tot_phi_e, T_tot_phi_i, T_tot_phi_ntv
     use KAMEL_hdf5_tools, only: h5_init, h5_deinit, h5_open_rw, h5_close, &
                                 h5_obj_exists, h5_get_bounds_1, h5_get, h5_delete, h5_add
     use h5mod, only: h5_id, path2out, h5_mode_groupname
@@ -29,12 +32,14 @@ subroutine write_total_toroidal_torque_to_file(time_index)
     integer, intent(in) :: time_index
 
     if (time_index < 1) error stop 'torque output time index must be positive'
-    if (time_index > size(T_tot_phi_e) .or. time_index > size(T_tot_phi_i)) &
+    if (time_index > size(T_tot_phi_e) .or. time_index > size(T_tot_phi_i) .or. &
+        time_index > size(T_tot_phi_ntv)) &
         error stop 'torque output time index exceeds storage'
     call h5_init()
     call h5_open_rw(path2out, h5_id)
     call write_history('/'//trim(h5_mode_groupname)//'/T_tot_phi_e', T_tot_phi_e(time_index))
     call write_history('/'//trim(h5_mode_groupname)//'/T_tot_phi_i', T_tot_phi_i(time_index))
+    call write_history('/'//trim(h5_mode_groupname)//'/T_tot_phi_ntv', T_tot_phi_ntv(time_index))
     call h5_close(h5_id)
     call h5_deinit()
 

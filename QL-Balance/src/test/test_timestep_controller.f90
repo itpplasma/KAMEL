@@ -264,6 +264,9 @@ contains
         logical :: first
 
         allocate (oracle_params(size(params, 1), size(params, 2)), oracle_timscal(size(timscal)))
+        ! Start away from the equilibrium held by the sources of the fixture, so
+        ! that the profiles relax and a large step changes them.
+        params(3:4, :) = 2.0d0*params(3:4, :)
         ! Entry steps: a small step (accepted at once), then steps large enough
         ! to violate tol*factolmax and force the redo loop.
         entry_steps = [1.0d-4, 1.0d3, 1.0d4]

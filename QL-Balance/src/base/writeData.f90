@@ -4,16 +4,17 @@ module writeData_m
     implicit none
     private
 
+    public :: write_D_one_over_nu_to_h5
+    public :: write_NTV_torque_diagnostic
     public :: write_fields_currs_transp_coefs_to_h5
     public :: writefort9999
     public :: writefort9999_stellarator
-    public :: write_D_one_over_nu_to_h5
 
 contains
 
 subroutine write_fields_currs_transp_coefs_to_h5(time_ind)
     use grid_mod, only: npoib, dqle11, dqle12, dqle22, dqli11, dqli12, dqli22, &
-                        T_EM_phi_e, T_EM_phi_i
+                        torque_density_e, torque_density_i
     use baseparam_mod, only: c
     use control_mod, only: ihdf5IO, data_verbosity, misalign_diffusion
     use logger_m, only: log_debug
@@ -141,10 +142,13 @@ subroutine write_dql_Br_Jp_profiles_to_hdf5(tempch)
                         dqli12, lbound(dqli12), ubound(dqli12))
     CALL h5_add_double_1(h5_id, trim(tempch)//"dqli22", &
                         dqli22, lbound(dqli22), ubound(dqli22))
-    call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_e", T_EM_phi_e, lbound(T_EM_phi_e), &
-                         ubound(T_EM_phi_e))
-    call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_i", T_EM_phi_i, lbound(T_EM_phi_i), &
-                         ubound(T_EM_phi_i))
+    call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_e", torque_density_e, &
+                         lbound(torque_density_e), ubound(torque_density_e))
+    call h5_add_double_1(h5_id, trim(tempch) // "T_EM_phi_i", torque_density_i, &
+                         lbound(torque_density_i), ubound(torque_density_i))
+    call h5_add_double_1(h5_id, trim(tempch) // "T_NA_phi_i", torque_density_ntv, &
+                         lbound(torque_density_ntv), ubound(torque_density_ntv), &
+                         comment="NTV torque density on ions calculated by NEO-RT")
     CALL h5_add_double_1(h5_id, trim(tempch)//"Br-ckpEs_om_E", &
                         abs(Br - c*kp*Es/om_E), lbound(Br), ubound(Br))
     CALL h5_add_double_1(h5_id, trim(tempch)//"Br-cksEp_om_E", &
@@ -157,6 +161,42 @@ subroutine write_dql_Br_Jp_profiles_to_hdf5(tempch)
                         !abs(Jpe + Jpi), lbound(Jpe), ubound(Jpe))
 
 end subroutine
+
+subroutine write_NTV_torque_diagnostic(r, ntv_torque, time_ind)
+    use h5mod
+    use control_mod, only: ihdf5IO
+
+    implicit none
+
+    real(dp), dimension(:), intent(in) :: r
+    real(dp), dimension(:), intent(in) :: ntv_torque
+    integer, intent(in) :: time_ind
+
+    character(len=1024) :: tempch
+
+    if (ihdf5IO .eq. 1) then
+        call h5_init()
+        call h5_open_rw(path2out, h5_id)
+        tempch = "/"//trim(h5_mode_groupname)//"/LinearProfiles"
+
+        write (tempch, '(A,"/",I0,"/")') trim(tempch), time_ind
+
+        call create_group_if_not_existent(tempch)
+
+        call h5_add_double_1(h5_id, trim(tempch)//"r_NTV_no_spline", r, lbound(r), ubound(r), &
+                             comment="Radial grid for the un-splined NTV torque diagnostic.")
+
+        call h5_add_double_1(h5_id, trim(tempch)//"T_NTV_phi_i_no_spline", ntv_torque, &
+                             lbound(ntv_torque), ubound(ntv_torque), &
+                             comment="NTV torque on ions calculated by NEO-RT."// &
+                             " No splining to the full radial grid and no"// &
+                             " antenna-factor scaling have been applied.")
+
+        call h5_close(h5_id)
+        call h5_deinit()
+    end if
+
+end subroutine write_NTV_torque_diagnostic
 
 subroutine writefort9999(dqle11_prev, dqli11_prev)
 

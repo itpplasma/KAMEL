@@ -264,21 +264,26 @@ foreach(
     set_tests_properties(test_signed_resonances_${invalid_geometry} PROPERTIES WILL_FAIL TRUE)
 endforeach()
 
-add_executable(test_local_dispersion_geometry
-               ${CMAKE_SOURCE_DIR}/KIM/tests/test_local_dispersion_geometry.f90)
-set_target_properties(test_local_dispersion_geometry PROPERTIES
-                      OUTPUT_NAME test_local_dispersion_geometry.x
-                      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/")
+add_executable(
+    test_local_dispersion_geometry
+    ${CMAKE_SOURCE_DIR}/KIM/tests/test_local_dispersion_geometry.f90
+)
+set_target_properties(
+    test_local_dispersion_geometry
+    PROPERTIES
+        OUTPUT_NAME test_local_dispersion_geometry.x
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/"
+)
 target_link_libraries(test_local_dispersion_geometry KIM_lib)
-add_test(NAME test_local_dispersion_geometry
-         COMMAND ${CMAKE_BINARY_DIR}/tests/test_local_dispersion_geometry.x)
+add_test(
+    NAME test_local_dispersion_geometry
+    COMMAND ${CMAKE_BINARY_DIR}/tests/test_local_dispersion_geometry.x
+)
 
 add_executable(test_zbesi_amos_scaling test_zbesi_amos_scaling.f90)
-set_target_properties(test_zbesi_amos_scaling PROPERTIES
-                      OUTPUT_NAME test_zbesi_amos_scaling.x)
+set_target_properties(test_zbesi_amos_scaling PROPERTIES OUTPUT_NAME test_zbesi_amos_scaling.x)
 target_link_libraries(test_zbesi_amos_scaling KIM_lib fortnum_amos_compat)
-add_test(NAME test_zbesi_amos_scaling
-         COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_zbesi_amos_scaling.x)
+add_test(NAME test_zbesi_amos_scaling COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_zbesi_amos_scaling.x)
 
 add_executable(test_profile_input ${CMAKE_SOURCE_DIR}/KIM/tests/test_profile_input.f90)
 set_target_properties(

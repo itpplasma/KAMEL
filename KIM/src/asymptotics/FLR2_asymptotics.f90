@@ -151,7 +151,7 @@ module flr2_asymptotics_m
         use equilibrium_m, only: B0
         use IO_collection_m, only: write_complex_profile_abs
         use config_m, only: output_path
-        use fortnum_special, only: bessel_in
+        use fortnum_special_bessel, only: bessel_in
         use config_m, only: turn_off_ions, artificial_debye_case, turn_off_electrons
         use flr2_fourier_kernel_m, only: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
 

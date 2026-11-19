@@ -14,4 +14,10 @@ module constants_m
 
     complex(dp), parameter :: com_unit = (0.0d0, 1.0d0)
 
+    ! Two-wave FLR factors carry exp(-(b_plus - b_cross)) = exp(-rho^2 (k_perp -
+    ! k_perp')^2 / 2). Beyond this exponent the scaled Bessel values are below
+    ! exp(-60) ~ 1e-26 and are taken as zero; polynomial prefactors up to b^2
+    ! with b ~ 1e3 still leave them below 1e-19 of the unsuppressed terms.
+    real(dp), parameter :: flr_damping_cutoff = 60.0_dp
+
 end module

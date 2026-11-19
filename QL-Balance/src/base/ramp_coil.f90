@@ -151,12 +151,7 @@ subroutine ramp_up_hysteresis
             end if
             ! Write the cause of the stopping into the hdf5 file
             if (ihdf5IO .eq. 1) then
-                CALL h5_init()
-                CALL h5_open_rw(path2out, h5_id)
-                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                    '/stopping_criterion', 'ramp-up/down finished')
-                CALL h5_close(h5_id)
-                CALL h5_deinit()
+                call write_reason_for_stop_to_h5('ramp-up/down finished')
             end if
             call log_debug("Write br_time_data")
             if (ihdf5IO .eq. 1) then
@@ -202,13 +197,7 @@ subroutine ramp_up_fast_hysteresis
             end if
             ! Write the cause of the stopping into the hdf5 file
             if (ihdf5IO .eq. 1) then
-                CALL h5_init()
-                CALL h5_open_rw(path2out, h5_id)
-                CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                    '/stopping_criterion', 'ramp-up/down finished')
-                CALL h5_close(h5_id)
-                CALL h5_deinit()
-
+                call write_reason_for_stop_to_h5('ramp-up/down finished')
                 CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
             end if
 
@@ -237,12 +226,7 @@ subroutine stop_if_antenna_fac_max_reached
         end if
         ! Write the cause of the stopping into the hdf5 file
         if (ihdf5IO .eq. 1) then
-            CALL h5_init()
-            CALL h5_open_rw(path2out, h5_id)
-            CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                '/stopping_criterion', 'reached antenna_factor_max * antenna_max_stopping')
-            CALL h5_close(h5_id)
-            CALL h5_deinit()
+            call write_reason_for_stop_to_h5('reached antenna_factor_max * antenna_max_stopping')
         end if
 
         call log_debug("Write br_time_data")
@@ -350,12 +334,7 @@ subroutine stop_if_t_max_reached
         end if
         ! Write the cause of the stopping into the hdf5 file
         if (ihdf5IO .eq. 1) then
-            CALL h5_init()
-            CALL h5_open_rw(path2out, h5_id)
-            CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-                    '/stopping_criterion', 'reached time max')
-            CALL h5_close(h5_id)
-            CALL h5_deinit()
+            call write_reason_for_stop_to_h5('reached time max')
 
             CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
         end if
@@ -383,70 +362,6 @@ subroutine stop_evolution
 
 end subroutine
 
-
-subroutine check_linear_discr_pen_ratio
-
-    use time_evolution, only: br_beta, time_ind, br_abs_time, save_prof_time_step, &
-        br_stopping, discr_reached, br_abs, br_predicted, write_br_dqle22_time_data, write_kin_prof_data_to_disk
-    use control_mod, only: suppression_mode
-    use h5mod, only: write_reason_for_stop_to_h5
-    use writeData_m, only: write_fields_currs_transp_coefs_to_h5
-
-    implicit none
-
-    if (time_ind .gt. 50 .and. .not. discr_reached) then
-        ! calculate beta only once
-        if (br_beta .eq. 0) then
-            ! Calculate slope from the data until this time step. (Simple linear regression algorithm)
-            br_beta = sum(br_abs(3:time_ind)*br_abs_time(3:time_ind))/sum(br_abs_time(1:time_ind)**2)
-            write(*,*) 'br_beta = ', br_beta
-        end if
-        ! calculate the from the linear regression predicted value of Br_abs
-        br_predicted = br_beta*br_abs_time(time_ind)
-        write(*,*) "Delta = ", abs(br_abs(time_ind) - br_predicted)
-        if (abs(br_abs(time_ind) - br_predicted) .gt. 0.1) then
-            write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
-            if (modulo(time_ind, save_prof_time_step) .ne. 0) then
-                if (suppression_mode .eqv. .false.) then
-                    call write_fields_currs_transp_coefs_to_h5(time_ind)
-                end if
-            end if
-            if (suppression_mode .eqv. .false.) then
-                CALL write_kin_prof_data_to_disk
-            end if
-            if (br_stopping) then
-                ! Write the cause of the stopping into the hdf5 file
-                call write_reason_for_stop_to_h5("discrepancy to " //&
-                    "linearly predicted value of Br_abs_res > delta")
-                CALL write_br_dqle22_time_data!, br_abs_time, br_abs_antenna_factor, br_abs, dqle22_res_time)
-                stop "Finished time evolution: br_stopping"
-
-            else
-                call write_br_discrepancy_reached_info
-                discr_reached = .true.
-            end if
-        end if
-    end if
-
-end subroutine
-
-subroutine write_br_discrepancy_reached_info
-
-    use h5mod
-    use time_evolution, only: time_ind, time
-
-    implicit none
-
-    CALL h5_init()
-    CALL h5_open_rw(path2out, h5_id)
-    CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
-        '/info', 'discrepancy to linearly predicted value of Br_abs_res > delta')
-    CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)// &
-        '/discrep_time', (/time_ind*1.d0, time/), (/1/), (/2/))
-    CALL h5_close(h5_id)
-    CALL h5_deinit()
-
-end subroutine
 
 subroutine periodic_ramp_checkpoint(payload, restore)
     use periodic_checkpoint_m, only: periodic_restart_t

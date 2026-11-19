@@ -8,7 +8,6 @@ set(CMAKE_Fortran_FLAGS
     "-Wconversion"
     "-Wconversion-extra"
     "-fbacktrace"
-    "-fcheck=all"
     "-ffree-line-length-none"
     "-fopenmp"
     "-g"
@@ -22,8 +21,6 @@ enable_language(Fortran)
 set(CMAKE_Fortran_MODULE_DIRECTORY "${CMAKE_BINARY_DIR}/OBJS/kim/")
 # Make sure our module directory is on the include path
 include_directories("${CMAKE_Fortran_MODULE_DIRECTORY}")
-
-enable_testing()
 
 add_subdirectory(src)
 # fortnum_amos_compat is provided by the top-level cmake/Dependencies.cmake; do not add its subdir here

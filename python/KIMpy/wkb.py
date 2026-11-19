@@ -13,6 +13,7 @@ from scipy.integrate import solve_ivp
 from scipy.special import iv as Bessel
 
 from .Bessel_calculation import calc_needed_bessel_of_mphi
+from .collision_frequency import collision_frequencies
 from .DispersionEquationFactory import *
 from .KIMDispersion_FokkerPlanck import KIMDispersion_FokkerPlanck
 from .KIMDispersion_Horton import KIMDispersion_Horton
@@ -400,66 +401,9 @@ class KIM_WKB:
         self.equil_dat["hth"] = self.equil_dat["B0th"] / self.equil_dat["B0"]
 
     def calc_collision_frequency(self):
-        Lee = (
-            23.5
-            - np.log(np.sqrt(self.spec_dat["e"]["n"]) * self.spec_dat["e"]["T"] ** (-5 / 4))
-            - np.sqrt(1e-5 + ((np.log(self.spec_dat["e"]["T"]) - 2) ** 2) / 16)
-        )
-        self.spec_dat["e"]["nu"] = (
-            5.8e-6 * self.spec_dat["e"]["n"] * Lee * self.spec_dat["e"]["T"] ** (-3 / 2)
-        )  # Collision frequency
-        Lei = 24 - np.log(np.sqrt(self.spec_dat["e"]["n"]) / self.spec_dat["e"]["T"])
-
-        # test particle (first index) collides with field particles (second index)
-        for test in self.ion_species:
-            # nue ei: collision frequency electrons with ions
-            self.spec_dat["e"]["nu"] = (
-                self.spec_dat["e"]["nu"]
-                + 7.7e-6
-                * self.spec_dat["e"]["T"] ** -1.5
-                * self.spec_dat[test]["n"]
-                * Lei
-                * self.spec_dat[test]["Zi"] ** 2
-            )
-            # nui ie: collision frequency ions with electrons
-            self.spec_dat[test]["nu"] = (
-                1.8e-7
-                * self.spec_dat[test]["Ai"] ** (-1 / 2)
-                * self.spec_dat[test]["T"] ** (-3 / 2)
-                * self.spec_dat["e"]["n"]
-                * self.spec_dat[test]["Zi"] ** 2
-                * Lei
-            )
-            for field in self.ion_species:
-                Liiprime = 23 - np.log(
-                    self.spec_dat[test]["Zi"]
-                    * self.spec_dat[field]["Zi"]
-                    * (self.spec_dat[test]["Ai"] + self.spec_dat[field]["Ai"])
-                    / (
-                        self.spec_dat[test]["T"] * self.spec_dat[field]["Ai"]
-                        + self.spec_dat[field]["T"] * self.spec_dat[test]["Ai"]
-                    )
-                    * np.sqrt(
-                        self.spec_dat[test]["n"]
-                        * self.spec_dat[test]["Zi"] ** 2
-                        / self.spec_dat[test]["T"]
-                        + self.spec_dat[field]["n"]
-                        * self.spec_dat[field]["Zi"] ** 2
-                        / self.spec_dat[field]["T"]
-                    )
-                )
-
-                self.spec_dat[test]["nu"] = (
-                    self.spec_dat[test]["nu"]
-                    + 1.8e-7
-                    * self.spec_dat[test]["Ai"] ** -0.5
-                    * self.spec_dat[test]["T"] ** -1.5
-                    * self.spec_dat[field]["n"]
-                    * self.spec_dat[test]["Zi"] ** 2
-                    * self.spec_dat[field]["Zi"] ** 2
-                    * Liiprime
-                )
-
+        nu = collision_frequencies(self.spec_dat, self.ion_species)
+        for spec, value in nu.items():
+            self.spec_dat[spec]["nu"] = value
         return [self.spec_dat[spec]["nu"] for spec in self.species]
 
     def calc_all_derivs(self):

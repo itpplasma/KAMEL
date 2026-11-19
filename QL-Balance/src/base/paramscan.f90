@@ -143,9 +143,8 @@ module paramscan_mod
         implicit none
 
         if (.not. suppression_mode) then
-            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") "n", fac_n(ifac_n), &
-                "Te", fac_Te(ifac_Te), "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz) &
-                , "/"
+            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3)") "n", fac_n(ifac_n), &
+                "Te", fac_Te(ifac_Te), "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
         else
             parscan_str = ""
         end if
@@ -265,13 +264,12 @@ module paramscan_mod
     subroutine interpolate_Br_Dql_at_res_parscan
 
         use PolyLagrangeInterpolation, only: nder, nlagr, binsrc, coef, get_ind_Lagr_interp, plag_coeff
-        use grid_mod, only: npoib, rb, r_resonant, dqle22, npoic, Ercovavg, Ercov
+        use grid_mod, only: npoib, rb, r_resonant, dqle22, Ercov
         use wave_code_data, only: Br, antenna_factor
 
         implicit none
 
         integer :: indResRadius, ind_begin_interp, ind_end_interp
-        integer :: ipoi
 
         ! TODO: Correct for multi resonance run
         if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
@@ -290,10 +288,9 @@ module paramscan_mod
         write(*,*) ""
 
         if (size(fac_vz) .ne. 1) then
-            do ipoi = 1, npoic
-                Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
-            end do
-            Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :)*Ercovavg(ind_begin_interp:ind_end_interp))
+            ! Ercov lives on rb, like dqle22 and Br, so it takes the same
+            ! coefficients. Its rc average must not be used with rb nodes.
+            Er_res(ifac_n, ifac_Te, ifac_Ti, ifac_vz) = sum(coef(0, :) * Ercov(ind_begin_interp:ind_end_interp))
             call log_debug("Er_res computed")
         end if
 
@@ -364,9 +361,9 @@ module paramscan_mod
             ifac_Te = 1
             ifac_Ti = 1
             ifac_vz = 1
-            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3,A)") &
+            write (parscan_str, "(A,F0.3,A,F0.3,A,F0.3,A,F0.3)") &
                     "n", fac_n(ifac_n), "Te", fac_Te(ifac_Te), &
-                    "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz), "/"
+                    "Ti", fac_Ti(ifac_Ti), "vz", fac_vz(ifac_vz)
         else
             if (numres .eq. 1) then
                 if (m_vals(1) < 10) then
@@ -434,35 +431,6 @@ module paramscan_mod
                                     lbound(reshape(Er_res, (/size(Er_res)/))), &
                                     ubound(reshape(Er_res, (/size(Er_res)/))))
         end if
-
-        CALL h5_close(h5_id)
-        CALL h5_deinit()
-
-    end subroutine
-
-
-    subroutine write_Dqle22
-
-        use grid_mod, only: dqle22
-        use h5mod
-
-        implicit none
-
-        CALL h5_init()
-        CALL h5_open_rw(path2out, h5_id)
-        CALL h5_obj_exists(h5_id, trim(h5_mode_groupname), &
-            h5_exists_log)
-        if (.not. h5_exists_log) then
-            CALL h5_define_group(h5_id, trim(h5_mode_groupname), group_id_2)
-            CALL h5_close_group(group_id_2)
-        end if
-
-        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22_res', &
-                            reshape(dqle22_res, (/size(dqle22_res)/)), &
-                            lbound(reshape(dqle22_res, (/size(dqle22_res)/))), &
-                            ubound(reshape(dqle22_res, (/size(dqle22_res)/))))
-        CALL h5_add_double_1(h5_id, trim(h5_mode_groupname)//'/dqle22', &
-                                dqle22, lbound(dqle22), ubound(dqle22))
 
         CALL h5_close(h5_id)
         CALL h5_deinit()

@@ -130,7 +130,7 @@ module rt_electrostatic_periodic_m
         use setup_m, only: mphi_max
         use species_m, only: evaluate_susceptibility
         use quasilinear_flr_m, only: calc_ion_flr_harmonic
-        use constants_m, only: pi, sol, com_unit
+        use constants_m, only: pi, sol, com_unit, flr_damping_cutoff
 
         complex(dp), intent(in) :: phi_m(:), br
         complex(dp), intent(in), optional :: bparallel
@@ -138,7 +138,7 @@ module rt_electrostatic_periodic_m
         real(dp), intent(in) :: omega_mode, om_e, b0
         real(dp), intent(out) :: tensor(2,2)
         complex(dp) :: fields(3,size(phi_m)), moments(0:3,0:3)
-        real(dp) :: kr(size(phi_m)), pair_tensor(2,2), x1, x2
+        real(dp) :: kr(size(phi_m)), kperp(size(phi_m)), pair_tensor(2,2), x1, x2, a_flr
         integer :: cutoff, i, source, observation, ell
 
         if (period <= 0.0_dp .or. size(phi_m) < 1 .or. mod(size(phi_m),2) /= 1) &
@@ -159,18 +159,32 @@ module rt_electrostatic_periodic_m
         ! BEFORE the kernel takes its real part, retaining complex interference.
         ! Each ordered pair is included once; no additional Fourier weight or
         ! factor of two belongs on the kernel's Hermitianized quadratic form.
+        ! The Hermitianized pair tensor satisfies T(o,s) = T(s,o)^T, so each
+        ! unordered pair is evaluated once and contributes T + T^T.
+        ! Pairs whose gyro-factor exp(-(b_plus - b_cross)) = exp(-a (k_perp_s -
+        ! k_perp_o)^2 / 2) lies below exp(-flr_damping_cutoff) do not contribute.
+        a_flr = (vti/abs(omega_ci))**2
+        do i = 1, size(phi_m)
+            kperp(i) = hypot(ks, kr(i))
+        end do
         x1 = kpar*vti/nui
         do ell = -mphi_max, mphi_max
             x2 = -(om_e+real(ell,dp)*omega_ci-omega_mode)/nui
             call evaluate_susceptibility(x1, x2, resolved_ion_ifunc_conservation_model, moments)
             do observation = 1, size(phi_m)
                 if (all(fields(:,observation) == (0.0_dp,0.0_dp))) cycle
-                do source = 1, size(phi_m)
+                do source = observation, size(phi_m)
                     if (all(fields(:,source) == (0.0_dp,0.0_dp))) cycle
+                    if (0.5_dp*a_flr*(kperp(source)-kperp(observation))**2 &
+                        > flr_damping_cutoff) cycle
                     call calc_ion_flr_harmonic(ell, ks, kr(source), ks, kr(observation), &
                         vti, abs(omega_ci), omega_ci, sol, b0, nui, fields(:,source), &
                         fields(:,observation), moments, pair_tensor)
-                    tensor = tensor + pair_tensor
+                    if (source == observation) then
+                        tensor = tensor + pair_tensor
+                    else
+                        tensor = tensor + pair_tensor + transpose(pair_tensor)
+                    end if
                 end do
             end do
         end do
@@ -622,6 +636,9 @@ module rt_electrostatic_periodic_m
             allocate(EBdat%D_ion(2, 2, size(dPhi)))
             EBdat%D_ion = 0.0_dp
             if (.not. turn_off_ions) then
+                ! Radial points are independent and each writes only D_ion(:,:,i),
+                ! so the result does not depend on the thread count.
+                !$omp parallel do schedule(dynamic) default(shared) private(i, sp, tensor_local)
                 do i = 1, size(dPhi)
                     do sp = 1, plasma%n_species - 1
                         call compute_periodic_ion_tensor_spectrum( &
@@ -632,6 +649,7 @@ module rt_electrostatic_periodic_m
                         EBdat%D_ion(:, :, i) = EBdat%D_ion(:, :, i) + tensor_local
                     end do
                 end do
+                !$omp end parallel do
             end if
         end if
         EBdat%jpar   = jpar

@@ -67,24 +67,15 @@ contains
     end subroutine
 
     subroutine limit_temps_from_below
-        use baseparam_mod, only: ev, rsepar
+        use baseparam_mod, only: ev
         use grid_mod, only: npoic
-        use wave_code_data, only: r
 
         integer :: ipoi
 
         do ipoi = 1, npoic
-            if (.true.) then
-                ! convert to erg
-                params(3, ipoi) = max(params(3, ipoi), temperature_limit * ev)
-                params(4, ipoi) = max(params(4, ipoi), temperature_limit * ev)
-            else
-                !> Quick fix of steady state solution. Keep boundary inside the separatrix.
-                if (r(ipoi) > rsepar - 0.5d0) then
-                    params(3, ipoi) = hold_Te(ipoi)
-                    params(4, ipoi) = hold_Ti(ipoi)
-                end if
-            end if
+            ! convert to erg
+            params(3, ipoi) = max(params(3, ipoi), temperature_limit * ev)
+            params(4, ipoi) = max(params(4, ipoi), temperature_limit * ev)
         end do
     end subroutine limit_temps_from_below
 

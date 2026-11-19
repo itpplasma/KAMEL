@@ -64,8 +64,9 @@ def test_run_periodic_kim_prepares_all_modes(tmp_path, monkeypatch):
     interface.conf = balance_conf()
     observed = {}
 
-    def fake_prepare(Btor, a_minor):
+    def fake_prepare(Btor, a_minor, I0=None):
         observed["modes"] = (interface.m_mode, interface.n_mode)
+        observed["I0"] = I0
 
     monkeypatch.setattr(interface, "prepare_balance_kim", fake_prepare)
     monkeypatch.setattr(interface, "set_config_nml", lambda: None)
@@ -77,9 +78,12 @@ def test_run_periodic_kim_prepares_all_modes(tmp_path, monkeypatch):
         "&KIM_CONFIG\n turn_off_ions=.false., turn_off_electrons=.false.\n/\n"
         "&KIM_PERIODIC\n periodic_Bparallel_ratio=(0.0,0.0)\n/\n"
     )
-    result = interface.run_periodic_kim(-2.0, 50.0, [(-6, 2), (-7, 2)], kim_config_file=kim_config)
+    result = interface.run_periodic_kim(
+        -2.0, 50.0, [(-6, 2), (-7, 2)], kim_config_file=kim_config, I0=1.2e12
+    )
     assert result == 0
     assert observed["modes"] == ([-6, -7], [2, 2])
+    assert observed["I0"] == 1.2e12
     expected_digest = hashlib.sha256(kim_config.read_bytes()).hexdigest()
     assert interface.conf.conf["balancenml"]["kim_config_sha256"] == expected_digest
 

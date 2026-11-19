@@ -10,9 +10,9 @@ subroutine evolvestep(timstep,eps)
 
     implicit none
     integer :: ipoi,ieq,i,k,npoi,iopt,nz_sp,nz_sq,nrow,ncol
-    double precision :: timstep,x1,eps
+    double precision :: timstep,x1,eps,scale_eq
     INTEGER,          DIMENSION(:),   ALLOCATABLE :: ipcol,irow_sp,icol_sp
-    DOUBLE PRECISION, DIMENSION(:),   ALLOCATABLE :: amat_sp,bvec_sp
+    DOUBLE PRECISION, DIMENSION(:),   ALLOCATABLE :: amat_sp,bvec_sp,yscale
 
     x1=0.d0
     sparse_solve_method = 2
@@ -37,11 +37,22 @@ subroutine evolvestep(timstep,eps)
     nrow=nsize
     ncol=nsize
 
+    ! The unknowns span ~20 orders of magnitude in CGS units (n ~ 1e13 cm^-3,
+    ! T ~ 1e-9 erg), which makes (I - dt A) y' = y + dt q badly conditioned.
+    ! Solve for z = y'/yscale instead, with one scale per equation, i.e.
+    ! D^-1 (I - dt A) D z = D^-1 (y + dt q), D = diag(yscale).
+    allocate(yscale(nsize))
+    do ieq=1,nbaleqs
+        scale_eq=maxval(abs(params(ieq,1:npoi)))
+        if (scale_eq .le. 0.d0) scale_eq=1.d0
+        yscale(ieq:nsize:nbaleqs)=scale_eq
+    enddo
+
     allocate(ipcol(nsize))
     allocate(amat_sp(nz_sp),irow_sp(nz_sp),icol_sp(nz_sp),bvec_sp(nsize))
     irow_sp(1:nz)=irow
     icol_sp(1:nz)=icol
-    amat_sp(1:nz)=-timstep_arr(irow)*amat!
+    amat_sp(1:nz)=-timstep_arr(irow)*amat*yscale(icol)/yscale(irow)
 
     k=nz
     do i=1,nsize
@@ -51,8 +62,7 @@ subroutine evolvestep(timstep,eps)
         amat_sp(k)=1.d0
     enddo
 
-    !  bvec_sp=y+timstep*dery
-    bvec_sp=y+timstep_arr*dery
+    bvec_sp=(y+timstep_arr*dery)/yscale
 
     call remap_rc(nz_sp,nz_sq,irow_sp,icol_sp,amat_sp)
 
@@ -71,9 +81,9 @@ subroutine evolvestep(timstep,eps)
     !CALL sparse_solve(nrow,ncol,nz_sp,irow_sp(1:nz_sp),ipcol,amat_sp(1:nz_sp),       &
                         !bvec_sp,iopt)
 
-    y=bvec_sp
+    y=bvec_sp*yscale
 
-    deallocate(ipcol)
+    deallocate(ipcol,yscale)
     deallocate(amat_sp,irow_sp,icol_sp,bvec_sp)
 
     do ipoi=1,npoi

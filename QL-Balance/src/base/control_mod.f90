@@ -28,6 +28,10 @@ module control_mod
     logical :: timing_mode         ! added by Markus Markl 06.04.2021
     integer :: log_level = 3         ! maps to LVL_INFO
     logical :: suppression_mode    ! added by Markus Markl 13.04.2021
+    !> Treatment of negative equilibrium source densities (local sinks):
+    !> 'explicit' keeps them fixed, 'implicit' scales them with the local
+    !> density and pressure relative to the initial state.
+    character(len=16) :: equilibrium_sink_mode = 'explicit'
     logical :: misalign_diffusion ! trigger the calculation and addition of the diffusion due to misaligned equipotentials and flux surfaces
     character(len=32) :: jpar_method = 'conductivity'  ! 'conductivity' or 'curlB'
     integer :: data_verbosity = 1    ! standard output
@@ -57,5 +61,18 @@ contains
             model_id = ION_TRANSPORT_INVALID
         end select
     end function ion_transport_model_id
+
+    pure logical function is_time_evolution_run(run_type)
+        ! TimeEvolutionNTV extends TimeEvolution and shares its time stepping,
+        ! histories and periodic-amplitude handling.
+        character(*), intent(in) :: run_type
+
+        select case (trim(run_type))
+        case ('TimeEvolution', 'TimeEvolutionNTV')
+            is_time_evolution_run = .true.
+        case default
+            is_time_evolution_run = .false.
+        end select
+    end function is_time_evolution_run
 
 end module control_mod

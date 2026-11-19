@@ -13,7 +13,9 @@ program test_rhs_balance
                              compute_particle_fluxes, &
                              compute_total_heat_fluxes, &
                              compute_linearized_product, &
-                             compute_source_terms_at_point, &
+                             compute_rmp_induced_sources, &
+                             project_params_to_boundary_grid, &
+                             compute_radial_electric_field, &
                              species_fluxes_t, &
                              transport_fluxes_t
     use baseparam_mod, only: e_charge
@@ -34,7 +36,9 @@ program test_rhs_balance
     call test_particle_fluxes()
     call test_heat_fluxes()
     call test_linearized_product()
-    call test_source_terms_at_point()
+    call test_boundary_projection()
+    call test_radial_electric_field()
+    call test_ql_heating_of_field_driven_flux()
 
     print *, ""
     print *, "========================================"
@@ -300,86 +304,107 @@ contains
 
     end subroutine test_linearized_product
 
-
-    subroutine test_source_terms_at_point()
-        !
-        ! Test compute_source_terms_at_point with known inputs
-        !
-        ! This function computes source terms only (no flux divergence):
-        !   - polforce: momentum source
-        !   - qlheat_e/i: heat sources
-        !
-        ! Then applies conversions:
-        !   - Momentum → rotation frequency (divide by n, gpp)
-        !   - d(nT)/dt → dT/dt
-        !
-        real(dp) :: params(4, 3)  ! 4 parameters, 3 grid points
-        real(dp) :: gpp_av(4)     ! 4 boundary points
-        real(dp) :: polforce(4), qlheat_e(4), qlheat_i(4)
-        real(dp) :: Z_i_val
-        real(dp) :: dot_params_out(4)
-        real(dp) :: expected_2, expected_3, expected_4
-        real(dp) :: n_at_ipoi, gpp_sum
-        integer :: ipoi
-        character(len=*), parameter :: test_name = "test_source_terms_at_point"
+    subroutine test_boundary_projection()
+        real(dp), dimension(4, 3) :: params_in
+        integer, dimension(2) :: ipbeg, ipend
+        real(dp), dimension(2, 2) :: deriv_coef, reint_coef
+        real(dp), dimension(4, 2) :: params_boundary, ddr_params
+        character(len=*), parameter :: test_name = "test_boundary_projection"
 
         print *, "Running: ", test_name
 
-        ! Set up test data
-        ! Grid point 2 (ipoi=2) with boundaries at ipoi and ipoi+1
-        ipoi = 2
-        Z_i_val = 1.0_dp
+        params_in(1, :) = [10.0_dp, 20.0_dp, 30.0_dp]
+        params_in(2, :) = [1.0_dp, 2.0_dp, 4.0_dp]
+        params_in(3, :) = [100.0_dp, 200.0_dp, 300.0_dp]
+        params_in(4, :) = [5.0_dp, 7.0_dp, 11.0_dp]
 
-        ! Plasma parameters at grid point 2
-        params(1, 2) = 1.0e13_dp    ! density [cm^-3]
-        params(2, 2) = 1.0e5_dp     ! rotation frequency [rad/s]
-        params(3, 2) = 1.6022e-10_dp ! Te [erg] (100 eV)
-        params(4, 2) = 1.2818e-10_dp ! Ti [erg] (80 eV)
+        ipbeg = [1, 2]
+        ipend = [2, 3]
+        reint_coef(:, 1) = [0.25_dp, 0.75_dp]
+        reint_coef(:, 2) = [0.5_dp, 0.5_dp]
+        deriv_coef(:, 1) = [-1.0_dp, 1.0_dp]
+        deriv_coef(:, 2) = [-1.0_dp, 1.0_dp]
 
-        ! gpp at boundaries (average will be used)
-        gpp_av(2) = 1.0e4_dp  ! ipoi
-        gpp_av(3) = 1.2e4_dp  ! ipoi + 1
+        call project_params_to_boundary_grid(params_in, ipbeg, ipend, deriv_coef, reint_coef, &
+                                             params_boundary, ddr_params)
 
-        ! Source terms at boundaries
-        polforce(2) = 1.0e10_dp   ! ipoi
-        polforce(3) = 1.2e10_dp   ! ipoi + 1
-        qlheat_e(2) = 5.0e8_dp    ! ipoi
-        qlheat_e(3) = 6.0e8_dp    ! ipoi + 1
-        qlheat_i(2) = 4.0e8_dp    ! ipoi
-        qlheat_i(3) = 4.5e8_dp    ! ipoi + 1
-
-        ! Expected values
-        n_at_ipoi = params(1, 2)
-        gpp_sum = gpp_av(2) + gpp_av(3)
-
-        ! Eq 1: No density source
-        ! expected_1 = 0.0
-
-        ! Eq 2: Momentum source → rotation frequency
-        ! dot_params(2) = 0.5 * (polforce(ipoi) + polforce(ipoi+1)) * Z_i / n * 2 / (gpp_sum)
-        expected_2 = 0.5_dp * (polforce(2) + polforce(3)) * Z_i_val / n_at_ipoi * 2.0_dp / gpp_sum
-
-        ! Eq 3: Electron heat source → dTe/dt
-        ! dot_params(3) = 0.5 * (qlheat_e(ipoi) + qlheat_e(ipoi+1)) / (1.5 * n)
-        expected_3 = 0.5_dp * (qlheat_e(2) + qlheat_e(3)) / (1.5_dp * n_at_ipoi)
-
-        ! Eq 4: Ion heat source → dTi/dt
-        expected_4 = 0.5_dp * (qlheat_i(2) + qlheat_i(3)) / (1.5_dp * n_at_ipoi)
-
-        ! Call the function under test
-        call compute_source_terms_at_point(ipoi, params, gpp_av, &
-                                           polforce, qlheat_e, qlheat_i, Z_i_val, &
-                                           dot_params_out)
-
-        ! Verify results
-        call assert_equal(dot_params_out(1), 0.0_dp, "dot_n (should be 0)")
-        call assert_equal(dot_params_out(2), expected_2, "dot_Vphi")
-        call assert_equal(dot_params_out(3), expected_3, "dot_Te")
-        call assert_equal(dot_params_out(4), expected_4, "dot_Ti")
+        call assert_equal(params_boundary(2, 1), 1.75_dp, "projected Vphi")
+        call assert_equal(ddr_params(2, 1), 1.0_dp, "Vphi derivative")
+        call assert_equal(params_boundary(4, 2), 9.0_dp, "projected Ti")
+        call assert_equal(ddr_params(4, 2), 4.0_dp, "Ti derivative")
 
         print *, "  PASSED: ", test_name
+    end subroutine test_boundary_projection
 
-    end subroutine test_source_terms_at_point
+
+    subroutine test_radial_electric_field()
+        integer, parameter :: npoib = 2
+        real(dp), dimension(npoib) :: rb
+        real(dp), dimension(4, npoib) :: params_boundary, ddr_params
+        real(dp), dimension(npoib) :: sqrt_g_Bth_over_c, V_pol, q, E_r
+        real(dp), dimension(npoib) :: expected
+        real(dp) :: Z
+        integer :: i
+        character(len=*), parameter :: test_name = "test_radial_electric_field"
+
+        print *, "Running: ", test_name
+
+        rb = [1.0_dp, 2.0_dp]
+        params_boundary = 0.0_dp
+        ddr_params = 0.0_dp
+        params_boundary(1, :) = [2.0_dp, 4.0_dp]
+        params_boundary(2, :) = [3.0_dp, -2.0_dp]
+        params_boundary(4, :) = [10.0_dp, 20.0_dp]
+        ddr_params(1, :) = [1.0_dp, -2.0_dp]
+        ddr_params(4, :) = [3.0_dp, -5.0_dp]
+        sqrt_g_Bth_over_c = [2.0_dp, 4.0_dp]
+        V_pol = 0.0_dp
+        q = 1.0_dp
+        Z = 2.0_dp
+
+        call compute_radial_electric_field(npoib, rb, params_boundary, ddr_params, &
+                                           sqrt_g_Bth_over_c, V_pol, q, Z, E_r)
+
+        do i = 1, npoib
+            expected(i) = (params_boundary(4, i) / params_boundary(1, i) * ddr_params(1, i) + &
+                           ddr_params(4, i)) / (Z * e_charge) + &
+                          sqrt_g_Bth_over_c(i) * params_boundary(2, i)
+            call assert_equal(E_r(i), expected(i), "radial electric field")
+        end do
+
+        print *, "  PASSED: ", test_name
+    end subroutine test_radial_electric_field
+
+    subroutine test_ql_heating_of_field_driven_flux()
+        ! A flux driven by E0r alone, Gamma_a = n D e_a E0r / T_a, takes energy from the
+        ! field: e_a E0r Gamma_a = n D e_a**2 E0r**2 / T_a >= 0 for both species and both
+        ! signs of E0r. The QL heating must therefore be +e_a E0r Gamma_a.
+        real(dp), parameter :: n = 2.0e13_dp, D = 3.0e3_dp, Te = 1.6e-9_dp, Ti = 2.4e-9_dp
+        real(dp), parameter :: Z = 1.0_dp, am = 2.0_dp, sqrt_g_Bth_over_c = 1.0e-3_dp
+        real(dp), parameter :: E0r_values(2) = [0.02_dp, -0.03_dp]
+        real(dp) :: E0r, Gamma_e, Gamma_i, polforce, qlheat_e, qlheat_i, torque_e, torque_i
+        integer :: k
+        character(len=*), parameter :: test_name = "test_ql_heating_of_field_driven_flux"
+
+        print *, "Running: ", test_name
+
+        do k = 1, size(E0r_values)
+            E0r = E0r_values(k)
+            Gamma_e = n * D * (-e_charge) * E0r / Te
+            Gamma_i = n * D * (Z * e_charge) * E0r / Ti
+            call compute_rmp_induced_sources(Gamma_e, Gamma_i, 0.0_dp, 0.0_dp, E0r, 0.0_dp, &
+                                             sqrt_g_Bth_over_c, Z, am, 0.0_dp, polforce, &
+                                             qlheat_e, qlheat_i, torque_e, torque_i)
+            call assert_equal(qlheat_e, n * D * e_charge**2 * E0r**2 / Te, &
+                              "electron Joule heating")
+            call assert_equal(qlheat_i, n * D * (Z * e_charge)**2 * E0r**2 / Ti, &
+                              "ion Joule heating")
+        end do
+
+        print *, "  Finished: ", test_name
+
+    end subroutine test_ql_heating_of_field_driven_flux
+
 
 
     subroutine assert_equal(actual, expected, name)

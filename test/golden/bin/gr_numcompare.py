@@ -2,7 +2,8 @@
 # Generic numeric comparator for codes without a code-specific one.
 # Usage: gr_numcompare.py <dir_A> <dir_B> [rtol] [atol] [near_zero_floor]
 # Recursively compares every regular file present in BOTH trees: whitespace-
-# separated numeric columns where parseable, else byte-equality. Reports max
+# separated numeric columns where parseable (HDF5 files: all numeric datasets,
+# except run-time metadata), else byte-equality. Reports max
 # relative diff per file. Exit 1 if any file diverges beyond rtol.
 #
 # near_zero_floor (default 1e-9): an element where BOTH the reference and the
@@ -34,6 +35,54 @@ floor = float(sys.argv[5]) if len(sys.argv) > 5 else 1e-9
 POY_BAR = float(os.environ.get("GR_POY_TEST_ERR_BAR", "1e-1"))
 
 SKIP = {"run.log", "exit_code.txt", "runtime_seconds.txt", "migrate.log", "prepare.log"}
+
+
+# Run-dependent HDF5 datasets (wall-clock and thread count) carry no physics.
+H5_IGNORED = {"runtime", "omp_num_threads"}
+H5_SEP = "::"
+
+
+def is_h5(path):
+    return path.endswith((".h5", ".hdf5"))
+
+
+def h5_dataset_names(p):
+    """Names of the physics datasets in an HDF5 file; None if the file cannot be opened.
+
+    A missing h5py raises ImportError (loud failure) instead of dropping the file.
+    """
+    import h5py
+
+    names = []
+
+    def visit(name, obj):
+        if isinstance(obj, h5py.Dataset) and name not in H5_IGNORED:
+            names.append(name)
+
+    try:
+        with h5py.File(p, "r") as f:
+            f.visititems(visit)
+    except OSError:
+        return None
+    return names
+
+
+def h5_dataset_nums(p, name):
+    """Flat float list of one dataset; compound (real, imag) datasets flatten to floats."""
+    import h5py
+    import numpy as np
+
+    with h5py.File(p, "r") as f:
+        obj = f[name]
+        data = obj[()]
+        if obj.dtype.names:
+            out = []
+            for field in obj.dtype.names:
+                out.extend(np.ravel(data[field]).astype(float).tolist())
+            return out
+        if obj.dtype.kind in "iufb":
+            return np.ravel(data).astype(float).tolist()
+        return None  # strings etc.: compared as raw bytes of the value
 
 
 def nums(p):
@@ -74,7 +123,16 @@ def rel_files(root):
                 continue
             full = os.path.join(dirpath, f)
             if os.path.isfile(full):
-                found.append(os.path.relpath(full, root))
+                rel = os.path.relpath(full, root)
+                if is_h5(f):
+                    # one virtual entry per dataset: schema drift is reported per name
+                    names = h5_dataset_names(full)
+                    if names is None:  # unreadable: whole-file byte comparison
+                        found.append(rel)
+                    else:
+                        found.extend(rel + H5_SEP + n for n in names)
+                else:
+                    found.append(rel)
     return set(found)
 
 
@@ -97,6 +155,28 @@ else:
 
 for rel in common:
     pa, pb = os.path.join(A, rel), os.path.join(B, rel)
+    if H5_SEP in rel:
+        fa, _, dsname = pa.partition(H5_SEP)
+        fb = pb.partition(H5_SEP)[0]
+        na, nb = h5_dataset_nums(fa, dsname), h5_dataset_nums(fb, dsname)
+        if na is None or nb is None:
+            import h5py
+
+            with h5py.File(fa, "r") as ha, h5py.File(fb, "r") as hb:
+                same = ha[dsname][()].tobytes() == hb[dsname][()].tobytes()
+            checked += 1
+            print(f"{rel}: {'MATCH(value)' if same else 'DIFFER(value)'}")
+            fail += 0 if same else 1
+            continue
+        if len(na) != len(nb):
+            checked += 1
+            fail += 1
+            print(f"{rel}: DIFFER(shape) ref={len(na)} cur={len(nb)}")
+            continue
+        if not na:
+            checked += 1
+            print(f"{rel}: MATCH(empty)")
+            continue
     if os.path.basename(rel).endswith("poy_test_err.dat"):
         ra, rb = last_col(pa) or [], last_col(pb) or []
         ma = max((abs(v) for v in ra), default=0.0)
@@ -109,8 +189,9 @@ for rel in common:
         )
         fail += 0 if ok else 1
         continue
-    na, nb = nums(pa), nums(pb)
-    if na is None or nb is None or len(na) != len(nb) or not na:
+    if H5_SEP not in rel:
+        na, nb = nums(pa), nums(pb)
+    if H5_SEP not in rel and (na is None or nb is None or len(na) != len(nb) or not na):
         same = open(pa, "rb").read() == open(pb, "rb").read()
         checked += 1
         print(f"{rel}: {'MATCH(bytes)' if same else 'DIFFER(bytes/shape)'}")

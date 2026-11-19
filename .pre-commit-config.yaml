@@ -27,3 +27,10 @@ repos:
     rev: 26.1.0
     hooks:
       - id: black
+  - repo: https://github.com/BlankSpruce/gersemi
+    rev: 0.26.1
+    hooks:
+    - id: gersemi
+      # Exclude ./cmake/ItpDeps.cmake as a GitHub action checks its diff against the source repo
+      # Reformatting creates a huge diff
+      exclude: ^cmake/ItpDeps\.cmake$

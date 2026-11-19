@@ -1,67 +1,96 @@
+!> The anomalous diffusion profile Da(r) from the input. It does not change during a run, but
+!> calc_equil_diffusion_coeffs runs at every right-hand-side evaluation, so the profile is read
+!> once and kept.
+module da_profile_m
+
+    use QLBalance_kinds, only: dp
+
+    implicit none
+
+    private
+    public :: r_raw, Da_raw, load_da_profile, forget_da_profile
+
+    real(dp), allocatable :: r_raw(:), Da_raw(:)
+
+contains
+
+    !> Read Da from path2inp (HDF5 input) or profiles/Da.dat, unless it is already loaded.
+    !> Profile from outside this code by Philipp Ulbl (2020), HDF5 input by Markus Markl (2021).
+    subroutine load_da_profile
+
+        use h5mod
+        use control_mod, only: ihdf5IO
+
+        character(1024) :: fname
+        integer :: nr, i, iunit_res
+        integer :: lb, ub
+
+        if (allocated(r_raw)) return
+
+        if (ihdf5IO .eq. 1) then
+            fname = "/da_estimation/"
+            CALL h5_init()
+            call h5_open(path2inp, h5_id)
+            CALL h5_get_bounds_1(h5_id, trim(fname)//'Da', lb, ub)
+            allocate (r_raw(ub), Da_raw(ub))
+            CALL h5_get_double_1(h5_id, trim(fname)//'Da', Da_raw)
+            CALL h5_get_double_1(h5_id, trim(fname)//'r', r_raw)
+            CALL h5_close(h5_id)
+            CALL h5_deinit()
+        else
+            fname = 'profiles/Da.dat'
+            nr = 0
+            open (newunit=iunit_res, file=fname)
+            do
+                read (iunit_res, *, end=1)
+                nr = nr + 1
+            end do
+1           continue
+            close (iunit_res)
+            allocate (r_raw(nr), Da_raw(nr))
+            open (newunit=iunit_res, file=fname)
+            do i = 1, nr
+                read (iunit_res, *) r_raw(i), Da_raw(i)
+            end do
+            close (iunit_res)
+        end if
+
+    end subroutine load_da_profile
+
+    !> Drop the loaded profile, so the next load_da_profile reads the input again.
+    subroutine forget_da_profile
+        if (allocated(r_raw)) deallocate (r_raw)
+        if (allocated(Da_raw)) deallocate (Da_raw)
+    end subroutine forget_da_profile
+
+end module da_profile_m
+
 subroutine calc_equil_diffusion_coeffs
 
     use grid_mod, only: npoib, dae11, dae12, dae22, dai11, dai12, dai22 &
                         , dni22, visca, rb, cneo
     use plasma_parameters, only: params_b
     use baseparam_mod, only: rsepar
-    use h5mod
-    use control_mod, only: ihdf5IO
     use paramscan_mod, only: viscosity_factor
     use PolyLagrangeInterpolation
     use QLBalance_kinds, only: dp
+    use da_profile_m, only: r_raw, Da_raw, load_da_profile
 
     implicit none
 
     integer :: ipoi
     real(dp) :: weight
 
-    character(1024) :: fname;
-    integer :: nr, i, iunit_res
+    integer :: nr, i
     real(dp) :: r
-    real(dp), dimension(:), allocatable :: r_raw
-    real(dp), dimension(:), allocatable :: Da_raw
-    integer :: lb, ub, ind_begin_interp, ind_end_interp
+    integer :: ind_begin_interp, ind_end_interp
 
-    !This subroutine was changed to include estimated Da from outside of this code
-    !file Da.dat which is located in profiles is read and the other Da.. calculated based on this
-    !Changed by Philipp Ulbl 18.05.2020
-    ! Added the option to read from hdf5 file by Markus Markl 12.04.2021
-
-    if (ihdf5IO .eq. 1) then
-        ! read Da data from hdf5 input file
-        fname = "/da_estimation/" ! fname is used for the group name in the hdf5 version
-        CALL h5_init()
-        call h5_open(path2inp, h5_id)
-        CALL h5_get_bounds_1(h5_id, trim(fname)//'Da', lb, ub)
-        allocate (r_raw(ub), Da_raw(ub))
-        CALL h5_get_double_1(h5_id, trim(fname)//'Da', Da_raw)
-        CALL h5_get_double_1(h5_id, trim(fname)//'r', r_raw)
-        CALL h5_close(h5_id)
-        CALL h5_deinit()
-        nr = ub
-    else
-        !code from gengrid to read Da file
-        fname = 'profiles/Da.dat';
-        iunit_res = 157
-        nr = 0
-        open (iunit_res, file=fname)
-        do
-            read (iunit_res, *, end=1)
-            nr = nr + 1
-        end do
-1       continue
-        close (iunit_res)
-        allocate (r_raw(nr), Da_raw(nr))
-        !
-        open (iunit_res, file=fname)
-        do i = 1, nr
-            read (iunit_res, *) r_raw(i), Da_raw(i)
-        end do
-        close (iunit_res)
-    end if
+    call load_da_profile
+    nr = size(r_raw)
     !code from amn_of_r to interpolate (+do loop)
 
     !interpolate on balance grid
+    if (nr < nlagr) error stop "Da grid has fewer points than the interpolation stencil"
     if (.not. allocated(coef)) allocate (coef(0:nder, nlagr))
 
     do ipoi = 1, npoib
@@ -72,7 +101,9 @@ subroutine calc_equil_diffusion_coeffs
 
         !binsearch
         call binsrc(r_raw, 1, nr, r, i)
-        call get_ind_Lagr_interp(i, ind_begin_interp, ind_end_interp)
+        ! A stencil on the Da grid r_raw, which may be shorter (e.g. ending at the
+        ! separatrix) or longer than the balance grid rb.
+        call get_lagr_stencil(i, nr, ind_begin_interp, ind_end_interp)
         !lagrange interpolation with order 4 only for function (0)
 
         call plag_coeff(nlagr, nder, r, r_raw(ind_begin_interp:ind_end_interp), coef)
@@ -88,7 +119,7 @@ subroutine calc_equil_diffusion_coeffs
 
     !get other da
     ! [Heyn2014 below (68)]
-    ! D11 = D_perb
+    ! D11 = D_perp
     dae11 = dae12/1.499999d0 !previously used instead of 1.5d0, no idea why
     dae22 = 3.75d0*dae11
     dai11 = dae11

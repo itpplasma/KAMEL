@@ -47,7 +47,51 @@ program test_paramscan
     call assert_close(params(3, :), hold_Te, "electron temperature unchanged")
     call assert_close(params(4, :), hold_Ti, "ion temperature unchanged")
 
+    ! Interior stencil, and a stencil clamped to the last rb point.
+    call check_interpolation_at_resonance(5.3_dp)
+    call check_interpolation_at_resonance(9.7_dp**1.2_dp)
+
 contains
+
+    !> Linear profiles on rb must be reproduced exactly at r_resonant. Using
+    !> the rc average of Ercov with the rb coefficients shifts Er_res by half
+    !> a cell, far outside the tolerance.
+    subroutine check_interpolation_at_resonance(r_res)
+        use grid_mod, only: npoib, rb, r_resonant, dqle22, Ercov
+        use paramscan_mod, only: Er_res, br_abs_res_parscan, dqle22_res, &
+            interpolate_Br_Dql_at_res_parscan
+        use wave_code_data, only: Br, antenna_factor
+
+        real(dp), intent(in) :: r_res
+        integer :: i
+
+        npoib = 10
+        if (allocated(rb)) deallocate(rb, Ercov, dqle22, Br, r_resonant, &
+            Er_res, br_abs_res_parscan, dqle22_res)
+        ! Nonuniform, so rb and its midpoints rc differ cell by cell.
+        allocate(rb(npoib))
+        rb = [(real(i, dp)**1.2_dp, i = 1, npoib)]
+        allocate(Ercov(npoib), dqle22(npoib), Br(npoib), r_resonant(1))
+        Ercov = 2.0_dp + 0.5_dp * rb
+        dqle22 = 1.0e3_dp * (1.0_dp + rb)
+        Br = (3.0_dp, 4.0_dp) * rb
+        antenna_factor = 4.0_dp
+        r_resonant(1) = r_res
+
+        ! fac_vz has more than one entry, so Er_res is computed.
+        allocate(Er_res(1, 1, 1, size(fac_vz)), br_abs_res_parscan(1, 1, 1, size(fac_vz)), &
+            dqle22_res(1, 1, 1, size(fac_vz)))
+        ifac_vz = 2
+
+        call interpolate_Br_Dql_at_res_parscan
+
+        call assert_close([Er_res(1, 1, 1, 2)], [2.0_dp + 0.5_dp * r_res], &
+            "Er_res of a linear Ercov")
+        call assert_close([dqle22_res(1, 1, 1, 2)], [1.0e3_dp * (1.0_dp + r_res)], &
+            "dqle22_res of a linear dqle22")
+        call assert_close([br_abs_res_parscan(1, 1, 1, 2)], [2.0_dp * 5.0_dp * r_res], &
+            "|Br| at resonance times sqrt(antenna_factor)")
+    end subroutine check_interpolation_at_resonance
 
     subroutine assert_close(actual, expected, label)
         real(dp), intent(in) :: actual(:), expected(:)

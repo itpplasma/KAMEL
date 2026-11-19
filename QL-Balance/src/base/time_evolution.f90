@@ -6,6 +6,7 @@ module time_evolution
     use QLBalance_kinds, only: dp
     use logger_m, only: log_debug, log_info
     use periodic_amplitude_state_m, only: periodic_amplitudes
+    use rhs_balance_m, only: refresh_state_diagnostics
 
     implicit none
 
@@ -90,7 +91,7 @@ module time_evolution
         use periodic_checkpoint_m, only: pending_periodic_restart, reset_periodic_restart
         use kim_wave_code_adapter_m, only: kim_periodic_mode_selected
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
-            compute_antenna_factor_from_Ipar
+            compute_antenna_factor_from_Ipar, scale_ntv_torque_by_antenna_factor
         use grid_mod, only: mwind, rmax, rmin, set_boundary_condition, npoib, rb
         use baseparam_mod, only: dperp, tol_max
         use QLbalance_diag, only: write_diag, write_diag_b
@@ -182,6 +183,7 @@ module time_evolution
             call get_dql
             call compute_antenna_factor_from_Ipar
             call rescale_transp_coeffs_by_ant_fac
+            call scale_ntv_torque_by_antenna_factor(antenna_factor_max)
         end if
         call write_periodic_workflow_provenance
         call hold_prev_transp_coeffs
@@ -190,20 +192,38 @@ module time_evolution
 
     end subroutine
 
+    !> First and last time index of this run: a restart from a periodic
+    !> checkpoint continues after the steps that were already completed.
+    subroutine time_step_range(first_step, last_step)
+        integer, intent(out) :: first_step, last_step
+
+        first_step = periodic_completed_steps + 1
+        last_step = periodic_completed_steps + Nstorage
+    end subroutine time_step_range
+
     subroutine runTimeEvolution(this)
         class(TimeEvolution_t), intent(inout) :: this
 
-        block
-            integer :: first_step, last_step
-            first_step = periodic_completed_steps+1
-            last_step = periodic_completed_steps+Nstorage
-            do time_ind = first_step, last_step
-                call doStep(this)
-            end do
-        end block
+        integer :: first_step, last_step
+
+        call time_step_range(first_step, last_step)
+        do time_ind = first_step, last_step
+            call doStep(this)
+        end do
     end subroutine runTimeEvolution
 
+    !> One time step. Its output writes share one open path2out (an output
+    !> session) instead of opening and closing the file for each write.
     subroutine doStep(this, stat)
+        class(TimeEvolution_t), intent(inout) :: this
+        integer, intent(out), optional :: stat
+
+        if (ihdf5IO == 1) call h5_begin_output_session(trim(path2out))
+        call do_step_writing_output(this, stat)
+        if (ihdf5IO == 1) call h5_end_output_session()
+    end subroutine doStep
+
+    subroutine do_step_writing_output(this, stat)
         use baseparam_mod, only: factolmax, factolred
         use kim_wave_code_adapter_m, only: kim_periodic_mode_selected
         use plasma_parameters, only: params, params_beg, params_begbeg, limit_temps_from_below
@@ -211,7 +231,7 @@ module time_evolution
         use recstep_mod, only: timstep_arr, tol
         use restart_mod, only: redostep
         use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
-            compute_antenna_factor_from_Ipar
+            compute_antenna_factor_from_Ipar, scale_ntv_torque_by_antenna_factor
         use writeData_m, only: writefort9999
 
         implicit none
@@ -220,6 +240,7 @@ module time_evolution
 
         integer :: iredo
         integer, intent(out), optional :: stat
+        real(dp) :: step_taken
 
         if (present(stat)) stat = 0
         if (trim(wave_code) == 'KIM' .and. kim_periodic_mode_selected()) then
@@ -232,7 +253,9 @@ module time_evolution
 
         call get_dql
         call compute_antenna_factor_from_Ipar
+        call record_parallel_current_history
         call rescale_transp_coeffs_by_ant_fac
+        call scale_ntv_torque_by_antenna_factor(antenna_factor_max)
         call interp_Br_Dql_at_resonance_timeevol
         call determine_Dql_diagnostic
 
@@ -243,12 +266,8 @@ module time_evolution
             call writefort9999(dqle11_prev, dqli11_prev)
         end if
 
-        if (.true.) then
-            call hold_prev_transp_coeffs
-            params_begbeg = params
-        else
-            call redoTimeStep
-        end if
+        call hold_prev_transp_coeffs
+        params_begbeg = params
 
         iredo = 0
         do ! redo step loop
@@ -280,17 +299,15 @@ module time_evolution
             end if
         end do
 
+        step_taken = minval(timstep_arr)
         call rescale_time_step_array
         call set_time_step
         call stop_if_time_step_too_small
         call reset_timstep_arr_w_timstep
         call write_time_info
         call relax_plasma_parameters
-
-        timstep_arr = 0.0d0
-        call evolvestep(timstep, eps)
-        timstep_arr = timstep
-        time = time + timstep
+        call refresh_state_diagnostics
+        time = time + step_taken
 
         call log_debug("msg_time_info")
         if (.not. suppression_mode) call write_kin_profile_at_time_index
@@ -301,7 +318,7 @@ module time_evolution
         call stop_if_antenna_fac_max_reached
 
         call ramp_coil
-    end subroutine doStep
+    end subroutine do_step_writing_output
 
     subroutine sync_periodic_amplitude_trial()
         use kim_wave_code_adapter_m, only: kim_current_records, kim_periodic_scale_modes, &
@@ -498,9 +515,7 @@ module time_evolution
             call set_time_step
             call reset_timstep_arr_w_timstep
             call relax_plasma_parameters
-            timstep_arr = 0.0_dp
-            call evolvestep(timstep, eps)
-            timstep_arr = timstep
+            call refresh_state_diagnostics
 
             ! Stage the response for the candidate profiles before either is
             ! committed. A guarded response cannot replace the accepted one.
@@ -657,6 +672,7 @@ module time_evolution
         use recstep_mod, only: timstep_arr, tim_stack, y_stack, nstack, tol
         use wave_code_data, only: q, dPhi0, Vth, I_par_toroidal, antenna_factor
         use kim_wave_code_adapter_m, only: kim_set_boundary_drive
+        use control_mod, only: equilibrium_sink_mode
         type(periodic_restart_t), intent(in) :: payload
         type(periodic_restart_t) :: ramp_payload
         integer :: count
@@ -688,6 +704,8 @@ module time_evolution
         timscal_dql = payload%timscal_dql
         timscal_dqli = payload%timscal_dqli
         rate_dql = payload%rate_dql
+        if (trim(equilibrium_sink_mode) /= 'explicit') &
+            error stop 'periodic restart does not store the equilibrium reference state'
         dery_equisource = payload%dery_equisource
         time = payload%time
         timstep = payload%next_dt
@@ -887,9 +905,17 @@ module time_evolution
 
     end subroutine
 
+    subroutine record_parallel_current_history
+        !! Store the integrated parallel current that get_dql selected for the
+        !! antenna-factor normalisation (same quantity as the stellarator path).
+        use grid_mod, only: Ipar
+
+        Ipar_time(time_ind) = Ipar
+    end subroutine record_parallel_current_history
+
     subroutine alloc_Br_Dqle_for_timeevol
 
-        use grid_mod, only: T_tot_phi_e, T_tot_phi_i
+        use grid_mod, only: T_tot_phi_e, T_tot_phi_i, T_tot_phi_ntv
 
         use periodic_checkpoint_m, only: pending_periodic_restart
         implicit none
@@ -907,8 +933,10 @@ module time_evolution
         allocate(dae22_res_time(history_size))
         allocate(bif_criterion(history_size))
         allocate(Ipar_time(history_size))
+        Ipar_time = (0.0_dp, 0.0_dp)
         allocate(T_tot_phi_e(history_size))
         allocate(T_tot_phi_i(history_size))
+        allocate(T_tot_phi_ntv(history_size))
 
     end subroutine
 
@@ -1021,22 +1049,38 @@ module time_evolution
     end subroutine ! write_br_dqle22_time_data
 
 
+    pure subroutine br_ramp_residual(br_unit, af, t, beta, delta)
+        !! br_abs is stored per unit amplitude, while the linear prediction is a line through the
+        !! origin in time, valid for the physical amplitude under a linear ramp (ramp_up_mode = 2).
+        real(dp), intent(in) :: br_unit(:), af(:), t(:)
+        real(dp), intent(inout) :: beta
+        real(dp), intent(out) :: delta
+        real(dp) :: br_amp(size(br_unit))
+        integer :: n
+
+        n = size(br_unit)
+        br_amp = br_unit*sqrt(af)
+        if (beta .eq. 0) beta = sum(br_amp(3:n)*t(3:n))/sum(t(1:n)**2)
+        delta = abs(br_amp(n) - beta*t(n))
+    end subroutine br_ramp_residual
+
+
     subroutine check_linear_discr_pen_ratio
         use writeData_m, only: write_fields_currs_transp_coefs_to_h5
 
         implicit none
 
+        real(dp) :: delta
+        logical :: first_fit
+
         if (time_ind .gt. 50 .and. .not. discr_reached) then
-            ! calculate beta only once
-            if (br_beta .eq. 0) then
-                ! Calculate slope from the data until this time step. (Simple linear regression algorithm)
-                br_beta = sum(br_abs(3:time_ind)*br_abs_time(3:time_ind))/sum(br_abs_time(1:time_ind)**2)
-                write(*,*) 'br_beta = ', br_beta
-            end if
-            ! calculate the from the linear regression predicted value of Br_abs
+            first_fit = br_beta .eq. 0
+            call br_ramp_residual(br_abs(1:time_ind), br_abs_antenna_factor(1:time_ind), &
+                                  br_abs_time(1:time_ind), br_beta, delta)
+            if (first_fit) write(*,*) 'br_beta = ', br_beta
             br_predicted = br_beta*br_abs_time(time_ind)
-            write(*,*) "Delta = ", abs(br_abs(time_ind) - br_predicted)
-            if (abs(br_abs(time_ind) - br_predicted) .gt. 0.1) then
+            write(*,*) "Delta = ", delta
+            if (delta .gt. 0.1) then
                 write(*,*) 'discrepancy to linearly predicted value of Br_abs_res > delta'
                 if (modulo(time_ind, save_prof_time_step) .ne. 0) then
                     if (suppression_mode .eqv. .false.) then
@@ -1065,9 +1109,14 @@ module time_evolution
     subroutine write_br_discrepancy_reached_info
 
         use h5mod
+        use KAMEL_hdf5_tools, only: h5overwrite
 
         implicit none
 
+        logical :: old_h5overwrite
+
+        old_h5overwrite = h5overwrite
+        h5overwrite = .true.
         CALL h5_init()
         CALL h5_open_rw(path2out, h5_id)
         CALL h5_add_string(h5_id, trim(h5_mode_groupname)// &
@@ -1076,6 +1125,7 @@ module time_evolution
             '/discrep_time', (/time_ind*1.d0, time/), (/1/), (/2/))
         CALL h5_close(h5_id)
         CALL h5_deinit()
+        h5overwrite = old_h5overwrite
 
     end subroutine
 
@@ -1102,17 +1152,21 @@ module time_evolution
         use wave_code_data, only: Vth, m_vals, n_vals
         use kim_wave_code_adapter_m, only: kim_periodic_mode_selected
         use periodic_checkpoint_m, only: periodic_restart_t, write_periodic_checkpoint
+        use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
 
         implicit none
         type(periodic_restart_t) :: checkpoint
         integer :: ipoi
+        real(dp), dimension(npoib) :: E_r_current
+
+        call compute_unsmoothed_radial_electric_field(params, E_r_current)
 
         if (ihdf5IO .eq. 1) then
             call log_debug("Write kinetic profiles")
             do ipoi = 1, npoic
                 sqg_bthet_overcavg(ipoi) = 0.5d0*(sqrt_g_times_B_theta_over_c(ipoi) &
                                                 + sqrt_g_times_B_theta_over_c(ipoi + 1))
-                Ercovavg(ipoi) = 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+                Ercovavg(ipoi) = 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1))
             end do
             ! h5_mode_groupname
             !h5_currentgrp = "/"//trim(h5_mode_groupname) &
@@ -1174,7 +1228,7 @@ module time_evolution
                 write (1000 + time_ind, *) rc(ipoi), params(1:2, ipoi) &
                     , params(3, ipoi)/ev &
                     , params(4, ipoi)/ev &
-                    , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1)) &
+                    , 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1)) &
                     , 0.5d0*(sqrt_g_times_B_theta_over_c(ipoi) + &
                             sqrt_g_times_B_theta_over_c(ipoi + 1))
             end do
@@ -1557,35 +1611,39 @@ module time_evolution
     subroutine redoTimeStep
 
         use recstep_mod, only: timstep_arr
-        use grid_mod, only: npoic, rc, Ercov
+        use grid_mod, only: npoib, npoic, rc
         use plasma_parameters, only: params, params_begbeg
         use baseparam_mod, only: eV, factolmax
+        use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
         use restart_mod
 
         implicit none
 
         integer :: ipoi
+        real(dp), dimension(npoib) :: E_r_current
 
         print *, 'redo step with old DQL'
 
         call hold_prev_transp_coeffs
         iunit_redo = 137
 
+        call compute_unsmoothed_radial_electric_field(params, E_r_current)
         open (iunit_redo, file='params_redostep.after')
         do ipoi = 1, npoic
             write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
                 , params(3, ipoi)/ev &
                 , params(4, ipoi)/ev &
-                , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+                , 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1))
         end do
         close (iunit_redo)
         params = params_begbeg
+        call compute_unsmoothed_radial_electric_field(params, E_r_current)
         open (iunit_redo, file='params_redostep.before')
         do ipoi = 1, npoic
             write (iunit_redo, *) rc(ipoi), params(1:2, ipoi) &
                 , params(3, ipoi)/ev &
                 , params(4, ipoi)/ev &
-                , 0.5d0*(Ercov(ipoi) + Ercov(ipoi + 1))
+                , 0.5d0*(E_r_current(ipoi) + E_r_current(ipoi + 1))
         end do
         close (iunit_redo)
 

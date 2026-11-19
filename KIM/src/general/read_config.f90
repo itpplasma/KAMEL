@@ -145,6 +145,12 @@ subroutine kim_read_config
             trim(ion_temperature_gradient_model)
         error stop 'ion_temperature_gradient_model must be full, zero_A2, or zero_Tprime'
     end if
+    ! A weight of 1 or more gives a zero Larmor band (log(1/tau) <= 0), so the
+    ! global kernels would silently keep only the diagonal neighbours.
+    if (.not. (kernel_taper_skip_threshold > 0.0d0 .and. kernel_taper_skip_threshold < 1.0d0)) then
+        write(*,*) 'Invalid kernel_taper_skip_threshold: ', kernel_taper_skip_threshold
+        error stop 'kernel_taper_skip_threshold is a taper weight and must lie in (0, 1)'
+    end if
 
     resolved_electron_ifunc_conservation_model = resolve_ifunc_model( &
         electron_ifunc_conservation_model, boole_energy_conservation)

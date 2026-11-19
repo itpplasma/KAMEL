@@ -813,6 +813,22 @@ module species_m
         call write_complex_profile(r_grid, spec%z0, size(r_grid), 'backs/'//trim(spec%name)//'/z0', &
             'Normalized complex frequency z0 (= x2/(sqrt(2)x1))', '1')
 
+        ! Boundary-grid quantities used by the local WKB dispersion.  Keeping
+        ! these alongside the roots makes campaign residuals independently
+        ! reproducible without substituting cell-centred kernel quantities.
+        if (allocated(spec%A1)) then
+            call write_profile(r_grid, spec%A1, size(r_grid), 'backs/'//trim(spec%name)//'/A1', &
+                'Thermodynamic force A1 at boundary points', '1/cm')
+            call write_profile(r_grid, spec%A2, size(r_grid), 'backs/'//trim(spec%name)//'/A2', &
+                'Thermodynamic force A2 at boundary points', '1/cm')
+            call write_complex_profile(r_grid, spec%I00(:, 0), size(r_grid), &
+                'backs/'//trim(spec%name)//'/I00_mphi_0', &
+                'Susceptibility function I00 at boundary points, mphi=0', '1')
+            call write_complex_profile(r_grid, spec%I20(:, 0), size(r_grid), &
+                'backs/'//trim(spec%name)//'/I20_mphi_0', &
+                'Susceptibility function I20 at boundary points, mphi=0', '1')
+        end if
+
         call write_profile(r_grid, spec%dTdr, size(r_grid), 'backs/'//trim(spec%name)//'/dTdr', &
             'Temperature gradient dT/dr', 'eV/cm')
         call write_profile(r_grid, spec%dndr, size(r_grid), 'backs/'//trim(spec%name)//'/dndr', &

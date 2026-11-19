@@ -16,7 +16,7 @@ import shutil
 class fieldpy:
 
     field_divB0_inp = {}
-    path_to_fourier_modes_exe = CODE + "KAMEL/PreProc/fourier/build/"
+    path_to_fourier_modes_exe = CODE + "KAMEL/build/install/bin/"
     path_to_field_divB0_inp = CODE + "KAMEL/PreProc/fourier/inp/"
     path_to_fouriermodes_inp = CODE + "KAMEL/PreProc/fourier/inp/fouriermodes.inp"
 

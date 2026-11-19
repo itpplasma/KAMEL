@@ -2,6 +2,8 @@ program test_fp_kernel_prefactors
     use KIM_kinds_m, only: dp
     use species_m, only: plasma, species_t, init_electron_species
     use constants_m, only: com_unit, sol
+    use config_m, only: resolved_electron_ifunc_conservation_model, &
+        IFUNC_MODEL_NUMBER, IFUNC_MODEL_ENERGY
     use FP_kernel_plasma_prefacs_m, only: FP_G1_rho_B, FP_G1_rho_phi, &
         FP_G3_j_phi, FP_kappa_j_phi
 
@@ -27,13 +29,24 @@ program test_fp_kernel_prefactors
         / (spec%lambda_D_cc(1)**2 * spec%omega_c_cc(1) * spec%nu_cc(1))
     call require_close(got, want, 'FP G1 rho_phi uses source-power I02')
 
-    got = FP_G1_rho_B(1, spec, 0)
+    resolved_electron_ifunc_conservation_model = IFUNC_MODEL_NUMBER
+    got = FP_G1_rho_B(1, spec, 0, 0)
     want = (spec%I01_cc(1, 0) * (spec%A1_cc(1) + spec%A2_cc(1)) &
         + 0.5_dp * spec%A2_cc(1) * spec%I03_cc(1, 0)) &
         * (-spec%vT_cc(1)**3) &
         / (spec%lambda_D_cc(1)**2 * spec%omega_c_cc(1) &
         * spec%nu_cc(1) * sol)
-    call require_close(got, want, 'FP G1 rho_B uses source-power I03')
+    call require_close(got, want, 'FP G1 rho_B uses source-power I03 without energy conservation')
+
+    ! With energy conservation I03 = I21 analytically; the kernel uses I21.
+    resolved_electron_ifunc_conservation_model = IFUNC_MODEL_ENERGY
+    got = FP_G1_rho_B(1, spec, 0, 0)
+    want = (spec%I01_cc(1, 0) * (spec%A1_cc(1) + spec%A2_cc(1)) &
+        + 0.5_dp * spec%A2_cc(1) * spec%I21_cc(1, 0)) &
+        * (-spec%vT_cc(1)**3) &
+        / (spec%lambda_D_cc(1)**2 * spec%omega_c_cc(1) &
+        * spec%nu_cc(1) * sol)
+    call require_close(got, want, 'FP G1 rho_B uses I21 with energy conservation')
 
     print *, 'FP kernel-prefactor tests PASSED'
 

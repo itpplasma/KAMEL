@@ -30,6 +30,9 @@ env:
   OMP_NUM_THREADS: '1'
 
 jobs:
+  itpdeps-copy:
+    uses: itpplasma/cmake-deps/.github/workflows/check-copy.yml@v1
+
   python-unit:
     runs-on: ubuntu-latest
 
@@ -125,7 +128,7 @@ jobs:
         run: ci/set_parallelism.sh
 
       - name: Build with make
-        run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
+        run: make all ${{ inputs.libneo_ref != '' && format('CMAKE_ARGS=-DITP_LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
       - name: Test golden-record harness
         run: make pytest
@@ -206,7 +209,7 @@ jobs:
         run: ci/set_parallelism.sh
 
       - name: Build with make
-        run: make all ${{ inputs.libneo_ref != '' && format('LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
+        run: make all ${{ inputs.libneo_ref != '' && format('CMAKE_ARGS=-DITP_LIBNEO_REF={0}', inputs.libneo_ref) || '' }}
 
       - name: Test golden-record harness
         run: make pytest

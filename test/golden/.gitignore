@@ -1,9 +1,10 @@
 # Golden-record runtime artifacts (created by the harness; never committed).
 # Patterns have no leading slash so they match at the top level AND inside each
 # per-code dir (kim/, qlbalance/, kilca/).
-build_ref/
-build_cur/
-build_legacy/
+# build_* are symlinks and therefore mustn't have a trailing slash
+build_ref
+build_cur
+build_legacy
 out/
 claims/
 logs/

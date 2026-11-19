@@ -29,7 +29,9 @@ subroutine kim_read_config
                         WKB_solve_for_kr_squared, &
                         WKB_max_tracked_branches, WKB_branch_search_halfwidth, &
                         WKB_broad_search_halfwidth, WKB_broad_search_interval, &
-                        WKB_root_tolerance, WKB_verbose
+                        WKB_root_tolerance, WKB_verbose, WKB_use_initial_root, &
+                        WKB_initial_root_real, WKB_initial_root_imag, &
+                        WKB_initial_root_profile
 
     namelist /KIM_IO/ profile_location, hdf5_input, hdf5_output, &
                         log_level, data_verbosity, output_path, calculate_asymptotics, &
@@ -189,6 +191,12 @@ subroutine kim_read_config
 
     if (ion_fp_collision_scale <= 0.0_dp) then
         error stop 'ion_fp_collision_scale must be > 0 for FP collision kernels'
+    end if
+
+    ! Only the P1 hat basis is implemented; the electron kernel rejects
+    ! anything else, but only after setup.
+    if (spline_base /= 1) then
+        error stop 'spline_base must be 1: only the P1 hat basis is implemented'
     end if
 
     select case (trim(ion_collision_model))

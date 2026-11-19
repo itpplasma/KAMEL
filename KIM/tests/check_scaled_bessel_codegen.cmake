@@ -6,16 +6,18 @@ execute_process(
     RESULT_VARIABLE result
     OUTPUT_VARIABLE disassembly
     ERROR_VARIABLE error
-    TIMEOUT 30)
+    TIMEOUT 30
+)
 if(NOT result EQUAL 0)
-    message(FATAL_ERROR
-        "Cannot inspect scaled_bessel_pair with ${OBJDUMP} (${result}): ${error}")
+    message(FATAL_ERROR "Cannot inspect scaled_bessel_pair with ${OBJDUMP} (${result}): ${error}")
 endif()
 if(NOT disassembly MATCHES "<${helper}>:")
     message(FATAL_ERROR "scaled_bessel_pair was not found in ${KIM_LIBRARY}")
 endif()
 if(disassembly MATCHES "_gfortran_ieee_procedure_(entry|exit)")
-    message(FATAL_ERROR
+    message(
+        FATAL_ERROR
         "scaled_bessel_pair contains IEEE environment save/restore overhead; "
-        "import bessel_in directly from fortnum_special_bessel")
+        "import bessel_in directly from fortnum_special_bessel"
+    )
 endif()

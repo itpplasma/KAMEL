@@ -28,7 +28,6 @@ module poisson_solver_m
         complex(dp), dimension(:), allocatable :: b_vec ! b vector and x vector
         integer, dimension(:), allocatable :: irow, pcol
         integer :: nz_out, nrow, ncol
-        integer :: i, j
         integer :: sparse_solver_option
 
         call log_info('Solving Poisson equation')
@@ -48,10 +47,6 @@ module poisson_solver_m
 
         A_mat = (A_mat + 4.0d0 * pi * K_rho_phi)
 
-        if (data_verbosity >= 3) then
-            call write_A_matrix_sparse_check_to_file
-        end if
-
         sparse_solve_method = 3  ! SuiteSparse (shared sparse lib does not support SuperLU=1)
         sparse_solver_option = 0
 
@@ -65,6 +60,9 @@ module poisson_solver_m
             'Right hand side vector b of Poisson equation Ax=b', 'statC/cm^3') !TODO: check units
 
         call dense_to_sparse(A_mat, irow, pcol, A_nz, nrow, ncol, nz_out)
+        if (data_verbosity >= 3) then
+            call write_A_matrix_sparse_check_to_file
+        end if
         call sparse_solveComplex_b1(nrow, ncol, nz_out, irow, pcol, A_nz, b_vec, sparse_solver_option)
 
         phi_sol = b_vec
@@ -79,16 +77,10 @@ module poisson_solver_m
 
             call log_trace('Writing A matrix after sparse')
             call sp2fullComplex(irow, pcol, A_nz, nrow, ncol, A_sparse_check)
-            open(unit=77, file=trim(output_path)//'kernel/A_sparse_check_re.dat')
-            open(unit=78, file=trim(output_path)//'kernel/A_sparse_check_im.dat')
-            do i = 1,nrow
-                do j = 1,ncol
-                    write(77,*) real(A_sparse_check(i,j))
-                    write(78,*) dimag(A_sparse_check(i,j))
-                end do
-            end do
-            close(77)
-            close(78)
+            call write_matrix('kernel/A_sparse_check_re', real(A_sparse_check), nrow, ncol, &
+                'Stiffness matrix A rebuilt from its sparse form, real part', '1/cm^2')
+            call write_matrix('kernel/A_sparse_check_im', dimag(A_sparse_check), nrow, ncol, &
+                'Stiffness matrix A rebuilt from its sparse form, imaginary part', '1/cm^2')
             deallocate(A_sparse_check)
 
         end subroutine

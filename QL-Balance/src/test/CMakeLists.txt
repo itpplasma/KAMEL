@@ -40,6 +40,11 @@ set_tests_properties(
 # target_link_libraries(test_D_one_over_nu.x PUBLIC ql-balance_lib)
 # add_fortran_test(test_D_one_over_nu)
 
+# 1/nu coefficients on the cell boundaries (stellarator time evolution)
+add_executable(test_D_one_over_nu_grid.x test_D_one_over_nu_grid.f90)
+target_link_libraries(test_D_one_over_nu_grid.x PUBLIC ql-balance_lib)
+add_fortran_test(test_D_one_over_nu_grid)
+
 # RHS Balance module tests
 add_executable(test_rhs_balance.x test_rhs_balance.f90)
 target_link_libraries(test_rhs_balance.x PUBLIC ql-balance_lib)
@@ -336,3 +341,8 @@ endforeach()
 add_executable(test_ipar_history.x test_ipar_history.f90)
 target_link_libraries(test_ipar_history.x PUBLIC ql-balance_lib)
 add_fortran_test(test_ipar_history)
+
+# Penetration stop of the coil-current ramp (br_stopping)
+add_executable(test_br_ramp_residual.x test_br_ramp_residual.f90)
+target_link_libraries(test_br_ramp_residual.x PUBLIC ql-balance_lib)
+add_fortran_test(test_br_ramp_residual)

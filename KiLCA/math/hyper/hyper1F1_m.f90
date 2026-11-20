@@ -35,6 +35,7 @@ contains
         b = cmplx(b_re, b_im, dp)
         z = cmplx(z_re, z_im, dp)
         call hyperg_1f1_a1(b, z, res, status)
+        call require_fortnum_ok("quad", status, b, z)
         f_re = real(res, dp)
         f_im = aimag(res)
     end subroutine h_quad
@@ -191,6 +192,7 @@ contains
         ! cancellation of the |z/b|-dispatch reconstruction. Mirrors the C++
         ! swap in KAMEL#146 so oracle and port share one compiled kernel.
         call hyperg_1f1m_a1(b, z, res, status)
+        call require_fortnum_ok("cont_fract_1_modified_0_ada", status, b, z)
         f_re = real(res, dp)
         f_im = aimag(res)
     end subroutine h_cont_fract_1_modified_0_ada
@@ -310,5 +312,19 @@ contains
         write (error_unit, '(a,4es12.4)') "  S,b,z(partial)=", &
             real(S, dp), aimag(S), real(z, dp), aimag(z)
     end subroutine warn_conv
+
+    !> fortnum flags a pole in b or a series that did not converge; its result is then not
+    !> 1F1, so stop instead of passing it on.
+    subroutine require_fortnum_ok(tag, status, b, z)
+        use fortnum_status, only: fortnum_status_t, status_ok
+        character(*), intent(in) :: tag
+        type(fortnum_status_t), intent(in) :: status
+        complex(dp), intent(in) :: b, z
+        if (status_ok(status)) return
+        write (error_unit, '(a,a,a,i0,a,a)') "hypergeometric1f1: fortnum status ", &
+            tag, ": code=", status%code, " ", trim(status%msg)
+        write (error_unit, '(a,4es24.16)') "  b,z=", real(b, dp), aimag(b), real(z, dp), aimag(z)
+        error stop "hypergeometric1f1: fortnum status not OK"
+    end subroutine require_fortnum_ok
 
 end module kilca_hyper1f1_m

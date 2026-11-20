@@ -25,7 +25,10 @@ contains
         if (.not. profiles_from_balance) then
             error stop 'periodic KIM workflow requires profiles_from_balance=.true.'
         end if
+        ! TimeEvolutionNTV runs the periodic step unchanged after the NEO-RT call; its
+        ! torque is scaled with the step's antenna factor like the periodic QL transport.
         if (trim(type_of_run) /= 'SingleStep' .and. trim(type_of_run) /= 'TimeEvolution' &
+            .and. trim(type_of_run) /= 'TimeEvolutionNTV' &
             .and. trim(type_of_run) /= 'ParameterScan') then
             error stop 'unsupported QL-Balance run type for periodic KIM workflow'
         end if

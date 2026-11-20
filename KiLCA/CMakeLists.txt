@@ -359,7 +359,9 @@ add_test(NAME test_hyper1f1 COMMAND ${CMAKE_BINARY_DIR}/tests/test_hyper1f1.x)
 add_executable(test_hyper1f1_status tests/test_hyper1f1_status.f90)
 set_target_properties(
     test_hyper1f1_status
-    PROPERTIES OUTPUT_NAME test_hyper1f1_status.x RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
+    PROPERTIES
+        OUTPUT_NAME test_hyper1f1_status.x
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests/
 )
 target_link_libraries(test_hyper1f1_status kilca_lib ${EXTERNAL_LIBS})
 foreach(variant IN ITEMS modified quad)

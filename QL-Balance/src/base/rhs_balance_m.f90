@@ -109,6 +109,7 @@ module rhs_balance_m
     public :: project_params_to_boundary_grid
     public :: compute_radial_electric_field
     public :: compute_unsmoothed_radial_electric_field
+    public :: effective_poloidal_velocity, store_poloidal_velocity
 
     public :: thermodynamic_forces_t
     public :: species_fluxes_t
@@ -146,6 +147,46 @@ module rhs_balance_m
     end type transport_fluxes_t
 
 contains
+
+    function effective_poloidal_velocity(dTi_dr) result(vpol)
+        !! Poloidal velocity V_pol [cm/s] for E0r on the boundary grid (1:size(dTi_dr)).
+        !! 'fixed': the input Vth; 'neoclassical': C dT_i/dr (Markl 2023 eq. 26,
+        !! poloidal_rotation_m), C set from Vth and the first dT_i/dr evaluated.
+        !! dTi_dr must be the UNSMOOTHED ion temperature gradient [erg/cm].
+        use control_mod, only: poloidal_rotation_model
+        use wave_code_data, only: Vth
+        use poloidal_rotation_m, only: poloidal_rotation_ready, &
+                                       init_poloidal_rotation_coefficient, poloidal_velocity
+        real(dp), intent(in) :: dTi_dr(:)
+        real(dp) :: vpol(size(dTi_dr))
+        if (trim(poloidal_rotation_model) == 'fixed') then
+            vpol = Vth(1:size(dTi_dr))
+            return
+        end if
+        if (.not. poloidal_rotation_ready()) &
+            call init_poloidal_rotation_coefficient(Vth(1:size(dTi_dr)), dTi_dr)
+        vpol = poloidal_velocity(dTi_dr)
+    end function effective_poloidal_velocity
+
+    subroutine store_poloidal_velocity(vpol)
+        !! Keep wave_code_data Vth equal to the poloidal velocity in use, so that
+        !! output profiles and checkpoints record it ('neoclassical' only).
+        use control_mod, only: poloidal_rotation_model
+        use wave_code_data, only: Vth
+        real(dp), intent(in) :: vpol(:)
+        if (trim(poloidal_rotation_model) == 'neoclassical') Vth(1:size(vpol)) = vpol
+    end subroutine store_poloidal_velocity
+
+    function poloidal_coefficient_or_zero(n) result(cpol)
+        !! C on the boundary grid for the linearized E0r; zero for 'fixed'.
+        use control_mod, only: poloidal_rotation_model
+        use poloidal_rotation_m, only: poloidal_rotation_ready, poloidal_rotation_coefficient
+        integer, intent(in) :: n
+        real(dp) :: cpol(n)
+        cpol = 0.0_dp
+        if (trim(poloidal_rotation_model) == 'neoclassical' .and. poloidal_rotation_ready()) &
+            cpol = poloidal_rotation_coefficient()
+    end function poloidal_coefficient_or_zero
 
     !===========================================================================
     ! Main public subroutines
@@ -227,6 +268,7 @@ contains
         real(dp), dimension(4) :: dot_params_loc, source_rates
         real(dp), dimension(nbaleqs, npoib) :: fluxes_dif_nl
         real(dp), dimension(neqset) :: rate
+        real(dp), dimension(npoib) :: vpol_state, cpol
         logical :: implicit_sinks
 
         implicit_sinks = trim(equilibrium_sink_mode) == 'implicit'
@@ -258,9 +300,13 @@ contains
         call project_params_to_boundary_grid(params, ipbeg, ipend, deriv_coef, reint_coef, &
                                              params_b, ddr_params_nl)
 
-        ! Compute E0r at actual state
+        ! Compute E0r at actual state (poloidal velocity from the actual dT_i/dr
+        ! for poloidal_rotation_model = 'neoclassical')
+        vpol_state = effective_poloidal_velocity(ddr_params_nl(4, 1:npoib))
+        call store_poloidal_velocity(vpol_state)
+        cpol = poloidal_coefficient_or_zero(npoib)
         call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
-                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
+                                           sqrt_g_times_B_theta_over_c, vpol_state, q, Z_i, Ercov)
 
         ! Compute diffusion coefficients at actual state
         call calc_equil_diffusion_coeffs
@@ -338,11 +384,15 @@ contains
             !
             ! FROZEN (from params_b): Ti, n (in prefactors)
             ! RESPONDING (from ddr_params_lin, params_b_lin): δ(∂n/∂r), δ(∂Ti/∂r), δVphi
-            ! Note: Vpol term omitted as poloidal velocity is not evolved (constant)
+            ! Poloidal velocity: constant for 'fixed' (no term); for 'neoclassical'
+            ! V_pol = C dT_i/dr responds through -sqrt(g) B^theta/c q C delta(dT_i/dr)/r
+            ! (cpol = 0 for 'fixed').
             Ercov_lin(ibegb:iendb) = sqrt_g_times_B_theta_over_c(ibegb:iendb) * &
                 params_b_lin(2, ibegb:iendb) + (params_b(4, ibegb:iendb) * &
                 ddr_params_lin(1, ibegb:iendb) / params_b(1, ibegb:iendb) + &
-                ddr_params_lin(4, ibegb:iendb)) / (Z_i * e_charge)
+                ddr_params_lin(4, ibegb:iendb)) / (Z_i * e_charge) &
+                - sqrt_g_times_B_theta_over_c(ibegb:iendb) * q(ibegb:iendb) &
+                * cpol(ibegb:iendb) * ddr_params_lin(4, ibegb:iendb) / rb(ibegb:iendb)
 
             ! Compute linearized fluxes δΓ, δQ at affected boundary points
             ! Using frozen-coefficient linearization:
@@ -656,7 +706,9 @@ contains
         call project_params_to_boundary_grid(params_in, ipbeg, ipend, deriv_coef, reint_coef, &
                                              params_boundary, ddr_params)
         call compute_radial_electric_field(npoib, rb, params_boundary, ddr_params, &
-                                           sqrt_g_times_B_theta_over_c, Vth, q, Z_i, E_r)
+                                           sqrt_g_times_B_theta_over_c, &
+                                           effective_poloidal_velocity(ddr_params(4, 1:npoib)), &
+                                           q, Z_i, E_r)
     end subroutine compute_unsmoothed_radial_electric_field
 
     pure subroutine compute_radial_electric_field(npoib, rb, params_b, ddr_params, &

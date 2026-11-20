@@ -3,7 +3,7 @@ program test_ntv_feedback
     use baseparam_mod, only: am, btor, c, ev, p_mass, rtor, Z_i
     use grid_mod, only: npoib, npoic, nbaleqs, rb, rc, Ercov, ipbeg, ipend, &
                         deriv_coef, reint_coef, sqrt_g_times_B_theta_over_c
-    use neort_interface, only: prepare_profile_data_for_neort
+    use neort_interface, only: prepare_plasma_data_for_neort, prepare_profile_data_for_neort
     use plasma_parameters, only: params, qsaf
     use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
     use wave_code_data, only: q, Vth
@@ -14,6 +14,7 @@ program test_ntv_feedback
     real(dp), dimension(3) :: E_r_a, E_r_b
     real(dp), dimension(3) :: r, s_tor
     real(dp), dimension(3, 2) :: profile_a, profile_b, profile_repeat
+    real(dp), dimension(3, 6) :: plasma_data
     real(dp) :: expected_mach, vth_ion
     real(dp), parameter :: R0_boozer = 169.0_dp  ! differs from rtor on purpose
 
@@ -51,6 +52,16 @@ program test_ntv_feedback
     do i = 1, size(r)
         call assert_equal(profile_b(i, 2), -profile_a(i, 2), "Mach sign")
     end do
+
+    ! params(1) is n_e; NEO-RT's species 1 is the ion with charge Z_i, so it
+    ! must get n_i = n_e / Z_i.
+    Z_i = 2.0_dp
+    call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
+    do i = 1, size(r)
+        call assert_equal(plasma_data(i, 2), params(1, i)/Z_i, "ion density n_e/Z_i")
+        call assert_equal(plasma_data(i, 4), params(4, i)/ev, "ion temperature [eV]")
+    end do
+    Z_i = 1.0_dp
 
     call teardown_fixture()
 

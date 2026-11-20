@@ -34,6 +34,11 @@ module time_evolution
     real(dp) :: tmax_factor!, antenna_factor
     real(dp) :: stop_time_step
     real(dp) :: timstep_min
+    !> Picard iterations that make the quasilinear coefficients of a step
+    !> consistent with its end profiles (0: coefficients of the step start).
+    integer :: dql_picard_max = 0
+    real(dp) :: dql_picard_tol = 1.0e-2_dp
+    real(dp) :: dql_picard_relax = 0.5_dp
     real(dp) :: t_max_ramp_up = 1e-2 !> 10ms ramp up until antenna_factor_max is reached
     real(dp) :: timstep
     real(dp) :: time
@@ -298,6 +303,8 @@ module time_evolution
                         "after 100 redos"
             end if
         end do
+
+        if (dql_picard_max > 0) call iterate_dql_to_step_end
 
         step_taken = minval(timstep_arr)
         call rescale_time_step_array
@@ -851,6 +858,59 @@ module time_evolution
         call h5_deinit()
         deallocate(modes_m, modes_n)
     end subroutine write_periodic_workflow_provenance
+
+    subroutine iterate_dql_to_step_end
+        ! With the coefficients of the step start the coupling is explicit:
+        ! once D_ql changes on the resonant-layer time delta^2/D_ql, which
+        ! is microseconds, the next step overshoots and the step size
+        ! collapses. Picard iteration on D_ql(params at the step end), under-
+        ! relaxed, gives the implicit coupling; with no fixed point the step
+        ! keeps the last iterate and the failure is logged.
+        use grid_mod, only: dqle11, dqle12, dqle21, dqle22, &
+                            dqli11, dqli12, dqli21, dqli22
+        use plasma_parameters, only: params, params_beg, limit_temps_from_below
+        use transp_coeffs_mod, only: rescale_transp_coeffs_by_ant_fac, &
+            compute_antenna_factor_from_Ipar
+        use logger_m, only: log_info
+        real(dp), allocatable :: used(:,:)
+        real(dp) :: change, vac_res, formfactor
+        integer :: it
+        character(len=160) :: line
+        vac_res = br_vac_res(time_ind)
+        formfactor = br_formfactor(time_ind)
+        do it = 1, dql_picard_max
+            used = reshape([dqle11, dqle12, dqle21, dqle22, &
+                            dqli11, dqli12, dqli21, dqli22], [size(dqle11), 8])
+            call get_dql
+            call compute_antenna_factor_from_Ipar
+            call rescale_transp_coeffs_by_ant_fac
+            change = maxval(abs(dqle22 - used(:, 4)))/ &
+                max(maxval(abs(dqle22) + abs(used(:, 4))), tiny(1.0_dp))
+            write (line, '(a,i3,a,es10.3)') 'D_ql Picard iteration ', it, &
+                ': relative change of D_e22 ', change
+            call log_info(trim(line))
+            if (change < dql_picard_tol) exit
+            call blend(dqle11, 1); call blend(dqle12, 2)
+            call blend(dqle21, 3); call blend(dqle22, 4)
+            call blend(dqli11, 5); call blend(dqli12, 6)
+            call blend(dqli21, 7); call blend(dqli22, 8)
+            params = params_beg
+            call evolvestep(timstep, eps)
+            call limit_temps_from_below
+        end do
+        if (change >= dql_picard_tol) call log_info('D_ql Picard iteration not converged')
+        call calc_params_num_and_denom
+        call smooth_params_num_and_denom
+        call determine_timscal
+        br_vac_res(time_ind) = vac_res
+        br_formfactor(time_ind) = formfactor
+    contains
+        subroutine blend(d, k)
+            real(dp), intent(inout) :: d(:)
+            integer, intent(in) :: k
+            d = dql_picard_relax*d + (1 - dql_picard_relax)*used(:, k)
+        end subroutine
+    end subroutine iterate_dql_to_step_end
 
     subroutine allocate_prev_variables
 

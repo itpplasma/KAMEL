@@ -48,7 +48,8 @@ subroutine read_config
         kim_n_modes, kim_m_list, kim_n_list, &
         I_par_toroidal, jpar_method, kim_current_floor, kim_current_max_scale, &
         kim_current_relaxation, kim_electron_transport_model, &
-        kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode
+        kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode, &
+        dql_picard_max, dql_picard_tol, dql_picard_relax
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -125,6 +126,9 @@ subroutine read_config
     call log_info(fmt_val("    Z_i", Z_i))
     call log_info(fmt_val("    am", am))
     call log_info(fmt_val("    stop_time_step", stop_time_step))
+    call log_info(fmt_val("    dql_picard_max", dql_picard_max))
+    call log_info(fmt_val("    dql_picard_tol", dql_picard_tol))
+    call log_info(fmt_val("    dql_picard_relax", dql_picard_relax))
     call log_info(fmt_val("    path2inp", trim(adjustl(path2inp))))
     call log_info(fmt_val("    path2out", trim(adjustl(path2out))))
     call log_info(fmt_val("    paramscan", paramscan))

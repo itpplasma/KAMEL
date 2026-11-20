@@ -10,6 +10,7 @@ module flr2_fourier_kernel_m
     public :: hatG_j_phi, hatG_j_B
     public :: hatG_rho_phi_diag_sp, hatG_rho_B_diag_sp
     public :: core_rho_phi_sp, core_rho_B_sp
+    public :: boltzmann_gyroaverage
     public :: core_j_phi_sp, core_j_B_sp
     public :: core_rho_phi_sp_bessel, core_rho_B_sp_bessel
     public :: core_j_phi_sp_bessel, core_j_B_sp_bessel
@@ -120,7 +121,8 @@ contains
             if (turn_off_electrons .and. sp == 0) cycle
 
             call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
-            acc = acc + core_rho_phi_sp(plasma_in, sp, bplus, bcross, j)
+            acc = acc + core_rho_phi_sp(plasma_in, sp, bplus, bcross, j, &
+                boltzmann_gyroaverage(plasma_in, sp, kr, krp, j))
         end do
 
         G = exp(-com_unit * (kr - krp) * rg_grid%xb(j)) / (8.0_dp * pi**2) * acc
@@ -326,22 +328,39 @@ contains
         end if
     end function core_j_B_sp_bessel
 
-    complex(dp) function core_rho_phi_sp(plasma_in, sp, bplus, bcross, j) result(G)
+    complex(dp) function core_rho_phi_sp(plasma_in, sp, bplus, bcross, j, boltzmann) result(G)
         ! Evaluates the Bessel pair itself; see core_rho_phi_sp_bessel.
         use config_m, only: artificial_debye_case
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: bplus, bcross
+        real(dp), intent(in), optional :: boltzmann
         real(dp) :: sI0, sIm1
 
         sI0 = 0.0_dp
         sIm1 = 0.0_dp
         if (artificial_debye_case == 0 .or. artificial_debye_case == 2) &
             call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
-        G = core_rho_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1)
+        G = core_rho_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1, boltzmann)
     end function core_rho_phi_sp
 
-    complex(dp) function core_rho_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) result(G)
+    real(dp) function boltzmann_gyroaverage(plasma_in, sp, kr, krp, j) result(f)
+        ! Gyroaverage of the Boltzmann (Debye) term between radial wavenumbers
+        ! kr and krp: the adiabatic response sits at the particle position, so
+        ! its gyrocentre density is averaged with <J_0((kr - krp) rho)> =
+        ! exp(-rho_L^2 (kr - krp)^2/2) over the Maxwellian (paper Eq. 2.41;
+        ! the collisionless ion path has the same factor). It is 1 on the
+        ! diagonal and for electrons in the zero-FLR approximation.
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: sp, j
+        real(dp), intent(in) :: kr, krp
+        f = 1.0_dp
+        if (kern_zero_flr_electrons .and. sp == 0) return
+        f = exp(-0.5_dp*plasma_in%spec(sp)%rho_L(j)**2*(kr - krp)**2)
+    end function boltzmann_gyroaverage
+
+    complex(dp) function core_rho_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1, &
+            boltzmann) result(G)
         ! Per-species rho-Phi core (Debye + FP) parameterized by the FLR
         ! argument pair (b_+, b_x). This is the single home for the rho-Phi
         ! integrand math: the diagonal integrand calls it with bplus=bcross=b,
@@ -355,6 +374,8 @@ contains
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: bplus, bcross
         real(dp), intent(in) :: sI0, sIm1
+        ! Gyroaverage of the Boltzmann term (boltzmann_gyroaverage), 1 if absent.
+        real(dp), intent(in), optional :: boltzmann
         real(dp) :: ks
 
         G = (0.0_dp, 0.0_dp)
@@ -362,6 +383,7 @@ contains
 
         if (artificial_debye_case <= 1) then
             G = - 1.0d0 / plasma_in%spec(sp)%lambda_D(j)**2.0d0
+            if (present(boltzmann)) G = G*boltzmann
         end if
 
         if (artificial_debye_case == 0 .or. artificial_debye_case == 2) then

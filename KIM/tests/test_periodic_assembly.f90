@@ -238,7 +238,7 @@ contains
         use constants_m, only: com_unit, pi
         use flr2_fourier_kernel_m, only: hatG_rho_phi, hatG_rho_B, &
             hatG_j_phi, hatG_j_B, flr_arg_pair_sp, core_rho_phi_sp, &
-            core_rho_B_sp, core_j_phi_sp, core_j_B_sp
+            core_rho_B_sp, core_j_phi_sp, core_j_B_sp, boltzmann_gyroaverage
         use grid_m, only: rg_grid
         use radial_current_fourier_kernel_m, only: hatG_jrad_bparallel, &
             hatG_jrad_br, hatG_jrad_phi
@@ -273,7 +273,8 @@ contains
 
         phase = exp(-com_unit * (kr - krp) * rg_grid%xb(j))
         call flr_arg_pair_sp(plasma, 0, kr, krp, j, bplus, bcross)
-        electron_phi = phase * core_rho_phi_sp(plasma, 0, bplus, bcross, j) / (8.0_dp * pi**2)
+        electron_phi = phase * core_rho_phi_sp(plasma, 0, bplus, bcross, j, &
+            boltzmann_gyroaverage(plasma, 0, kr, krp, j)) / (8.0_dp * pi**2)
         electron_B = phase * core_rho_B_sp(plasma, 0, bplus, bcross, j) / (8.0_dp * pi**2)
         electron_jphi = phase * core_j_phi_sp(plasma, 0, bplus, bcross, j) / (8.0_dp * pi**2)
         electron_jB = phase * core_j_B_sp(plasma, 0, bplus, bcross, j) / (8.0_dp * pi**2)

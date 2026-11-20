@@ -155,7 +155,7 @@ contains
         use flr2_fourier_kernel_m, only: flr_arg_pair_sp, core_rho_phi_sp, &
             core_rho_B_sp, core_j_phi_sp, core_j_B_sp, scaled_bessel_pair, &
             core_rho_phi_sp_bessel, core_rho_B_sp_bessel, core_j_phi_sp_bessel, &
-            core_j_B_sp_bessel
+            core_j_B_sp_bessel, boltzmann_gyroaverage
         use grid_m, only: rg_grid
 
         type(plasma_t), intent(in) :: plasma_in
@@ -182,8 +182,8 @@ contains
             sIm1 = 0.0_dp
             if (artificial_debye_case == 0 .or. artificial_debye_case == 2) &
                 call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
-            rho_phi = core_rho_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) &
-                / (8.0_dp * pi**2)
+            rho_phi = core_rho_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1, &
+                boltzmann_gyroaverage(plasma_in, sp, kr, krp, j)) / (8.0_dp * pi**2)
             rho_B = core_rho_B_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) &
                 / (8.0_dp * pi**2)
             j_phi = core_j_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1) &
@@ -196,8 +196,8 @@ contains
             end if
             if (sp == 0) then
                 call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
-                rho_phi = core_rho_phi_sp(plasma_in, sp, bplus, bcross, j) &
-                    / (8.0_dp * pi**2)
+                rho_phi = core_rho_phi_sp(plasma_in, sp, bplus, bcross, j, &
+                    boltzmann_gyroaverage(plasma_in, sp, kr, krp, j)) / (8.0_dp * pi**2)
                 rho_B = core_rho_B_sp(plasma_in, sp, bplus, bcross, j) &
                     / (8.0_dp * pi**2)
                 j_phi = core_j_phi_sp(plasma_in, sp, bplus, bcross, j) &

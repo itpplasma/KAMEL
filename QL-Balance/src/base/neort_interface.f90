@@ -195,7 +195,7 @@ contains
     !>          Column 5: Ti2   - temperature of species 2 [eV]
     !>          Column 6: Te    - electron temperature [eV]
     subroutine prepare_plasma_data_for_neort(plasma_data, r, s_tor)
-        use baseparam_mod, only: EV_TO_ERG => ev
+        use baseparam_mod, only: EV_TO_ERG => ev, Z_i
         use grid_mod, only: rc
         use plasma_parameters, only: params
         use spline, only: spline_coeff, spline_val
@@ -241,7 +241,8 @@ contains
             plasma_data(i, 1) = s_tor(i)
 
             ! Column 2: Density of species 1 [cm^-3]
-            plasma_data(i, 2) = ni_splined(i, 1)
+            ! params(1, :) is the electron density; the ions have n_i = n_e / Z_i
+            plasma_data(i, 2) = ni_splined(i, 1) / Z_i
 
             ! Column 3: Density of species 2 [cm^-3]
             ! Set to 0 for single-species calculations

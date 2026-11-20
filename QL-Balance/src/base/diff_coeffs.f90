@@ -120,7 +120,13 @@ subroutine calc_equil_diffusion_coeffs
     !get other da
     ! [Heyn2014 below (68)]
     ! D11 = D_perp
-    dae11 = dae12/1.499999d0 !previously used instead of 1.5d0, no idea why
+    ! D12 = 1.499999 D11 on purpose, not exactly 3/2: with 3/2 the thermodiffusive
+    ! terms of the anomalous particle flux cancel and their Jacobian entries become
+    ! exactly zero. rhs_balance takes the sparsity pattern from the values
+    ! (abs(dy) > tiny), so its count pass and fill pass then disagree and the run
+    ! stops. The deviation from 3/2 is 7e-7 relative and leaves a negligible
+    ! non-ambipolar remainder in the anomalous flux.
+    dae11 = dae12/1.499999d0
     dae22 = 3.75d0*dae11
     dai11 = dae11
     dai12 = dae12

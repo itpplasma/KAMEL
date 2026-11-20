@@ -49,7 +49,8 @@ subroutine get_dql
     use PolyLagrangeInterpolation
     use logger_m, only: log_debug
     use writeData_m, only: write_fields_currs_transp_coefs_to_h5, write_D_one_over_nu_to_h5
-    use rhs_balance_m, only: project_params_to_boundary_grid, compute_radial_electric_field
+    use rhs_balance_m, only: project_params_to_boundary_grid, compute_radial_electric_field, &
+                             effective_poloidal_velocity, store_poloidal_velocity
 
     implicit none
 
@@ -64,6 +65,7 @@ subroutine get_dql
     real(dp) :: weight
     real(dp), dimension(npoib) :: vT_e, vT_i, nu_e, nu_i
     real(dp), dimension(:), allocatable :: om_E_pointwise, dPhi0_electron
+    real(dp), dimension(:), allocatable :: vpol_state  ! poloidal velocity for E0r [cm/s]
 
     real(dp), DIMENSION(:), ALLOCATABLE :: dqle11_loc
     real(dp), DIMENSION(:), ALLOCATABLE :: dqle12_loc
@@ -132,6 +134,11 @@ subroutine get_dql
     call project_params_to_boundary_grid(params, ipbeg, ipend, deriv_coef, reint_coef, &
                                          params_b, ddr_params_nl)
 
+    ! Poloidal velocity from the UNSMOOTHED dT_i/dr (same as in rhs_balance;
+    ! poloidal_rotation_model), before the profiles are smoothed for the wave code
+    vpol_state = effective_poloidal_velocity(ddr_params_nl(4, 1:npoib))
+    call store_poloidal_velocity(vpol_state)
+
     ! Smooth input for KILCA
     allocate (dummy(npoib), row_buffer(npoib))
     do ieq = 1, nbaleqs
@@ -147,7 +154,7 @@ subroutine get_dql
 
     ! Compute radial electric field:
     call compute_radial_electric_field(npoib, rb, params_b, ddr_params_nl, &
-                                       sqrt_g_times_B_theta_over_c, Vth, q, Z_i, Ercov)
+                                       sqrt_g_times_B_theta_over_c, vpol_state, q, Z_i, Ercov)
 
     ! Compute diffusion coefficient matrices:
 

@@ -12,7 +12,7 @@ subroutine read_config
                            kim_current_floor, kim_current_max_scale, kim_current_relaxation, &
                            kim_periodic_matching, kim_periodic_wall_radius, &
                            kim_periodic_initial_drive, electron_er_smooth_cells, &
-                           kim_periodic_coil_ramp, is_time_evolution_run, &
+                           kim_periodic_coil_ramp, is_time_evolution_run, poloidal_rotation_model, &
                            jpar_method, ion_transport_model_id, &
                            ION_TRANSPORT_INVALID
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
@@ -54,7 +54,7 @@ subroutine read_config
         kim_current_relaxation, kim_electron_transport_model, &
         kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode, &
         kim_periodic_matching, kim_periodic_wall_radius, kim_periodic_initial_drive, &
-        electron_er_smooth_cells, kim_periodic_coil_ramp
+        electron_er_smooth_cells, kim_periodic_coil_ramp, poloidal_rotation_model
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -90,6 +90,12 @@ subroutine read_config
         if (.not. ieee_is_finite(kim_periodic_wall_radius)) &
             error stop 'non-finite kim_periodic_wall_radius'
     end if
+
+    select case (trim(poloidal_rotation_model))
+    case ('neoclassical', 'fixed')
+    case default
+        error stop 'poloidal_rotation_model must be neoclassical or fixed'
+    end select
 
     select case (trim(equilibrium_sink_mode))
     case ('explicit', 'implicit')
@@ -186,6 +192,7 @@ subroutine read_config
     call log_info(fmt_val("    kim_periodic_initial_drive", trim(adjustl(kim_periodic_initial_drive))))
     call log_info(fmt_val("    electron_er_smooth_cells", electron_er_smooth_cells))
     call log_info(fmt_val("    kim_periodic_coil_ramp", kim_periodic_coil_ramp))
+    call log_info(fmt_val("    poloidal_rotation_model", trim(adjustl(poloidal_rotation_model))))
     call log_info(fmt_val("    kim_n_modes", kim_n_modes))
     if (kim_n_modes > 0) then
         write (*, "(A,100I5)") "    kim_m_list = ", kim_m_list(1:kim_n_modes)

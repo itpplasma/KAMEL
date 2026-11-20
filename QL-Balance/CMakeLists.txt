@@ -115,6 +115,7 @@ set(balance_lib_base_fortran_sources
     ${base_balance_src}/transport_smoothing_m.f90
     ${base_balance_src}/electron_er_smoothing_m.f90
     ${base_balance_src}/periodic_coil_ramp_m.f90
+    ${base_balance_src}/poloidal_rotation_m.f90
     ${base_balance_src}/smooth_array_gauss.f90
     ${base_balance_src}/time_evolution.f90
     ${base_balance_src}/time_evolution_ntv.f90

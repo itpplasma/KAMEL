@@ -1,6 +1,7 @@
 program test_neort_grid
     use iso_fortran_env, only: dp => real64
-    use neort_interface, only: read_equil_file
+    use neort_interface, only: calculate_coarse_s_tor, calculate_s_tor, outer_s_of_grid, &
+                               poloidal_flux_problem, read_equil_file
     use control_mod, only: equil_path
 
     implicit none
@@ -9,7 +10,10 @@ program test_neort_grid
     integer :: num_failed
 
     num_failed = 0
+    call test_s_is_flux_over_boundary_flux()
     call test_equil_file_with_seven_columns()
+    call test_poloidal_flux_consistency()
+    call test_s_max_ends_grid()
 
     if (num_failed > 0) then
         print '(A,I0)', "FAILED assertions: ", num_failed
@@ -18,6 +22,19 @@ program test_neort_grid
     print *, "ALL TESTS PASSED"
 
 contains
+
+    subroutine test_s_is_flux_over_boundary_flux()
+        ! The first surface of an equilibrium file is not the axis and its last
+        ! surface is not the Boozer boundary: s must be psi_tor / psi_boundary.
+        real(dp), dimension(3) :: psi_tor, s_tor
+
+        psi_tor = [0.5_dp, 2.0_dp, 3.0_dp]
+        call calculate_s_tor(s_tor, psi_tor, psi_tor_boundary=-4.0_dp)
+
+        call assert_equal(s_tor(1), 0.125_dp, "s of first surface")
+        call assert_equal(s_tor(2), 0.5_dp, "s of middle surface")
+        call assert_equal(s_tor(3), 0.75_dp, "s of last surface")
+    end subroutine test_s_is_flux_over_boundary_flux
 
     subroutine test_equil_file_with_seven_columns()
         ! Only r and psi_tor are needed; both the 7-column writer in
@@ -45,6 +62,41 @@ contains
         open (newunit=iunit, file=equil_path, status="old")
         close (iunit, status="delete")
     end subroutine test_equil_file_with_seven_columns
+
+    subroutine test_poloidal_flux_consistency()
+        ! dpsi_pol/ds is signed: the Boozer file and KAMEL's equilibrium must
+        ! share the toroidal orientation and agree in magnitude.
+        real(dp), dimension(3) :: neort, kamel
+
+        neort = [-1.0e6_dp, -2.0e6_dp, -4.0e6_dp]
+        kamel = neort * 1.02_dp
+        call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) == 0, &
+                         "2 % deviation accepted")
+
+        kamel(2) = -2.5e6_dp
+        call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) > 0, &
+                         "25 % deviation rejected")
+
+        kamel = -neort
+        call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) > 0, &
+                         "opposite orientation rejected")
+    end subroutine test_poloidal_flux_consistency
+
+    subroutine test_s_max_ends_grid()
+        ! The default s_max = 1 keeps the grid ending at s(rsepar), a smaller
+        ! s_max moves its outer end inward with the same number of points.
+        real(dp), dimension(5) :: s_tor
+
+        call calculate_coarse_s_tor(s_tor, 0.2_dp, outer_s_of_grid(1.0_dp, 1.0_dp), 5)
+        call assert_equal(s_tor(5), 1.0_dp, "default grid ends at s(rsepar) = 1")
+        call calculate_coarse_s_tor(s_tor, 0.2_dp, outer_s_of_grid(0.98_dp, 1.0_dp), 5)
+        call assert_equal(s_tor(5), 0.98_dp, "default grid ends at s(rsepar) < 1")
+
+        call calculate_coarse_s_tor(s_tor, 0.2_dp, outer_s_of_grid(1.0_dp, 0.6_dp), 5)
+        call assert_equal(s_tor(1), 0.2_dp, "s_max keeps the inner end")
+        call assert_equal(s_tor(2), 0.3_dp, "s_max shrinks the spacing")
+        call assert_equal(s_tor(5), 0.6_dp, "s_max ends the grid")
+    end subroutine test_s_max_ends_grid
 
     subroutine assert_true(condition, label)
         logical, intent(in) :: condition

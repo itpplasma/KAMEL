@@ -16,6 +16,7 @@ program test_rhs_balance
                              compute_rmp_induced_sources, &
                              project_params_to_boundary_grid, &
                              compute_radial_electric_field, &
+                             compute_dot_params_at_point, &
                              species_fluxes_t, &
                              transport_fluxes_t
     use baseparam_mod, only: e_charge
@@ -39,6 +40,7 @@ program test_rhs_balance
     call test_boundary_projection()
     call test_radial_electric_field()
     call test_ql_heating_of_field_driven_flux()
+    call test_ion_temperature_rate_with_charge()
 
     print *, ""
     print *, "========================================"
@@ -404,6 +406,57 @@ contains
         print *, "  Finished: ", test_name
 
     end subroutine test_ql_heating_of_field_driven_flux
+
+    subroutine test_ion_temperature_rate_with_charge()
+        ! The ion energy balance evolves 3/2 n_i T_i with n_i = n_e / Z_i, while
+        ! params(1) is n_e. For Z_i = 2:
+        !  - an ion heating rate Q gives dT_i/dt = Q / (3/2 n_e / Z_i),
+        !  - an ion particle source dn_i/dt = (dn_e/dt) / Z_i that carries its
+        !    energy 3/2 T_i leaves T_i unchanged.
+        ! One cell between rb = 0 and 1 with Sc = 1, so a flux difference across
+        ! the cell is the negative rate.
+        integer, parameter :: nbaleqs = 4
+        real(dp), parameter :: Z = 2.0_dp, n_e = 2.0e13_dp, Te = 1.2e-9_dp, Ti = 1.6e-9_dp
+        real(dp), parameter :: Q = 3.0e-3_dp, dne_dt = 1.0e12_dp
+        real(dp) :: fluxes_dif(nbaleqs, 2), fluxes_zero(nbaleqs, 2)
+        real(dp) :: params(nbaleqs, 1), params_lin(nbaleqs, 1), params_b_lin(nbaleqs, 2)
+        real(dp) :: Sc(1), rb(2), rc(1), gpp_av(2), polforce(2), qlheat_e(2), qlheat_i(2)
+        real(dp) :: dot_params(nbaleqs)
+        character(len=*), parameter :: test_name = "test_ion_temperature_rate_with_charge"
+
+        print *, "Running: ", test_name
+
+        fluxes_zero = 0.0_dp
+        params(:, 1) = [n_e, 0.0_dp, Te, Ti]
+        params_lin = 0.0_dp
+        params_b_lin = 0.0_dp
+        Sc = 1.0_dp
+        rb = [0.0_dp, 1.0_dp]
+        rc = [0.5_dp]
+        gpp_av = 1.0_dp
+        polforce = 0.0_dp
+        qlheat_e = 0.0_dp
+
+        qlheat_i = Q
+        call compute_dot_params_at_point(1, 1, nbaleqs, fluxes_zero, fluxes_zero, fluxes_zero, &
+                                         params, params_lin, params_b_lin, Sc, rb, rc, gpp_av, &
+                                         polforce, qlheat_e, qlheat_i, Z, dot_params)
+        call assert_equal(dot_params(4), Q / (1.5_dp * n_e / Z), "ion heating, Z_i = 2")
+
+        qlheat_i = 0.0_dp
+        fluxes_dif = 0.0_dp
+        fluxes_dif(1, 2) = -dne_dt
+        fluxes_dif(4, 2) = -1.5_dp * Ti * dne_dt / Z
+        call compute_dot_params_at_point(1, 1, nbaleqs, fluxes_dif, fluxes_zero, fluxes_zero, &
+                                         params, params_lin, params_b_lin, Sc, rb, rc, gpp_av, &
+                                         polforce, qlheat_e, qlheat_i, Z, dot_params)
+        call assert_equal(dot_params(1), dne_dt, "electron density rate")
+        call assert_equal(dot_params(4) * n_e / (Ti * dne_dt), 0.0_dp, &
+                          "ion source at constant T_i, Z_i = 2")
+
+        print *, "  Finished: ", test_name
+
+    end subroutine test_ion_temperature_rate_with_charge
 
 
 

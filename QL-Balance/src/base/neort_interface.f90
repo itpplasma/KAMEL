@@ -13,15 +13,19 @@ module neort_interface
         character(len=1024) :: boozer_file
         character(len=1024) :: boozer_pert_file
         integer :: amount_of_s
+        real(dp) :: s_max
         real(dp) :: antenna_factor_exponent
         type(config_t) :: config
     end type meta_config_neort_t
 
     public :: apply_ntv_transport
     public :: calculate_coarse_s_tor
+    public :: outer_s_of_grid
     public :: calculate_s_tor
     public :: prepare_plasma_data_for_neort
     public :: prepare_profile_data_for_neort
+    public :: dpsi_pol_dr
+    public :: poloidal_flux_problem
     public :: read_equil_file
     public :: read_neort_meta_config
     public :: meta_config_neort_problem
@@ -53,11 +57,13 @@ contains
         ! as some values are deliberately unused or fixed plus the following:
         ! - explicit paths for the Boozer input files
         ! - amount of equidistant s to compute on
+        ! - the outer end of that s grid
         ! - an exponent for the antenna_factor the resulting torque gets scaled with
         ! new meta config values:
         character(len=1024) :: boozer_file
         character(len=1024) :: boozer_pert_file
         integer :: amount_of_s
+        real(dp) :: s_max
         real(dp) :: antenna_factor_exponent
         ! original NEO-RT config values
         real(dp) :: epsmn
@@ -81,14 +87,18 @@ contains
         integer :: log_level
         ! output_format not needed, nothing is written to disk
 
-        namelist /NEORT/ boozer_file, boozer_pert_file, amount_of_s, antenna_factor_exponent, &
-            epsmn, supban, magdrift, magdrift_passing, nopassing, noshear, nonlin, bfac, efac, &
-            inp_swi, inp_swi_pert, vsteps, mth_max_abs, vmax_over_vth, log_level
+        namelist /NEORT/ boozer_file, boozer_pert_file, amount_of_s, s_max, &
+            antenna_factor_exponent, epsmn, supban, magdrift, magdrift_passing, nopassing, &
+            noshear, nonlin, bfac, efac, inp_swi, inp_swi_pert, vsteps, mth_max_abs, &
+            vmax_over_vth, log_level
 
         ! defaults
         boozer_file = ""
         boozer_pert_file = ""
         amount_of_s = 100
+        ! The grid ends at s(rsepar) unless s_max is smaller. Near the separatrix
+        ! the Boozer q diverges while an input q profile may not follow it.
+        s_max = 1.0_dp
         ! antenna_factor is the squared field ratio (compute_antenna_factor_from_Ipar),
         ! so the quasilinear NTV torque ~ (delta B)^2 scales with its first power
         antenna_factor_exponent = 1.0_dp
@@ -140,6 +150,7 @@ contains
         meta_config%boozer_file = trim(adjustl(boozer_file))
         meta_config%boozer_pert_file = trim(adjustl(boozer_pert_file))
         meta_config%amount_of_s = amount_of_s
+        meta_config%s_max = s_max
         meta_config%antenna_factor_exponent = antenna_factor_exponent
         meta_config%config%epsmn = epsmn
         meta_config%config%m0 = poloidal_mode_number
@@ -180,6 +191,10 @@ contains
             problem = "NEORT: antenna_factor_exponent must not be negative"
         else if (meta_config%amount_of_s < 2) then
             problem = "NEORT: amount_of_s must be at least 2"
+        else if (.not. (meta_config%s_max > 0.0_dp .and. meta_config%s_max <= 1.0_dp)) then
+            problem = "NEORT: s_max must satisfy 0 < s_max <= 1"
+        else if (meta_config%config%bfac /= 1.0_dp) then
+            problem = "NEORT: bfac must be 1 (equilibrium file flux is unscaled)"
         end if
     end function meta_config_neort_problem
 
@@ -193,7 +208,7 @@ contains
     !>          Column 5: Ti2   - temperature of species 2 [eV]
     !>          Column 6: Te    - electron temperature [eV]
     subroutine prepare_plasma_data_for_neort(plasma_data, r, s_tor)
-        use baseparam_mod, only: EV_TO_ERG => ev
+        use baseparam_mod, only: EV_TO_ERG => ev, Z_i
         use grid_mod, only: rc
         use plasma_parameters, only: params
         use spline, only: spline_coeff, spline_val
@@ -239,7 +254,8 @@ contains
             plasma_data(i, 1) = s_tor(i)
 
             ! Column 2: Density of species 1 [cm^-3]
-            plasma_data(i, 2) = ni_splined(i, 1)
+            ! params(1, :) is the electron density; the ions have n_i = n_e / Z_i
+            plasma_data(i, 2) = ni_splined(i, 1) / Z_i
 
             ! Column 3: Density of species 2 [cm^-3]
             ! Set to 0 for single-species calculations
@@ -261,8 +277,9 @@ contains
     !> @param[out] profile_data 2D array (nflux, 2) for NEO-RT profile input:
     !>             Column 1: normalized toroidal flux s [dimensionless]
     !>             Column 2: toroidal Mach number M_t [dimensionless]
-    subroutine prepare_profile_data_for_neort(profile_data, r, s_tor)
-        use baseparam_mod, only: am, btor, c, p_mass, rtor
+    !> @param[in] R0 major radius NEO-RT uses to turn M_t back into Omega_tE [cm]
+    subroutine prepare_profile_data_for_neort(profile_data, r, s_tor, R0)
+        use baseparam_mod, only: am, c, p_mass
         use grid_mod, only: rb, rc
         use plasma_parameters, only: params, qsaf
         use rhs_balance_m, only: compute_unsmoothed_radial_electric_field
@@ -317,8 +334,9 @@ contains
         real(dp), dimension(:, :), intent(out) :: profile_data
         real(dp), dimension(:), intent(in) :: r
         real(dp), dimension(:), intent(in) :: s_tor
+        real(dp), intent(in) :: R0
 
-        real(dp) :: E_r, T_i, m_i, vth, dpsi_pol_dr, Omega_tE, M_t
+        real(dp) :: E_r, T_i, m_i, vth, Omega_tE, M_t
         real(dp), dimension(:), allocatable :: E_r_boundary
         real(dp), dimension(:, :), allocatable :: E_r_coeffs, q_coeffs
         real(dp), dimension(:, :), allocatable :: Ti_of_r_coeffs
@@ -360,8 +378,7 @@ contains
 
             ! Calculate electric precession frequency from the accepted-state field.
             E_r = E_r_splined(i, 1)
-            dpsi_pol_dr = r(i) * btor / q_splined(i, 1)
-            Omega_tE = c * E_r / dpsi_pol_dr
+            Omega_tE = c * E_r / dpsi_pol_dr(r(i), q_splined(i, 1))
 
             ! Calculate thermal velocity [Albert2016, above (51)]
             ! Source detail: Albert2016, PDF p. 14, text before Eq. (51).
@@ -370,13 +387,52 @@ contains
 
             ! Calculate toroidal Mach number (ExB Mach number) [Albert2016 below (57)]
             ! Source detail: Albert2016, PDF p. 16, text following Eq. (57).
-            ! rtor is the major radius (R)
-            M_t = Omega_tE * rtor / vth
+            ! NEO-RT reconstructs Omega_tE = vth * M_t / R0 with its own R0
+            ! from the Boozer file, so the same R0 must be used here.
+            M_t = Omega_tE * R0 / vth
 
             ! Column 2: toroidal Mach number M_t
             profile_data(i, 2) = M_t
         end do
     end subroutine prepare_profile_data_for_neort
+
+    !> @brief Poloidal flux derivative psi'_pol = dpsi_pol/dr = r B_ref / q [G cm]
+    !> @details KAMEL's effective radius is r = sqrt(2 psi_tor / B_ref) with the signed
+    !>          reference field btor, and q = psi'_tor / psi'_pol; fluxes are per
+    !>          radian. See the derivation in prepare_profile_data_for_neort.
+    elemental function dpsi_pol_dr(r, q)
+        use baseparam_mod, only: btor
+
+        real(dp), intent(in) :: r, q
+        real(dp) :: dpsi_pol_dr
+
+        dpsi_pol_dr = r * btor / q
+    end function dpsi_pol_dr
+
+    !> @brief Describe a mismatch between NEO-RT's and KAMEL's dpsi_pol/ds; empty if consistent
+    !> @details Both derivatives are signed. Opposite signs mean the Boozer file and
+    !>          KAMEL's equilibrium have opposite toroidal orientation; a magnitude
+    !>          mismatch means they, or the s <-> r mapping between them, do not
+    !>          describe the same equilibrium. Either would silently flip or scale
+    !>          Omega_tE and the NTV torque.
+    function poloidal_flux_problem(dpsi_pol_ds_neort, dpsi_pol_ds_kamel) result(problem)
+        real(dp), dimension(:), intent(in) :: dpsi_pol_ds_neort, dpsi_pol_ds_kamel
+        character(len=256) :: problem
+
+        real(dp), parameter :: tolerance = 0.1_dp
+        real(dp) :: mismatch
+
+        problem = ""
+        if (any(dpsi_pol_ds_neort * dpsi_pol_ds_kamel <= 0.0_dp)) then
+            problem = "NEO-RT Boozer file and KAMEL equilibrium disagree on the sign of dpsi_pol/ds"
+            return
+        end if
+        mismatch = maxval(abs(dpsi_pol_ds_neort - dpsi_pol_ds_kamel) / abs(dpsi_pol_ds_kamel))
+        if (mismatch > tolerance) then
+            write (problem, '(A,F6.3)') &
+                "NEO-RT Boozer and KAMEL dpsi_pol/ds differ, relative mismatch ", mismatch
+        end if
+    end function poloidal_flux_problem
 
     !> @brief Read effective radius and toroidal flux from the equilibrium file
     !> @details Reads the equil_r_q_psi.dat file named by the balance configuration:
@@ -451,16 +507,25 @@ contains
         close (iunit)
     end subroutine read_equil_file
 
-    subroutine calculate_s_tor(s_tor, psi_tor)
+    !> @brief Normalized toroidal flux s = psi_tor / psi_tor(boundary)
+    !> @details Both fluxes are per radian. The boundary flux is the one NEO-RT
+    !>          reports for its Boozer file, so s agrees with NEO-RT's own s label;
+    !>          its sign depends on the Boozer orientation and is dropped.
+    subroutine calculate_s_tor(s_tor, psi_tor, psi_tor_boundary)
         real(dp), dimension(:), intent(out) :: s_tor
         real(dp), dimension(:), intent(in) :: psi_tor
+        real(dp), intent(in) :: psi_tor_boundary
 
-        real(dp) :: psi_tor_min, psi_tor_max
-
-        psi_tor_min = psi_tor(1)
-        psi_tor_max = psi_tor(size(psi_tor))
-        s_tor = (psi_tor - psi_tor_min) / (psi_tor_max - psi_tor_min)
+        s_tor = abs(psi_tor / psi_tor_boundary)
     end subroutine calculate_s_tor
+
+    !> @brief Outer end of NEO-RT's s grid: s at rsepar, or the namelist's s_max if smaller.
+    pure function outer_s_of_grid(s_rsepar, s_max) result(s_outer)
+        real(dp), intent(in) :: s_rsepar, s_max
+        real(dp) :: s_outer
+
+        s_outer = min(s_rsepar, s_max)
+    end function outer_s_of_grid
 
     subroutine calculate_coarse_s_tor(s_tor, s_min, s_max, npoints)
         real(dp), dimension(:), intent(out) :: s_tor
@@ -535,7 +600,8 @@ contains
         ! do not extrapolate
         torque_splined = spline_val(torque_of_r_coeffs, rb(1:i_separatrix))
 
-        ! torque for r > separatrix should be zero
+        ! torque beyond the last NEO-RT surface (the separatrix unless s_max is
+        ! smaller) should be zero
         if (.not. allocated(torque_density_ntv_unscaled)) &
             allocate (torque_density_ntv_unscaled(nrb))
         torque_density_ntv_unscaled(1:i_separatrix) = torque_splined(:, 1)

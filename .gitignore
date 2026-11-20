@@ -19,4 +19,9 @@ external
 /.envrc
 
 **.DS_Store
-.worktrees/
+
+# local worktrees
+/.worktrees/
+
+# uv
+uv.lock

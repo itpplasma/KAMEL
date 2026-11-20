@@ -194,6 +194,11 @@ set_tests_properties(
 add_executable(test_transport_smoothing.x test_transport_smoothing.f90)
 target_link_libraries(test_transport_smoothing.x PUBLIC ql-balance_lib)
 add_fortran_test(test_transport_smoothing)
+
+add_executable(test_poloidal_rotation.x test_poloidal_rotation.f90)
+target_link_libraries(test_poloidal_rotation.x PUBLIC ql-balance_lib)
+add_fortran_test(test_poloidal_rotation)
+
 add_executable(test_periodic_current_normalization.x test_periodic_current_normalization.f90)
 target_link_libraries(test_periodic_current_normalization.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_current_normalization)

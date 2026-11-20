@@ -17,6 +17,12 @@ module control_mod
     real(dp) :: kim_current_floor = 1.0e-30_dp
     real(dp) :: kim_current_max_scale = 1.0e12_dp
     real(dp) :: kim_current_relaxation = 1.0_dp
+    ! Poloidal rotation in the radial force balance E0r (Markl 2023 eq. 26):
+    ! 'neoclassical' (default): V_pol = C dT_i/dr with C = Vth_input / dT_i/dr at
+    ! the initial state (neoclassical coefficient k from the input profile, fixed
+    ! equilibrium; poloidal_rotation_m); 'fixed': the input Vth is held constant
+    ! (behaviour before this option).
+    character(len=32) :: poloidal_rotation_model = 'neoclassical'
     logical :: kim_transport_benchmark = .false.
     logical :: kim_profiles_from_balance = .true.
     integer, parameter :: kim_max_modes = 100

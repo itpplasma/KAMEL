@@ -10,6 +10,7 @@ subroutine read_config
                            kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode, &
                            kim_n_modes, kim_m_list, kim_n_list, &
                            kim_current_floor, kim_current_max_scale, kim_current_relaxation, &
+                           poloidal_rotation_model, &
                            jpar_method, ion_transport_model_id, &
                            ION_TRANSPORT_INVALID
     use grid_mod, only: rmin, rmax, npoimin, gg_factor, gg_width, gg_r_res, iboutype, rb_cut_in, &
@@ -48,7 +49,7 @@ subroutine read_config
         kim_n_modes, kim_m_list, kim_n_list, &
         I_par_toroidal, jpar_method, kim_current_floor, kim_current_max_scale, &
         kim_current_relaxation, kim_electron_transport_model, &
-        kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode
+        kim_bparallel_source, kim_benchmark_mode, equilibrium_sink_mode, poloidal_rotation_model
 
     ! read the parameters from namelist file
     open (newunit=u, file=config_file, status="old", action="read", iostat=ios)
@@ -76,6 +77,12 @@ subroutine read_config
                 kim_current_relaxation <= 0.0d0 .or. kim_current_relaxation > 1.0d0) &
             error stop 'invalid current normalization setting'
     end if
+
+    select case (trim(poloidal_rotation_model))
+    case ('neoclassical', 'fixed')
+    case default
+        error stop 'poloidal_rotation_model must be neoclassical or fixed'
+    end select
 
     select case (trim(equilibrium_sink_mode))
     case ('explicit', 'implicit')
@@ -154,6 +161,7 @@ subroutine read_config
     call log_info(fmt_val("    kim_ion_transport_model", trim(adjustl(kim_ion_transport_model))))
     call log_info(fmt_val("    kim_bparallel_source", trim(adjustl(kim_bparallel_source))))
     call log_info(fmt_val("    kim_benchmark_mode", trim(adjustl(kim_benchmark_mode))))
+    call log_info(fmt_val("    poloidal_rotation_model", trim(adjustl(poloidal_rotation_model))))
     call log_info(fmt_val("    kim_n_modes", kim_n_modes))
     if (kim_n_modes > 0) then
         write (*, "(A,100I5)") "    kim_m_list = ", kim_m_list(1:kim_n_modes)

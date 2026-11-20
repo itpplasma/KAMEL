@@ -110,6 +110,7 @@ module rhs_balance_m
     public :: compute_radial_electric_field
     public :: compute_unsmoothed_radial_electric_field
     public :: effective_poloidal_velocity, store_poloidal_velocity
+    public :: compute_dot_params_at_point
 
     public :: thermodynamic_forces_t
     public :: species_fluxes_t
@@ -995,11 +996,13 @@ contains
         dot_params_out(2) = dot_params_out(2) * Z_i / params(1, ipoi) * 2.0_dp / (gpp_av(ipoi + 1) &
                                                                                   + gpp_av(ipoi))
 
-        ! Convert d(nT)/dt to dT/dt:
+        ! Convert d(3/2 n_a T_a)/dt to dT_a/dt. params(1) is the electron density
+        ! and the ion energy balance is written for n_i = n_e / Z_i, so
+        !   dT_i/dt = (Z_i * d(n_i T_i)/dt - T_i * dn_e/dt) / n_e.
         dot_params_out(3) = (-params(3, ipoi) * dot_params_out(1) + dot_params_out(3) / 1.5_dp) / &
                             params(1, ipoi)
-        dot_params_out(4) = (-params(4, ipoi) * dot_params_out(1) + dot_params_out(4) / 1.5_dp) / &
-                            params(1, ipoi)
+        dot_params_out(4) = (-params(4, ipoi) * dot_params_out(1) + &
+                             Z_i * dot_params_out(4) / 1.5_dp) / params(1, ipoi)
 
     end subroutine compute_dot_params_at_point
 

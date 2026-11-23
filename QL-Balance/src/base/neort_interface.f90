@@ -26,6 +26,7 @@ module neort_interface
     public :: prepare_profile_data_for_neort
     public :: dpsi_pol_dr
     public :: poloidal_flux_problem
+    public :: boozer_s_range_problem
     public :: read_equil_file
     public :: read_neort_meta_config
     public :: meta_config_neort_problem
@@ -416,6 +417,8 @@ contains
     !>          describe the same equilibrium. Either would silently flip or scale
     !>          Omega_tE and the NTV torque.
     function poloidal_flux_problem(dpsi_pol_ds_neort, dpsi_pol_ds_kamel) result(problem)
+        use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+
         real(dp), dimension(:), intent(in) :: dpsi_pol_ds_neort, dpsi_pol_ds_kamel
         character(len=256) :: problem
 
@@ -423,6 +426,12 @@ contains
         real(dp) :: mismatch
 
         problem = ""
+        ! NaN would pass both comparisons below.
+        if (.not. (all(ieee_is_finite(dpsi_pol_ds_neort)) .and. &
+                   all(ieee_is_finite(dpsi_pol_ds_kamel)))) then
+            problem = "NEO-RT Boozer or KAMEL dpsi_pol/ds is not finite"
+            return
+        end if
         if (any(dpsi_pol_ds_neort * dpsi_pol_ds_kamel <= 0.0_dp)) then
             problem = "NEO-RT Boozer file and KAMEL equilibrium disagree on the sign of dpsi_pol/ds"
             return
@@ -433,6 +442,28 @@ contains
                 "NEO-RT Boozer and KAMEL dpsi_pol/ds differ, relative mismatch ", mismatch
         end if
     end function poloidal_flux_problem
+
+    !> @brief Describe s values outside the Boozer file's surfaces; empty if all are covered
+    !> @details NEO-RT limits s to the tabulated range and reports the s it used
+    !>          (flux_surface_t%s). A difference means the s grid leaves the Boozer
+    !>          file, where NEO-RT would silently use the data of its edge surface.
+    function boozer_s_range_problem(s_requested, s_evaluated) result(problem)
+        real(dp), dimension(:), intent(in) :: s_requested, s_evaluated
+        character(len=256) :: problem
+
+        real(dp), parameter :: tolerance = 1.0e-12_dp
+        integer :: i
+
+        problem = ""
+        do i = 1, size(s_requested)
+            if (.not. (abs(s_evaluated(i) - s_requested(i)) <= tolerance)) then
+                write (problem, '(A,ES12.5,A,ES12.5)') &
+                    "NEO-RT Boozer file does not cover s = ", s_requested(i), &
+                    ", nearest tabulated s = ", s_evaluated(i)
+                return
+            end if
+        end do
+    end function boozer_s_range_problem
 
     !> @brief Read effective radius and toroidal flux from the equilibrium file
     !> @details Reads the equil_r_q_psi.dat file named by the balance configuration:

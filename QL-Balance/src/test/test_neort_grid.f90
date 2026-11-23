@@ -1,7 +1,8 @@
 program test_neort_grid
     use iso_fortran_env, only: dp => real64
-    use neort_interface, only: calculate_coarse_s_tor, calculate_s_tor, outer_s_of_grid, &
-                               poloidal_flux_problem, read_equil_file
+    use, intrinsic :: ieee_arithmetic, only: ieee_value, ieee_quiet_nan
+    use neort_interface, only: boozer_s_range_problem, calculate_coarse_s_tor, calculate_s_tor, &
+                               outer_s_of_grid, poloidal_flux_problem, read_equil_file
     use control_mod, only: equil_path
 
     implicit none
@@ -13,6 +14,7 @@ program test_neort_grid
     call test_s_is_flux_over_boundary_flux()
     call test_equil_file_with_seven_columns()
     call test_poloidal_flux_consistency()
+    call test_boozer_s_range()
     call test_s_max_ends_grid()
 
     if (num_failed > 0) then
@@ -80,7 +82,36 @@ contains
         kamel = -neort
         call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) > 0, &
                          "opposite orientation rejected")
+
+        kamel = neort
+        kamel(2) = ieee_value(1.0_dp, ieee_quiet_nan)
+        call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) > 0, &
+                         "NaN in KAMEL's derivative rejected")
+        kamel = neort
+        neort(3) = ieee_value(1.0_dp, ieee_quiet_nan)
+        call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) > 0, &
+                         "NaN in NEO-RT's derivative rejected")
     end subroutine test_poloidal_flux_consistency
+
+    subroutine test_boozer_s_range()
+        ! NEO-RT limits s to the Boozer file's surfaces and reports the s it used.
+        real(dp), dimension(3) :: s_requested, s_evaluated
+
+        s_requested = [0.1_dp, 0.5_dp, 0.99_dp]
+        s_evaluated = s_requested
+        call assert_true(len_trim(boozer_s_range_problem(s_requested, s_evaluated)) == 0, &
+                         "s inside the Boozer file accepted")
+
+        s_evaluated(3) = 0.99975_dp
+        s_requested(3) = 1.0_dp
+        call assert_true(len_trim(boozer_s_range_problem(s_requested, s_evaluated)) > 0, &
+                         "s beyond the last Boozer surface rejected")
+
+        s_requested = [1.0e-4_dp, 0.5_dp, 0.99_dp]
+        s_evaluated = [2.5e-4_dp, 0.5_dp, 0.99_dp]
+        call assert_true(len_trim(boozer_s_range_problem(s_requested, s_evaluated)) > 0, &
+                         "s inside the first Boozer surface rejected")
+    end subroutine test_boozer_s_range
 
     subroutine test_s_max_ends_grid()
         ! The default s_max = 1 keeps the grid ending at s(rsepar), a smaller

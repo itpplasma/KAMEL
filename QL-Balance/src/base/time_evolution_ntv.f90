@@ -39,7 +39,8 @@ contains
         use neort_interface, only: meta_config_neort_t, read_neort_meta_config, &
                                    meta_config_neort_problem, read_equil_file, &
                                    calculate_s_tor, calculate_coarse_s_tor, dpsi_pol_dr, &
-                                   outer_s_of_grid, poloidal_flux_problem
+                                   outer_s_of_grid, poloidal_flux_problem, &
+                                   boozer_s_range_problem
         use plasma_parameters, only: qsaf
         use spline, only: spline_coeff, spline_val
 
@@ -49,7 +50,7 @@ contains
         real(dp), dimension(:, :), allocatable :: r_of_s_coeffs, s_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: s_splined, r_splined, q_splined
         real(dp), dimension(:, :), allocatable :: q_of_r_coeffs
-        real(dp), dimension(:), allocatable :: dpsi_pol_ds_neort, dpsi_pol_ds_kamel
+        real(dp), dimension(:), allocatable :: dpsi_pol_ds_neort, dpsi_pol_ds_kamel, s_evaluated
         real(dp) :: s_min, s_max
         type(meta_config_neort_t) :: meta_config
         type(flux_surface_t) :: surface
@@ -125,14 +126,18 @@ contains
         ! (neort_profiles), so poloidal_flux_derivative has to be
         ! sign_theta * iota * psi_pr: the denominator NEO-RT itself uses.
         allocate (q_of_r_coeffs(size(rc) - 1, 5), q_splined(s_size, 3))
-        allocate (dpsi_pol_ds_neort(s_size), dpsi_pol_ds_kamel(s_size))
+        allocate (dpsi_pol_ds_neort(s_size), dpsi_pol_ds_kamel(s_size), s_evaluated(s_size))
         q_of_r_coeffs = spline_coeff(rc, qsaf)
         q_splined = spline_val(q_of_r_coeffs, r)
         dpsi_pol_ds_kamel = dpsi_pol_dr(r, q_splined(:, 1)) * r_splined(:, 2)
         do i = 1, s_size
             call neort_get_flux_surface(s_tor(i), surface)
+            s_evaluated(i) = surface%s
             dpsi_pol_ds_neort(i) = surface%poloidal_flux_derivative
         end do
+        if (len_trim(boozer_s_range_problem(s_tor, s_evaluated)) > 0) then
+            error stop trim(boozer_s_range_problem(s_tor, s_evaluated))
+        end if
         if (len_trim(poloidal_flux_problem(dpsi_pol_ds_neort, dpsi_pol_ds_kamel)) > 0) then
             error stop trim(poloidal_flux_problem(dpsi_pol_ds_neort, dpsi_pol_ds_kamel))
         end if
@@ -150,7 +155,7 @@ contains
         deallocate (s_of_r_coeffs)
         deallocate (s_splined)
         deallocate (r_splined)
-        deallocate (q_of_r_coeffs, q_splined, dpsi_pol_ds_neort, dpsi_pol_ds_kamel)
+        deallocate (q_of_r_coeffs, q_splined, dpsi_pol_ds_neort, dpsi_pol_ds_kamel, s_evaluated)
     end subroutine initTimeEvolutionNTV
 
     subroutine runTimeEvolutionNTV(this)

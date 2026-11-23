@@ -517,5 +517,5 @@ if(DOXYGEN_FOUND)
         VERBATIM
     )
 else()
-    message(FATAL_ERROR "No doxygen tool is found in the system!")
+    message(STATUS "Doxygen not found; KiLCA 'doc' target is unavailable")
 endif()

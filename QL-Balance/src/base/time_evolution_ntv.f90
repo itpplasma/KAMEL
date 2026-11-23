@@ -40,7 +40,7 @@ contains
                                    meta_config_neort_problem, read_equil_file, &
                                    calculate_s_tor, calculate_coarse_s_tor, dpsi_pol_dr, &
                                    outer_s_of_grid, poloidal_flux_problem, &
-                                   boozer_s_range_problem
+                                   boozer_s_range_problem, s_grid_problem
         use plasma_parameters, only: qsaf
         use spline, only: spline_coeff, spline_val
 
@@ -101,17 +101,14 @@ contains
         s_of_r_coeffs = spline_coeff(r_eff, s_tor_equil)
         s_splined = spline_val(s_of_r_coeffs, [rmin, rsepar])
         s_min = s_splined(1, 1)
-        s_max = s_splined(2, 1)
-        if (s_min <= 0.0_dp .or. s_max > 1.0_dp .or. s_min >= s_max) then
-            print *, "NEO-RT s range from rmin and rsepar: ", s_min, s_max
-            error stop "TimeEvolutionNTV: rmin and rsepar must map to 0 < s <= 1"
+        ! The grid ends at min(s(rsepar), s_max), and only that range must lie in
+        ! 0 < s <= 1. Beyond its outer end the NTV torque is zero (apply_ntv_transport).
+        if (len_trim(s_grid_problem(s_min, s_splined(2, 1), meta_config%s_max)) > 0) then
+            print *, "NEO-RT s(rmin), s(rsepar), NEORT s_max: ", s_min, s_splined(2, 1), &
+                meta_config%s_max
+            error stop trim(s_grid_problem(s_min, s_splined(2, 1), meta_config%s_max))
         end if
-        ! Beyond the grid's outer end the NTV torque is zero (apply_ntv_transport).
-        s_max = outer_s_of_grid(s_max, meta_config%s_max)
-        if (s_min >= s_max) then
-            print *, "NEO-RT s(rmin) and NEORT s_max: ", s_min, s_max
-            error stop "TimeEvolutionNTV: NEORT s_max must exceed s(rmin)"
-        end if
+        s_max = outer_s_of_grid(s_splined(2, 1), meta_config%s_max)
 
         ! Create an equidistant grid in s from s(rmin) to the outer end
         call calculate_coarse_s_tor(s_tor, s_min, s_max, s_size)

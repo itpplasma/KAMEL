@@ -2,7 +2,8 @@ program test_neort_grid
     use iso_fortran_env, only: dp => real64
     use, intrinsic :: ieee_arithmetic, only: ieee_value, ieee_quiet_nan
     use neort_interface, only: boozer_s_range_problem, calculate_coarse_s_tor, calculate_s_tor, &
-                               outer_s_of_grid, poloidal_flux_problem, read_equil_file
+                               outer_s_of_grid, poloidal_flux_problem, read_equil_file, &
+                               s_grid_problem
     use control_mod, only: equil_path
 
     implicit none
@@ -16,6 +17,7 @@ program test_neort_grid
     call test_poloidal_flux_consistency()
     call test_boozer_s_range()
     call test_s_max_ends_grid()
+    call test_s_grid_range()
 
     if (num_failed > 0) then
         print '(A,I0)', "FAILED assertions: ", num_failed
@@ -134,6 +136,22 @@ contains
         call assert_equal(s_tor(2), 0.3_dp, "s_max shrinks the spacing")
         call assert_equal(s_tor(5), 0.6_dp, "s_max ends the grid")
     end subroutine test_s_max_ends_grid
+
+    subroutine test_s_grid_range()
+        ! Only s(rmin) .. min(s(rsepar), s_max) has to lie in 0 < s <= 1.
+        call assert_true(len_trim(s_grid_problem(0.0022_dp, 1.002_dp, 0.99_dp)) == 0, &
+                         "s_max cuts off an rsepar beyond s = 1")
+        call assert_true(len_trim(s_grid_problem(0.0022_dp, 1.002_dp, 1.0_dp)) == 0, &
+                         "default s_max ends the grid at s = 1")
+        call assert_true(len_trim(s_grid_problem(0.0022_dp, 0.9973_dp, 1.0_dp)) == 0, &
+                         "rsepar inside the boundary")
+        call assert_true(len_trim(s_grid_problem(0.0_dp, 0.9973_dp, 1.0_dp)) > 0, &
+                         "s(rmin) = 0 rejected")
+        call assert_true(len_trim(s_grid_problem(0.95_dp, 0.9973_dp, 0.9_dp)) > 0, &
+                         "s_max below s(rmin) rejected")
+        call assert_true(len_trim(s_grid_problem(0.5_dp, 0.4_dp, 1.0_dp)) > 0, &
+                         "s(rsepar) below s(rmin) rejected")
+    end subroutine test_s_grid_range
 
     subroutine assert_true(condition, label)
         logical, intent(in) :: condition

@@ -21,6 +21,7 @@ module neort_interface
     public :: apply_ntv_transport
     public :: calculate_coarse_s_tor
     public :: outer_s_of_grid
+    public :: s_grid_problem
     public :: calculate_s_tor
     public :: prepare_plasma_data_for_neort
     public :: prepare_profile_data_for_neort
@@ -557,6 +558,27 @@ contains
 
         s_outer = min(s_rsepar, s_max)
     end function outer_s_of_grid
+
+    !> @brief Describe an unusable NEO-RT s grid; empty if s(rmin) .. outer end is valid
+    !> @details The grid runs from s(rmin) to outer_s_of_grid(s(rsepar), s_max). Only
+    !>          that range has to lie in 0 < s <= 1, so s_max can cut off an rsepar
+    !>          that maps slightly beyond the Boozer boundary.
+    pure function s_grid_problem(s_rmin, s_rsepar, s_max) result(problem)
+        real(dp), intent(in) :: s_rmin, s_rsepar, s_max
+        character(len=256) :: problem
+
+        real(dp) :: s_outer
+
+        s_outer = outer_s_of_grid(s_rsepar, s_max)
+        problem = ""
+        if (.not. (s_rmin > 0.0_dp)) then
+            problem = "TimeEvolutionNTV: rmin must map to s > 0"
+        else if (.not. (s_outer <= 1.0_dp)) then
+            problem = "TimeEvolutionNTV: the NEO-RT s grid must end at s <= 1"
+        else if (.not. (s_rmin < s_outer)) then
+            problem = "TimeEvolutionNTV: s(rmin) must lie below min(s(rsepar), NEORT s_max)"
+        end if
+    end function s_grid_problem
 
     subroutine calculate_coarse_s_tor(s_tor, s_min, s_max, npoints)
         real(dp), dimension(:), intent(out) :: s_tor

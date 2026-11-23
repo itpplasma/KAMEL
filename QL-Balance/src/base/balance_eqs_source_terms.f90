@@ -9,6 +9,7 @@ subroutine det_balance_eqs_source_terms
     use grid_mod, only : y, dery, dery_equisource, equisource_reference, nbaleqs, &
                          set_boundary_condition, npoi
     use plasma_parameters, only: params
+    use baseparam_mod, only: Z_i
     use control_mod, only: data_verbosity
     use logger_m, only: log_debug
     use h5mod
@@ -51,7 +52,7 @@ subroutine det_balance_eqs_source_terms
     do ipoi=1,npoi
         i=nbaleqs*(ipoi-1)
         call convert_rates_to_equilibrium_sources(dery_equisource(i+1:i+nbaleqs), &
-                                                  params(:,ipoi), sources)
+                                                  params(:,ipoi), Z_i, sources)
         dery_equisource(i+1:i+nbaleqs)=sources
     enddo
 

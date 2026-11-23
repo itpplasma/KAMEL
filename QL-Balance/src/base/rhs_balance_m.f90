@@ -20,10 +20,12 @@ module rhs_balance_m
     ! every term of f exactly once [B1, #199].
     !
     ! Equilibrium sources [Markl2023 (22), (24), (25)]: dery_equisource holds, per
-    ! grid point, the particle source S_n^0, the source of the rotation frequency,
-    ! and the pressure sources (2/3) S_{w,e}^0 and (2/3) S_{w,i}^0. The rate of
-    ! temperature change they cause depends on the state,
-    !   dT/dt|_source = ((2/3) S_w^0 - T S_n^0) / n,
+    ! grid point, the particle source S_n^0 (of n_e), the source of the rotation
+    ! frequency, and the pressure sources (2/3) S_{w,e}^0 and (2/3) S_{w,i}^0, the
+    ! ion one for n_i = n_e / Z_i. The rate of temperature change they cause
+    ! depends on the state,
+    !   dT_e/dt|_source = ((2/3) S_{w,e}^0 - T_e S_n^0) / n_e,
+    !   dT_i/dt|_source = (Z_i (2/3) S_{w,i}^0 - T_i S_n^0) / n_e,
     ! because particles supplied by S_n^0 dilute the plasma. This term and its
     ! derivatives with respect to n and T enter f and A.
     !
@@ -367,8 +369,8 @@ contains
                 call linearize_equilibrium_source_rates(dery_equisource(i + 1:i + nbaleqs), &
                                                         params(:, ipoi), &
                                                         equisource_reference(i + 1:i + nbaleqs), &
-                                                        implicit_sinks, params_lin(:, ipoi), &
-                                                        source_rates)
+                                                        implicit_sinks, Z_i, &
+                                                        params_lin(:, ipoi), source_rates)
                 dy(i + 1:i + nbaleqs) = dy(i + 1:i + nbaleqs) + source_rates
             end do
 
@@ -421,7 +423,7 @@ contains
                 call compute_equilibrium_source_rates(dery_equisource(i + 1:i + nbaleqs), &
                                                       params(:, ipoi), &
                                                       equisource_reference(i + 1:i + nbaleqs), &
-                                                      implicit_sinks, source_rates)
+                                                      implicit_sinks, Z_i, source_rates)
                 rhsvec(i + 1:i + nbaleqs) = rate(i + 1:i + nbaleqs) + source_rates
             end do
             do i = 1, k
@@ -432,21 +434,23 @@ contains
 
     end subroutine rhs_balance
 
-    pure subroutine convert_rates_to_equilibrium_sources(rates, params_point, sources)
+    pure subroutine convert_rates_to_equilibrium_sources(rates, params_point, Z_i, sources)
         !
         ! Convert the rates of change d(n, Vphi, Te, Ti)/dt that keep the state
         ! params_point stationary into equilibrium sources in conserved form:
-        !   sources(1) = S_n^0                 particle source
+        !   sources(1) = S_n^0                 particle source (of n_e)
         !   sources(2)                         source of the rotation frequency
         !   sources(3:4) = (2/3) S_{w,e/i}^0   pressure sources, from
-        !                  d(nT)/dt = n dT/dt + T dn/dt
+        !                  d(n_a T_a)/dt with n_e = params_point(1), n_i = n_e / Z_i
         !     [Markl2023 (22), (24), (25)]
         !
         real(dp), dimension(4), intent(in) :: rates, params_point
+        real(dp), intent(in) :: Z_i
         real(dp), dimension(4), intent(out) :: sources
 
         sources(1:2) = rates(1:2)
         sources(3:4) = params_point(1) * rates(3:4) + params_point(3:4) * rates(1)
+        sources(4) = sources(4) / Z_i
     end subroutine convert_rates_to_equilibrium_sources
 
     pure subroutine apply_equilibrium_sinks(sources, params_point, reference, &
@@ -474,25 +478,28 @@ contains
     end subroutine apply_equilibrium_sinks
 
     pure subroutine compute_equilibrium_source_rates(sources, params_point, reference, &
-                                                     implicit_sinks, source_rates)
+                                                     implicit_sinks, Z_i, source_rates)
         !
         ! Rates of change d(n, Vphi, Te, Ti)/dt caused by the equilibrium sources at
         ! the state params_point. For the temperatures
-        !   dT/dt = ((2/3) S_w^0 - T S_n^0) / n,
+        !   dT_e/dt = ((2/3) S_{w,e}^0 - T_e S_n^0) / n_e,
+        !   dT_i/dt = (Z_i (2/3) S_{w,i}^0 - T_i S_n^0) / n_e,
         ! the second term being the dilution by the particle source.
         !
         real(dp), dimension(4), intent(in) :: sources, params_point, reference
         logical, intent(in) :: implicit_sinks
+        real(dp), intent(in) :: Z_i
         real(dp), dimension(4), intent(out) :: source_rates
         real(dp), dimension(4) :: effective
 
         call apply_equilibrium_sinks(sources, params_point, reference, implicit_sinks, effective)
+        effective(4) = Z_i * effective(4)
         source_rates(1:2) = effective(1:2)
         source_rates(3:4) = (effective(3:4) - params_point(3:4) * effective(1)) / params_point(1)
     end subroutine compute_equilibrium_source_rates
 
     pure subroutine linearize_equilibrium_source_rates(sources, params_point, reference, &
-                                                       implicit_sinks, params_lin_point, &
+                                                       implicit_sinks, Z_i, params_lin_point, &
                                                        source_rates_lin)
         !
         ! Response of compute_equilibrium_source_rates to a perturbation
@@ -500,6 +507,7 @@ contains
         !
         real(dp), dimension(4), intent(in) :: sources, params_point, reference
         logical, intent(in) :: implicit_sinks
+        real(dp), intent(in) :: Z_i
         real(dp), dimension(4), intent(in) :: params_lin_point
         real(dp), dimension(4), intent(out) :: source_rates_lin
         real(dp), dimension(4) :: effective, effective_lin
@@ -516,6 +524,10 @@ contains
                      params_point(1) * params_lin_point(ieq)) / (reference(1) * reference(ieq))
             end do
         end if
+
+        ! The ion pressure source is stored for n_i = n_e / Z_i.
+        effective(4) = Z_i * effective(4)
+        effective_lin(4) = Z_i * effective_lin(4)
 
         source_rates_lin(1) = effective_lin(1)
         source_rates_lin(2) = 0.0_dp

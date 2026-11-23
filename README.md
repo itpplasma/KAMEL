@@ -12,7 +12,7 @@ interfaces.
 
 | Component | Purpose | Documentation |
 | --- | --- | --- |
-| KiLCA | Cylindrical kinetic response solver with finite-Larmor-radius effects | [KiLCA/README](KiLCA/README) |
+| KiLCA | Cylindrical kinetic response solver with finite-Larmor-radius effects | [KiLCA/README.md](KiLCA/README.md) |
 | KIM | Non-local integral plasma-response model, including global and forced-periodic electrostatic solvers | [KIM/README.md](KIM/README.md) |
 | QL-Balance | One-dimensional quasilinear transport solver using KIM or KiLCA response fields | [QL-Balance/README.md](QL-Balance/README.md) |
 
@@ -37,6 +37,7 @@ The complete build requires:
 - C, C++, and Fortran compilers with OpenMP support.
 - BLAS and LAPACK.
 - SuperLU (used by KIM).
+- Doxygen (optional; only for the KiLCA API documentation target `doc`).
 
 The first configuration needs network access. CMake fetches pinned or selected
 versions of fortnum, fortio, SUNDIALS, SuiteSparse, and libneo. HDF5 and NetCDF
@@ -46,8 +47,8 @@ bundled in KIM. Python is optional for the compiled solvers but required for
 KAMELpy and several analysis workflows; its package requirements are listed in
 [`python/requirements.txt`](python/requirements.txt).
 
-CI builds on Ubuntu with GNU compilers. The CMake configuration also contains
-macOS/Homebrew support for LLVM OpenMP and HDF5.
+CI builds and tests on Ubuntu (GNU compilers) and on macOS with Homebrew
+(GNU Fortran, LLVM OpenMP).
 
 ## Build
 
@@ -159,6 +160,10 @@ make golden
 See [`test/golden/README.md`](test/golden/README.md) before adding a case or
 re-blessing the baseline.
 
+`make pytest` runs the Python checks for the golden-record harness, the
+periodic workflow configuration, and the consistency of the KIM namelist
+reference with the source.
+
 ## Python interface
 
 Install KAMELpy in editable mode from a virtual environment:
@@ -178,6 +183,11 @@ The build stages its executables and libraries below `build/install`. The
 `kim` command belongs to the `kamel-kim` Python package; the solver executable
 is `KIM.x`. If an older setup left a `kim` alias or symlink pointing to `KIM.x`,
 remove it so that the Python command is found (`command -v kim`).
+
+## Developer documentation
+
+Design notes, implementation plans, benchmark records and verification
+reports are collected in [`docs/`](docs/README.md).
 
 ## Contributing
 

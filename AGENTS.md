@@ -50,9 +50,9 @@ make clean
 
 **Build notes:**
 - Build system is CMake + Ninja (`build/build.ninja`); ensure Ninja is on PATH.
-- `QL-Balance` depends on `KiLCA` artifacts — build KiLCA first.
-- Compilers: MPI Fortran (`mpif90`), C/C++ with clang-format support.
-- Platforms tested: Apple Silicon (clang 16.0 + gfortran 14.2), Debian (GNU 12.2.0).
+- CMake resolves dependencies between components: `make QL-Balance` also builds KiLCA and KIM.
+- Compilers: C, C++ and Fortran with OpenMP. MPI is not used.
+- CI platforms: Ubuntu (GNU compilers) and macOS with Homebrew (GNU Fortran, LLVM OpenMP).
 - Reconfigure tip: when in doubt, `make clean` then rebuild.
 - With multiple worktrees, confirm that `python -c "import kim; print(kim.__file__)"` resolves to
   the intended worktree before trusting API test results.
@@ -61,12 +61,20 @@ make clean
 
 ### External Libraries
 
-- **MPI** - Parallel computing
+System libraries:
+
+- **OpenMP** - Shared-memory parallelism
 - **LAPACK/BLAS** - Linear algebra
-- **SuiteSparse** - Sparse matrix operations
-- **HDF5** - Data storage
+- **SuperLU** - Sparse direct solver (KIM)
+- **Doxygen** - Optional, KiLCA API documentation only
+
+Fetched by CMake at configure time (fortnum, fortio, libneo and NEO-RT commits are pinned in
+`cmake/DependencyPins.cmake`; SUNDIALS and SuiteSparse versions are set in their `cmake/Fetch*.cmake`):
+
 - **fortnum** - Numerical core (special functions, quadrature, ODE, root finding)
-- **SUNDIALS** - Numerical solvers
+- **fortio** - HDF5 and NetCDF file I/O; the native HDF5/NetCDF libraries are not linked
+- **libneo**, **NEO-RT** - Equilibrium/field routines and NTV transport (QL-Balance)
+- **SUNDIALS**, **SuiteSparse** - ODE and sparse solvers
 
 ### Python Dependencies
 
@@ -128,6 +136,8 @@ may accept a normalized `sqrt_psiN` radial coordinate, but transforms it to `r_e
 
 ### Profile Coordinate Types (`KIM_PROFILES` namelist)
 
+The complete option list is in `KIM/nmls/README.md`.
+
 ```fortran
 &KIM_PROFILES
     coord_type = 'auto'           ! 'auto', 'sqrt_psiN', or 'r_eff'
@@ -173,11 +183,12 @@ Output written to `Er_no_Vpol.dat` (without poloidal rotation contribution).
 
 - **Indentation**: 4 spaces (no tabs)
 - **Line width**: 100 columns maximum
-- **Fortran formatting**: Use `fprettify` (see `.fprettify` config)
+- **Fortran formatting**: Use `fprettify` (see `.fprettify` config); not checked by CI
   - Module names use `_m` suffix
   - Test files named `test_*.f90`
   - Executables use `.x` suffix
-- **C/C++ formatting**: Use `clang-format` (LLVM base style, see `.clang-format`)
+- **C/C++ formatting**: Use `clang-format` (LLVM base style, see `.clang-format`); not checked by CI
+- **Python/CMake formatting**: black, isort and gersemi run as pre-commit hooks and in CI
 
 ## Testing
 

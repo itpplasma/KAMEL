@@ -43,10 +43,15 @@ pip install pre-commit
 pre-commit install
 ```
 
-The following formatters are enforced:
-- **Fortran**: fprettify
-- **C/C++**: clang-format
+The pre-commit hooks, which CI also runs on every pull request, enforce:
 - **Python**: black, isort
+- **CMake**: gersemi
+- **All files**: trailing whitespace, final newline, no tabs, line endings,
+  merge-conflict markers, private keys, and valid TOML/YAML
+
+Fortran and C/C++ formatting is not checked automatically. Format changed
+Fortran code with `fprettify` and C/C++ code with `clang-format`, using the
+repository's `.fprettify` and `.clang-format` settings.
 
 ## Build and Test
 

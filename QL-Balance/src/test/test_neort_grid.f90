@@ -83,6 +83,12 @@ contains
         call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) > 0, &
                          "opposite orientation rejected")
 
+        ! A unit error (T m^2 against G cm^2) gives a mismatch of ~1e8, which
+        ! the message must still print.
+        kamel = neort * 1.0e-8_dp
+        call assert_true(index(poloidal_flux_problem(neort, kamel), "1.000E+08") > 0, &
+                         "large mismatch printed")
+
         kamel = neort
         kamel(2) = ieee_value(1.0_dp, ieee_quiet_nan)
         call assert_true(len_trim(poloidal_flux_problem(neort, kamel)) > 0, &

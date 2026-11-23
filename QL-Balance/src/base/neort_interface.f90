@@ -438,7 +438,7 @@ contains
         end if
         mismatch = maxval(abs(dpsi_pol_ds_neort - dpsi_pol_ds_kamel) / abs(dpsi_pol_ds_kamel))
         if (mismatch > tolerance) then
-            write (problem, '(A,F6.3)') &
+            write (problem, '(A,ES10.3)') &
                 "NEO-RT Boozer and KAMEL dpsi_pol/ds differ, relative mismatch ", mismatch
         end if
     end function poloidal_flux_problem

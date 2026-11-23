@@ -1,9 +1,28 @@
 # Configuration of KIM
 KIM is configured via the namelist file KIM_config.nml containing multiple namelists. The following gives an overview of the purpose of each variable.
 
+`KIM.x` takes the namelist path as its only argument (default `./KIM_config.nml`).
+The groups `KIM_CONFIG`, `WKB_DISPERSION`, `KIM_IO`, `KIM_SETUP`, `KIM_GRID` and
+`KIM_PROFILES` are required and are read sequentially in this order, so they
+must appear in the file in this order (other groups may be interleaved).
+`WKB_DISPERSION` must be present even when `type_of_run` is not
+`WKB_dispersion`; an empty `&WKB_DISPERSION /` is sufficient. `KIM_PERIODIC`
+and `KIM_FLR2` are optional. `KIM_SPECIES` is read only when
+`read_species_from_namelist = .true.`. An option that the code does not read
+aborts the run, so remove options that are no longer listed here.
+
+Options listed without a default have no default assigned in the source and
+must be set explicitly.
+
+Each run writes into the subdirectory `m<m_mode>_n<n_mode>/` of `output_path`.
+
+The complete option set is checked against the source by
+`test/test_kim_namelist_docs.py`.
+
 ## KIM_CONFIG
 - number_of_ion_species ... integer, number of ion species
-- read_species_from_namelist ... boolean, if false, initialize deuterium plasma
+- read_species_from_namelist ... boolean, if true, read the ion species from `&KIM_SPECIES`; if false, initialize a single-ion plasma selected by `plasma_type`
+- plasma_type ... string, ion species used when `read_species_from_namelist = .false.`: 'D' (deuterium) or 'H' (hydrogen). Any other value aborts the run
 - type_of_run ... string, specifies the type of run, options include: 'electrostatic', 'electrostatic_periodic', 'electromagnetic', 'WKB_dispersion', 'flr2', 'flr2_benchmark'. `flr2` runs the imported KiLCA-FLR2 local second-order response using KIM's prepared background; `flr2_benchmark` runs KIM's non-local FLR2 kernel benchmark.
 - collision_model ... string, collision model to use, options are: 'Krook', 'FokkerPlanck'
 - ion_collision_model ... string, ion model used with `collision_model='FokkerPlanck'`: `FokkerPlanck` (default) or `collisionless`. In `electrostatic_periodic`, collisionless mode keeps FP electrons and uses the $m_\phi=0$ collisionless ion kernels for both charge and parallel current.
@@ -14,6 +33,12 @@ KIM is configured via the namelist file KIM_config.nml containing multiple namel
 - ion_ifunc_conservation_model ... integer, ion FPGEN conservation model with the same numbering. Use `1` for the tokamak-like flow-braking model and `3` for the momentum-conserving cylindrical model.
 - boole_energy_conservation ... deprecated boolean fallback used only for a species whose integer model is `-1`; `.true.` resolves to model `1`, `.false.` to model `0`
 - artificial_debye_case ... integer, if 0: full calculation of kernel, if 1: Debye case, if 2: exclude Debye case
+- turn_off_electrons ... boolean, if true, the electron (species 0) contributions are skipped when the response kernels are assembled. The `flr2` run type also drops the electron potential and current terms and rejects disabling both electrons and ions
+- turn_off_ions ... boolean, if true, the ion contributions are skipped when the response kernels are assembled; in the global electrostatic run the per-ion potentials `Phi_m_<species>` are written as zero
+- rescale_density ... boolean, if true, multiply the density and its radial derivative of every species (electrons and ions) by `number_density_rescale` and recompute the Debye lengths. The rescaling is applied after the collision frequencies are calculated, so these use the unscaled density
+- number_density_rescale ... real, density multiplier used when `rescale_density = .true.`
+- ion_flr_scale_factor ... real, multiplier applied to the ion thermal Larmor radius and to the ion FLR terms of the Fokker-Planck kernels; electron terms are never scaled. Use `1.0` for the physical Larmor radius
+- ion_temperature_gradient_model ... string, diagnostic control of the ion thermodynamic-force terms (default `'full'`): `'full'` keeps both temperature-gradient terms; `'zero_A2'` sets the ion `A2` to zero; `'zero_Tprime'` sets both the temperature-gradient part of the ion `A1` and the ion `A2` to zero. Only the ion forces change; the Ti profile and every other quantity derived from it are unchanged. Electron forces are never modified
 
 Collisionless forced periodicity currently requires `artificial_debye_case=0`,
 `theta_integration='GaussLegendre'`, and a positive
@@ -28,12 +53,14 @@ ion_ifunc_conservation_model = 3       ! N+E+P: conserve ion parallel momentum
 ```
 
 ## KIM_IO
-- profile_location ... string, path to the profiles
-- output_path ... string, path to the output directory
-- hdf5_input ... boolean, if true reads from a hdf5 file
+- profile_location ... string, directory of the prepared `r_eff` profiles (`n.dat`, `Te.dat`, `Ti.dat`, `q.dat`, `Er.dat`). The profile reader appends the file names without a separator, so the path must end with `/`
+- output_path ... string, path to the output directory; results are written to `<output_path>/m<m_mode>_n<n_mode>/`
+- hdf5_input ... boolean, must be `.false.`. Reading profiles from HDF5 is not implemented: with `.true.` KIM only logs a message and reads no profiles
 - hdf5_output ... boolean, if true writes to a hdf5 output file
-- fdebug ... integer, flag for debugging (0=off, 1=basic, 2=detailed)
-- fstatus ... integer, flag for giving status updates during the execution of the code
+- h5_out_file ... string, name of the HDF5 output file inside the run output directory; required when `hdf5_output = .true.`. An existing file of that name is deleted at startup
+- log_level ... integer, console log verbosity (default 3): -1 silent, 0 results only, 1 errors, 2 warnings, 3 info, 4 debug, 5 trace; values outside this range are clamped
+- data_verbosity ... integer, amount of auxiliary data written (default 1). Values of 3 or more additionally write the kernel prefactors and a sparse-matrix check file of the Poisson system
+- write_diagnostics_dat ... boolean, write the scalar resonance diagnostics (`dqle22`, `Ipar`, `Ipar_e`) to `kim_diagnostics.dat` in the run output directory, independent of `hdf5_output` (default false). The file is not written when the resonant surface lies outside the radial grid
 - calculate_asymptotics ... boolean, if true calculates asymptotic quantities (FLR2 asymptotic potential and Fourier space kernel)
 
 ## KIM_SETUP
@@ -48,8 +75,29 @@ ion_ifunc_conservation_model = 3       ! N+E+P: conserve ion parallel momentum
 - set_profiles_constant ... integer, if 1, sets profiles constant to the core value
 - bc_type ... integer, boundary condition type. 0: None; 1: zero Neuman left, zero Dirichlet right; 2: Dirichlet left and right; 3: zero-misalignment
 - mphi_max ... integer, maximum number of cyclotron harmonics to include in kernel calculations
-- Br_boundary_re ... double, real part of Br at right boundary (default 1.0), used by the `electromagnetic` run type and as the constant Br amplitude for `flr2`
-- Br_boundary_im ... double, imaginary part of Br at right boundary (default 0.0), used by the `electromagnetic` run type and as the constant Br amplitude for `flr2`
+- Br_boundary_re ... double, real part of Br at right boundary (default 1.0), used by the `electromagnetic` run type and as the constant Br amplitude for `flr2` and `electrostatic_periodic`
+- Br_boundary_im ... double, imaginary part of Br at right boundary (default 0.0), used by the `electromagnetic` run type and as the constant Br amplitude for `flr2` and `electrostatic_periodic`
+
+## WKB_DISPERSION
+
+Used by `type_of_run = 'WKB_dispersion'`, which solves the local dispersion
+relation D = 0 for the complex radial wavenumber at each point of the r_g grid.
+The group must be present for every run type. Results are written to
+`<run output directory>/dispersion/`.
+
+- WKB_dispersion_mode ... string, dispersion function (default `'KIM'`): `'KIM'` uses the full Bessel-function form, `'FLRE'` the finite-Larmor-radius expansion
+- WKB_dispersion_solver ... string, root finder (default `'Muller'`): `'Muller'` tracks one root from grid point to grid point, using the previous root as initial guess (recommended); `'region_roots'` uses contour integration with Newton refinement (fortnum `complex_region_roots`) and tracks several branches
+- WKB_solve_for_kr_squared ... boolean, if true the unknown is kr^2 and D(kr^2) = 0 is solved; if false (default) the unknown is kr
+- WKB_use_initial_root ... boolean, `Muller` only: seed the first grid point with `WKB_initial_root_real + i WKB_initial_root_imag` (default false)
+- WKB_initial_root_real ... real, real part of the initial root, in the same variable as the unknown (kr or kr^2; default 0)
+- WKB_initial_root_imag ... real, imaginary part of the initial root (default 0)
+- WKB_initial_root_profile ... string, `Muller` only: optional file with one line `r, Re(root), Im(root)` per r_g grid point. Its radii must match the r_g grid to 1e-8; when set, it seeds every grid point and takes precedence over the previous-root guess
+- WKB_max_tracked_branches ... integer, `region_roots` only: maximum number of simultaneously tracked branches (default 4)
+- WKB_branch_search_halfwidth ... real, `region_roots` only: half-width of the square search region in the complex plane of the unknown around each tracked branch (default 1.5)
+- WKB_broad_search_halfwidth ... real, `region_roots` only: half-width of the square region used for branch discovery (default 5.0)
+- WKB_broad_search_interval ... integer, `region_roots` only: repeat the broad search every N grid points; 0 (default) searches broadly only at the first point and whenever all branches are lost
+- WKB_root_tolerance ... real, `region_roots` only: roots with \|D\| at or above this value are discarded (default 1e-6)
+- WKB_verbose ... boolean, `region_roots` only: print per-grid-point search details (default false)
 
 ## KIM_GRID
 - r_plas ... double, minor radius of the plasma in cm
@@ -57,7 +105,6 @@ ion_ifunc_conservation_model = 3       ! N+E+P: conserve ion parallel momentum
 - width_res ... double, width of the resonant layer
 - ampl_res ... double, amplitude factor for the resonant layer
 - hrmax_scaling ... double, scaling factor for maximum grid spacing
-- k_space_dim ... integer, dimension of the k space
 - l_space_dim ... integer, dimension of the spline space
 - rg_space_dim ... integer, number of r_g grid points (cell boundaries)
    With "equidistant" spacing the grid has exactly this many points, from r_min to r_plas
@@ -65,19 +112,16 @@ ion_ifunc_conservation_model = 3       ! N+E+P: conserve ion parallel momentum
    l_space_dim.
  - grid_spacing_rg ... string, r_g grid spacing: "equidistant", "non-equidistant", or "adaptive"
  - grid_spacing_xl ... string, x_l grid spacing: "equidistant", "non-equidistant", or "adaptive"
-- num_gengrid_points ... integer, minimal number of grid points in the l grid
-- kr_grid_width_res ... double, width parameter for k-space grid near resonance
-- kr_grid_ampl_res ... double, amplitude parameter for k-space grid near resonance
 - theta_integration ... string, angular integration selector:
   - "GaussLegendre": fixed-order Gauss–Legendre quadrature
   - "RKF45" or "QUADPACK": adaptive path (the actual adaptive integrator is selected by `theta_integration_method`)
-- theta_integration_method ... string, adaptive integrator selection when `theta_integration` is "RKF45" or "QUADPACK"; options:
+- theta_integration_method ... string, adaptive integrator; normally omitted, because KIM sets it from `theta_integration` ("RKF45" or "QUADPACK") and overwrites any value given here in that case:
   - "RKF45": embedded Runge–Kutta–Fehlberg (adaptive)
-  - "QUADPACK": Netlib QUADPACK (adaptive, global)
+  - "QUADPACK": QUADPACK-style adaptive Gauss–Kronrod integration (QAG/QAGS) provided by fortnum
 - quadpack_algorithm ... string, QUADPACK algorithm for finite-interval θ integrals: "QAG" or "QAGS"
   - 'QAG': General-purpose adaptive integration (recommended for most cases)
   - 'QAGS': Adaptive integration with singularities at endpoints
-- quadpack_key ... integer, Gauss–Kronrod rule key for QAG/QAGS (1–6 for 15–61 points; 6 = 61‑point)
+- quadpack_key ... integer, Gauss–Kronrod rule key for QAG (1–6 for 15–61 points; 6 = 61‑point); QAGS uses its own fixed rule
     - 1: QK15 (7-15 points) - Fast but less accurate
     - 2: QK21 (10-21 points)
     - 3: QK31 (15-31 points)
@@ -92,20 +136,52 @@ ion_ifunc_conservation_model = 3       ! N+E+P: conserve ion parallel momentum
 - quadpack_use_u_substitution ... boolean, use u = sin(θ/2) mapping to improve stability near endpoints
 - rkf45_atol ... double, absolute tolerance for RKF45 adaptive θ-integration
 - rkf45_rtol ... double, relative tolerance for RKF45 adaptive θ-integration
-- kernel_taper_skip_threshold ... double, threshold for skipping a kernel contribution when the distance-based taper weight falls below this value
+- kernel_taper_skip_threshold ... double, threshold for skipping a kernel contribution when the distance-based taper weight falls below this value; must lie in (0, 1)
 - Larmor_skip_factor ... double, scaling of the distance-based taper exp(-(d/(alpha*rhoT))^2); larger values reduce skipping by broadening support
 - gauss_int_nodes_Nx ... integer, number of Gauss integration nodes in x direction (should differ from Nxp)
 - gauss_int_nodes_Nxp ... integer, number of Gauss integration nodes in x' direction
 - gauss_int_nodes_Ntheta ... integer, number of Gauss integration nodes in theta direction (used only when theta_integration = "GaussLegendre")
 
 Notes:
-- QUADPACK integration fetches Netlib sources at CMake configure time; network access is required unless cached.
+- The QAG/QAGS integrators come from fortnum, which CMake fetches with the other pinned dependencies; no separate QUADPACK or SLATEC sources are needed.
 - QUADPACK supports only finite-interval θ integrals here; "QAGI" (infinite intervals) is not used by the kernels.
-- A fallback `xerror` (SLATEC error handler) can be enabled via CMake option `KIM_XERROR_FALLBACK` (ON by default) when SLATEC does not provide it.
 
 ## KIM_SPECIES
+
+Read only when `read_species_from_namelist = .true.`; the first
+`number_of_ion_species` entries are used (at most 16).
+
 - zi ... integer array, ion charge numbers (e.g., zi = 1, 2 for H+ and He++)
 - ai ... integer array, ion mass numbers (e.g., ai = 2, 4 for D and He)
+
+## KIM_PROFILES
+
+Controls how the profiles in `profile_location` are prepared before the solver
+reads them. With `coord_type = 'sqrt_psiN'`, KIM transforms raw profiles from
+`input_profile_dir` to `r_eff` and writes them to `profile_location`. If
+`Er_file` is missing from `profile_location`, Er is computed from radial force
+balance without poloidal rotation. KIM also checks `r_min` and `r_plas` against
+the radial range of the density profile, and compares `btor` and `R0` with
+`btor_rbig.dat` in `profile_location` when that file exists.
+
+The solver itself reads `n.dat`, `Te.dat`, `Ti.dat`, `q.dat` and `Er.dat` from
+`profile_location`; the `*_file` options below rename only the files used by
+the preparation step.
+
+- coord_type ... string, radial coordinate of the input profiles (default `'auto'`): `'r_eff'` effective radius in cm, used as is; `'sqrt_psiN'` normalized poloidal-flux radius, transformed to `r_eff` with the equilibrium; `'auto'` selects `'r_eff'` if the largest radius in the density input exceeds 2, otherwise `'sqrt_psiN'`
+- input_profile_dir ... string, directory of the raw input profiles (default `'./'`). For `'r_eff'` input in a different directory than `profile_location`, only `Er_file` is copied from here
+- equil_file ... string, equilibrium table `equil_r_q_psi.dat` used for the `sqrt_psiN` transformation (default empty: `<input_profile_dir>/equil_r_q_psi.dat`)
+- geqdsk_file ... string, GEQDSK file used to compute the equilibrium when the equilibrium table does not exist (default empty). This path requires the environment variable `$CODE` to locate `$CODE/KAMEL/common/equil/convexwall/convexwall.asdex`, an ASDEX Upgrade wall contour, and writes `field_divB0.inp` into the working directory
+- n_input_file ... string, density input file in `sqrt_psiN` coordinates (default `'n_of_psiN.dat'`); also the first file tried by `coord_type = 'auto'`
+- Te_input_file ... string, electron-temperature input file in `sqrt_psiN` coordinates (default `'Te_of_psiN.dat'`)
+- Ti_input_file ... string, ion-temperature input file in `sqrt_psiN` coordinates (default `'Ti_of_psiN.dat'`)
+- Vz_input_file ... string, toroidal-rotation input file in `sqrt_psiN` coordinates (default `'Vz_of_psiN.dat'`)
+- n_file ... string, prepared density file name (default `'n.dat'`); used by the `auto` detection fallback (in `input_profile_dir`), the radial-range check and the Er force-balance calculation
+- Te_file ... string, prepared electron-temperature file name (default `'Te.dat'`); accepted but currently not used
+- Ti_file ... string, prepared ion-temperature file name (default `'Ti.dat'`); used by the Er force-balance calculation
+- Vz_file ... string, prepared toroidal-rotation file name (default `'Vz.dat'`); used by the Er force-balance calculation, which assumes Vz = 0 if the file is missing
+- Er_file ... string, prepared radial-electric-field file name (default `'Er.dat'`); if it is missing from `profile_location`, Er is computed from force balance
+- q_file ... string, prepared safety-factor file name (default `'q.dat'`); used by the Er force-balance calculation
 
 ## KIM_PERIODIC
 
@@ -115,6 +191,7 @@ Notes:
 - periodic_n_rg ... integer, number of endpoint-exclusive guiding-centre samples over one period
 - periodic_calculate_radial_current ... boolean, assemble and reconstruct the periodic radial-current response; default false. Set true when `/fields/jrad` is needed
 - periodic_calculate_ion_tensor ... boolean, calculate and return the periodic ion diffusion tensor; default false. Set true for QL-Balance transport or other runs that need `D_ion`; field/current/diagnostic-only runs leave it unavailable
+- periodic_Bparallel_ratio ... complex, ratio of the constant parallel magnetic-field drive to the constant radial drive: the periodic solve uses `Bparallel = periodic_Bparallel_ratio * (Br_boundary_re + i Br_boundary_im)`. Default `(0.0, 0.0)` disables the parallel drive (purely radial benchmark); set it explicitly for coupled runs
 - periodic_match_global_kernel_approximations ... boolean, if true drops $k_s^2$ from the FLR arguments and takes electrons in the zero-FLR limit for comparison with the simplified global model; default false
 
 For `ion_collision_model='collisionless'`, these settings control the same

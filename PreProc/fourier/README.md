@@ -10,9 +10,10 @@ axisymmetric equilibrium into the effective radius, magnetic fluxes, etc.  The b
 3. projects the perturbation magnetic field into toroidal/poloidal Fourier
    coefficients that are emitted in machine-readable (`*.dat`) form.
 
-The implementation relies on several modules from the open-source
-[`libneo`](https://github.com/itpplasma/libneo) project; the required source
-files are downloaded automatically during CMake configuration.
+The implementation links the KAMEL equilibrium library `kamel_equil`
+(`common/equil/`) and the `magfie` library of the open-source
+[`libneo`](https://github.com/itpplasma/libneo) project, which the top-level
+CMake build fetches at a pinned commit (`cmake/DependencyPins.cmake`).
 
 ## Building
 
@@ -34,7 +35,8 @@ under `inp/`.
 
 ### `field_divB0.inp`
 
-Lines are read sequentially (free format) by `field_divB0.f90`:
+Lines are read sequentially (free format) by `field_divB0.f90` in libneo's
+`magfie` library (not part of this repository):
 
 1. `ipert` – perturbation mode selector  
    `0` (equilibrium only), `1` (vacuum coils), `2` (vacuum + plasma shielding,
@@ -54,10 +56,12 @@ Lines are read sequentially (free format) by `field_divB0.f90`:
     `ipert ≥ 2`.
 11. `nwindow_r` – window size (in radial grid points) for smoothing ψ(R).
 12. `nwindow_z` – window size (in vertical grid points) for smoothing ψ(Z).
+13. `ieqfile` – optional equilibrium file format: `0` old format, `1` GEQDSK
+    (default when the line is missing), `2` WEST GEQDSK.
 
 Leave the string entries quoted; set them to empty quotes (`''`) when the data
 are not needed for the selected `ipert`/`iequil` combination.  The default
-values in `inp/template_field_divB0.inp` illustrate the expected formatting and
+values in `inp/field_divB0.inp` illustrate the expected formatting and
 include inline comments describing each switch.
 
 ### `fouriermodes.inp`
@@ -105,8 +109,8 @@ matching Fortran or Python readers that understand the binary record layout.
 
 ## Notes
 
-- CMake re-downloads the required `libneo` sources whenever you delete
-  `src/*_libneo.f90`; avoid running `make clean` if you are offline.
+- The first CMake configuration fetches libneo and therefore needs network
+  access; `make clean` removes the fetched copy together with `build/`.
 - All computations assume right-handed cylindrical coordinates (R, φ, Z) and
   the Boozer-angle conventions implemented in `libneo`.  Ensure your inputs are
   consistent with those assumptions.
@@ -114,5 +118,5 @@ matching Fortran or Python readers that understand the binary record layout.
   coil and flux-coordinate paths blank; the code will skip the perturbation
   branches automatically.
 
-Refer to the inline comments in `template_field_divB0.inp` and
-`fouriermodes.f90` for additional implementation details.
+Refer to the inline comments in `inp/field_divB0.inp` and
+`src/fouriermodes.f90` for additional implementation details.

@@ -3,23 +3,23 @@ This is the integral plasma response model based on the code and model Kinetic L
 
 ## Dependencies
 
-### Required Libraries
+### System libraries
 - **LAPACK/BLAS** - Linear algebra
-- **fortnum** - Special functions (Bessel) and error function
-- **HDF5** - Data storage (with Fortran bindings)
-- **SuiteSparse** - Sparse matrix operations (UMFPACK)
 - **SuperLU** - Sparse direct solver
 
-### Auto-fetched Dependencies
-The following are automatically downloaded during build:
-- **fortnum** - Numerical core: complex region-root finder, quadrature, ODE, special functions
-- **libcerf** - Complex error function
+### Fetched or bundled by the build
+- **fortnum** - Numerical core: complex region-root finder, quadrature (QAG/QAGS), ODE, special functions (fetched)
+- **fortio** - HDF5 and NetCDF file I/O; the native HDF5 library is not linked (fetched)
+- **SuiteSparse** - Sparse matrix operations (UMFPACK); always built from the pinned fetched release, never taken from the system
+- **libcerf** - Complex error function (bundled in `src/math/libcerf-main`)
 
-### Build Dependencies
-- **KiLCA** - Must be built before KIM (provides core library)
+KIM does not link against KiLCA. Build it with `make KIM` from the KAMEL root;
+CMake builds the required libraries first.
 
 ## Configuration
-The code is configured with the namelist file */nmls/KIM_config.nml*.
+The code is configured with a namelist file; `nmls/KIM_config.nml` is the
+reference example and the [namelist reference](nmls/README.md) describes every
+option. `KIM.x` takes the namelist path as its only argument.
 
 For `grid_spacing_rg` or `grid_spacing_xl` set to `adaptive` or
 `non-equidistant`, the generated physical nodes include `r_min` and `r_plas`
@@ -96,35 +96,26 @@ FLR2 approximation of KIM's non-local integral kernel and global Poisson
 solver.
 
 ## Compilation
-To compile the code:
+From the KAMEL repository root:
 ```
-make
+make KIM
 ```
+The executable is installed as `build/install/bin/KIM.x`.
 
 The complex region-root finder behind `WKB_dispersion_solver='region_roots'` is provided by fortnum and requires a working LAPACK installation.
 
 ## WKB Dispersion Solver
 
 Solves the kinetic dispersion relation D(k_r) = 0 for complex radial wavenumber k_r at each radial grid point.
-
-### Configuration (KIM_config.nml)
-
-```fortran
-&WKB_dispersion
-  WKB_dispersion_solver = 'Muller'  ! 'Muller' or 'region_roots'
-  WKB_dispersion_mode = 'KIM'       ! 'KIM' (full Bessel) or 'FLRE' (finite Larmor radius expansion)
-/
-```
+Select it with `type_of_run = 'WKB_dispersion'` and configure it in the
+`&WKB_DISPERSION` group; see the [namelist reference](nmls/README.md#wkb_dispersion)
+for all options.
 
 ### Solvers
 
 **Muller** (recommended): Iterative root finder using previous root as initial guess. Reliable branch tracking.
 
-**region_roots**: Contour integration + Newton refinement via fortnum `complex_region_roots`. Per-branch tracking with configurable parameters in the `&wkb_dispersion` namelist:
-- `WKB_max_tracked_branches = 4` - Maximum simultaneous branches
-- `WKB_branch_search_halfwidth = 1.5` - Search window per branch
-- `WKB_broad_search_halfwidth = 5.0` - Initial discovery window
-- `WKB_broad_search_interval = 0` - Broad discovery every N grid points; 0 means only when starting or all branches are lost
+**region_roots**: Contour integration + Newton refinement via fortnum `complex_region_roots`, with per-branch tracking.
 
 ### Output
 

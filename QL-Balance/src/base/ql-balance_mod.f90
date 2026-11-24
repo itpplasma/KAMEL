@@ -33,7 +33,8 @@ module balance_mod
             !case("ConstantPsi") ! TODO
             case default
                 print *, "Invalid balance type of run " // trim(type_of_run)
-                print *, "Options are: SingleStep, TimeEvolution, ParameterScan"
+                print *, "Options are: SingleStep, TimeEvolution, TimeEvolutionNTV, ParameterScan, " // &
+                    "TimeEvolutionStellarator"
                 stop "Due to invalid type of run"
         end select
 

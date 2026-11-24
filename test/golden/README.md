@@ -4,9 +4,12 @@ This harness locks the *physics output* of the three codes so any change that
 moves a result beyond floating-point tolerance turns CI red — even when the
 change is a "pure refactor" (e.g. swapping a numerical backend).
 
-It runs **only** in the dedicated `golden-record` GitHub Actions job
-(`.github/workflows/golden.yml`). It is intentionally **not** registered with
-CTest, so `ctest` / `make test` stay fast and offline.
+It runs **only** in the dedicated `golden-record` GitHub Actions workflow
+(`.github/workflows/golden.yml`): in the merge queue, on pushes to `main` that
+did not come through the merge queue, on manual dispatch, and on pull requests
+labeled `full-ci`. It is intentionally **not** registered with CTest, so
+`ctest` / `make test` stay fast and offline. The harness's own Python unit tests
+(`bin/test_*.py`) run with `make pytest`.
 
 ## The A/B model
 
@@ -44,15 +47,19 @@ test/golden/
 ├── run_golden.sh            # top-level orchestrator
 ├── bin/                     # code-agnostic gr-runner (one physical copy)
 │   ├── gr_build_all.sh      # whole-repo build per ref/cur
+│   ├── gr_build.sh          # single-code build per ref/cur (not used by run_golden.sh)
 │   ├── gr_dispatch.sh       # discover + run cases (local backend)
 │   ├── gr_run_case.sh       # run ONE case (copy inputs, prepare hook, exe)
 │   ├── gr_compare.sh        # diff out/ref vs out/cur via $GR_COMPARE
 │   ├── gr_numcompare.py     # recursive numeric + .uff byte comparator
-│   ├── gr_migrate.py        # optional input-API migration
+│   ├── gr_migrate.py        # optional input-API migration (see below)
 │   ├── compare.py           # QL-Balance HDF5 comparator
 │   ├── compare_qlbalance.sh # locates each side's *.hdf5, calls compare.py
-│   └── setup_runfolder.py   # QL-Balance synthetic input generator
-├── kim/        {bin->../bin, config.sh, cases/electromagnetic/}
+│   ├── setup_runfolder.py   # QL-Balance synthetic input generator
+│   ├── test_compare.py      # unit tests for compare.py
+│   └── test_gr_numcompare.py  # unit tests for gr_numcompare.py
+├── kim/        {bin->../bin, config.sh, cases/{electromagnetic, electrostatic_fp,
+│                electrostatic_krook, electrostatic_periodic}/}
 ├── qlbalance/  {bin->../bin, config.sh, cases/default/}
 └── kilca/      {bin->../bin, config.sh, cases/flre_m6n2/}
 ```
@@ -118,9 +125,12 @@ and frozen here.
 ## Adding an input migration
 
 If a PR renames a namelist key, the older `ref` binary won't understand the new
-deck. Add `migrations/NNNN_slug.yaml` (+ document it in `MIGRATIONS.md`);
-`gr_run_case.sh` applies them with `gr_migrate.py` (`GR_MIGRATE=up|down`, auto
-`down` for a `legacy*` build). The first candidate is the QL-Balance
+deck. `gr_run_case.sh` has a hook for this: when `GR_MIGRATE=up|down` is set
+(auto `down` for a `legacy*` build) **and** a `<code>/migrations/` directory
+exists, it applies the migrations with `gr_migrate.py`. No `migrations/`
+directory exists yet, so the hook is currently inactive. To add the first
+migration, create `<code>/migrations/NNNN_slug.yaml` using the operations
+(`rename`, `drop`, `add`, `set`) described in the `gr_migrate.py` docstring. The first candidate is the QL-Balance
 `data_verbosity` ⇄ `diagnostics_output` drift, currently handled inline in
 `setup_runfolder.py`.
 

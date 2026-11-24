@@ -24,9 +24,10 @@ All codes use **CGS/Gaussian units**: lengths in cm, magnetic fields in Gauss, d
    └── KIM (integral model, standalone)
        └── fields, kernels, backgrounds (text or HDF5)
 
-3. TRANSPORT (optional, requires KiLCA)
-   └── QL-Balance
-       ├── Reads KiLCA outputs + INPUT.hdf5
+3. TRANSPORT (optional)
+   └── QL-Balance (wave_code = 'KiLCA' or 'KIM')
+       ├── KiLCA: reads KiLCA run directories + INPUT.hdf5
+       ├── KIM:   calls KIM in-process with KIM_config.nml + INPUT.hdf5
        └── Writes time-evolved profiles to HDF5
 
 4. POST-PROCESSING
@@ -89,7 +90,7 @@ run_directory/
 
 ### Input
 
-KIM uses a single Fortran namelist file (default `./KIM_config.nml`) containing six namelist groups read in order:
+KIM uses a single Fortran namelist file (default `./KIM_config.nml`). Six namelist groups are required and read in this order; three further groups are optional or conditional. All options are described in the [KIM namelist reference](KIM/nmls/README.md).
 
 | Namelist | Purpose |
 |----------|---------|
@@ -99,15 +100,20 @@ KIM uses a single Fortran namelist file (default `./KIM_config.nml`) containing 
 | `KIM_SETUP` | Machine parameters (B₀, R₀), mode numbers, boundary conditions |
 | `KIM_GRID` | Radial grid, spline grid, theta integration method and tolerances |
 | `KIM_PROFILES` | Profile coordinate type, input/output file paths, GEQDSK path |
+| `KIM_PERIODIC` | Optional: forced-periodicity window and Fourier basis (`electrostatic_periodic`) |
+| `KIM_FLR2` | Optional: term switches for the `flr2` run type |
+| `KIM_species` | Ion charge and mass numbers; read when `read_species_from_namelist = .true.` |
 
 **Run types** (`type_of_run` in `KIM_CONFIG`):
 
 | Value | Description |
 |-------|-------------|
 | `'electrostatic'` | Poisson equation solve for Φ given external Br |
+| `'electrostatic_periodic'` | Electrostatic solve in a forced-periodic radial window (Fourier basis) |
 | `'electromagnetic'` | Coupled Poisson-Ampere 2N×2N solve for (Φ, A‖) with self-consistent Br |
 | `'WKB_dispersion'` | Radial WKB dispersion relation kr(r) |
-| `'flr2_benchmark'` | FLR2 asymptotic benchmark for validation |
+| `'flr2'` | Local second-order FLR response imported from KiLCA-FLR2, on KIM's background |
+| `'flr2_benchmark'` | FLR2 approximation of KIM's non-local kernel, for validation |
 
 **Profile input** is a two-stage pipeline:
 
@@ -151,7 +157,7 @@ output_path/m{m}_n{n}/
 
 ```
 KIM_config.nml          Profile files (*.dat)
-(6 namelists)           (possibly in √ψ_N coords)
+(namelist groups)       (possibly in √ψ_N coords)
      │                        │
      └────────┬───────────────┘
               │
@@ -179,7 +185,7 @@ KIM_config.nml          Profile files (*.dat)
 
 ### Input
 
-QL-Balance reads its configuration from `balance_conf.nml` (in the run directory) containing the `BALANCENML` namelist. Key settings include KiLCA paths, machine parameters, grid control, time stepping, physics options, and HDF5 I/O paths.
+QL-Balance reads its configuration from `balance_conf.nml` (in the run directory) containing the `BALANCENML` namelist. Key settings include the wave code and its paths, machine parameters, grid control, time stepping, physics options, and HDF5 I/O paths. `TimeEvolutionNTV` runs also read an `&NEORT` group from the same file; `TimeEvolutionStellarator` runs also read `&BALANCE_STELL` from `stell_conf.nml` in the run directory (template: `QL-Balance/namelists/stell_conf.nml`).
 
 **Run types** (`type_of_run` in `BALANCENML`):
 
@@ -187,16 +193,23 @@ QL-Balance reads its configuration from `balance_conf.nml` (in the run directory
 |-------|-------------|
 | `'SingleStep'` | One linear QL step — computes D_ql and \|Br\| at resonance |
 | `'TimeEvolution'` | Full nonlinear time evolution with adaptive stepping |
+| `'TimeEvolutionNTV'` | Time evolution with neoclassical toroidal viscosity torque from NEO-RT |
 | `'ParameterScan'` | Sweep a parameter, doing a SingleStep at each point |
 | `'TimeEvolutionStellarator'` | Time evolution for stellarator geometry (1/ν transport) |
+
+**Wave code** (`wave_code` in `BALANCENML`) selects the source of the perturbation fields:
+
+- `'KiLCA'` (template default): fields are read from KiLCA run directories (`flre_path`, `vac_path`).
+- `'KIM'`: KIM is called in-process. `kim_config_path` points to a KIM namelist file and `kim_run_type` selects the KIM run type (default `'electromagnetic'`). With `kim_profiles_from_balance = .true.` (default), QL-Balance passes its own profiles to KIM; with `.false.`, KIM reads its own profile files and the modes are read from `modes.in`. With `kim_run_type = 'electrostatic_periodic'`, the modes are given by `kim_n_modes`, `kim_m_list` and `kim_n_list`; this mode requires `kim_profiles_from_balance = .true.` and supports the `SingleStep`, `TimeEvolution` and `ParameterScan` run types.
 
 **Data sources:**
 
 | Source | Content |
 |--------|---------|
 | `path2inp` (HDF5) | Initial profiles under `/preprocprof/`: r, q, n, Te, Ti, Vth, Vz, Er |
-| `flre_path/` (KiLCA dir) | Plasma response — `modes.in`, EB.dat per mode, formfactors |
-| `vac_path/` (KiLCA dir) | Vacuum response — EB.dat per mode |
+| `flre_path/` (KiLCA dir) | Plasma response — `modes.in`, EB.dat per mode, formfactors (`wave_code = 'KiLCA'`) |
+| `vac_path/` (KiLCA dir) | Vacuum response — EB.dat per mode (`wave_code = 'KiLCA'`) |
+| `kim_config_path` (namelist) | KIM configuration (`wave_code = 'KIM'`) |
 | `equil_path` (text) | Equilibrium mapping: r, q, ψ, ψ_tor columns |
 
 When restarting (`readfromtimestep > 0`), evolved profiles are read from `path2time` at HDF5 group `f_{m}_{n}/fort.1000/{1000+step}/`.
@@ -245,6 +258,7 @@ output.hdf5
 ```
 INPUT.hdf5           KiLCA FLRE run       KiLCA vacuum run    balance_conf.nml
 (/preprocprof/)      (EB.dat, formfacs)   (EB.dat)            (BALANCENML)
+                     ── or, with wave_code = 'KIM': KIM_config.nml ──
       │                     │                   │                    │
       └─────────────────────┴───────────────────┴────────────────────┘
                                     │

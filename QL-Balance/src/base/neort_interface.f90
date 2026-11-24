@@ -464,6 +464,12 @@ contains
         real(dp), dimension(:), intent(in) :: dpsi_pol_ds_neort, dpsi_pol_ds_kamel
         character(len=256) :: problem
 
+        ! A sanity bound, not a measured accuracy: it has to pass consistent files
+        ! and stop gross errors. For AUG 33353 at 2.9 s the mismatch is about 0.5 %
+        ! up to r = 61 cm and 11 % at the last row of the equilibrium file
+        ! (s = 0.997), where the Boozer and the input q profiles drift apart (NEORT
+        ! s_max cuts that off). A flux in T m^2 against G cm^2 gives 1e8, and an
+        ! opposite orientation fails the sign test below.
         real(dp), parameter :: tolerance = 0.1_dp
         real(dp) :: mismatch
 

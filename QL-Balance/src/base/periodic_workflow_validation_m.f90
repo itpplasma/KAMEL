@@ -1,5 +1,6 @@
 module periodic_workflow_validation_m
     use QLBalance_kinds, only: dp
+    use control_mod, only: is_time_evolution_run
     implicit none
     private
     public :: validate_periodic_workflow, periodic_benchmark_enabled
@@ -25,7 +26,7 @@ contains
         if (.not. profiles_from_balance) then
             error stop 'periodic KIM workflow requires profiles_from_balance=.true.'
         end if
-        if (trim(type_of_run) /= 'SingleStep' .and. trim(type_of_run) /= 'TimeEvolution' &
+        if (trim(type_of_run) /= 'SingleStep' .and. .not. is_time_evolution_run(type_of_run) &
             .and. trim(type_of_run) /= 'ParameterScan') then
             error stop 'unsupported QL-Balance run type for periodic KIM workflow'
         end if

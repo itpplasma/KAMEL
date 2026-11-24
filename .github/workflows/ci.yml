@@ -139,6 +139,11 @@ jobs:
           KIM_EXECUTABLE: ${{ github.workspace }}/build/install/bin/KIM.x
         run: python3 -m pytest KIM/python/tests/integration/test_periodic_run.py -v
 
+      - name: Run tutorials
+        env:
+          KAMEL_REQUIRE_TUTORIALS: '1'
+        run: make tutorials
+
       # Invoke CTest directly: make test would rebuild.
       - name: Run tests
         env:

@@ -1505,3 +1505,22 @@ set_tests_properties(
     electron_physical_cells_unsupported_basis
     PROPERTIES PASS_REGULAR_EXPRESSION "Local electron kernel requires P1 hats"
 )
+
+# Host flux-surface geometry and radial metric in the periodic solver.
+add_executable(test_host_geometry ${CMAKE_SOURCE_DIR}/KIM/tests/test_host_geometry.f90)
+set_target_properties(
+    test_host_geometry
+    PROPERTIES
+        OUTPUT_NAME test_host_geometry.x
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/"
+)
+target_link_libraries(
+    test_host_geometry
+    KIM_lib
+    kilca_lib
+    lapack
+    cerf
+    fortnum_amos_compat
+)
+add_test(NAME test_host_geometry COMMAND ${CMAKE_BINARY_DIR}/tests/test_host_geometry.x)
+set_tests_properties(test_host_geometry PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)

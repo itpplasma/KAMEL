@@ -219,6 +219,7 @@ module rt_electrostatic_periodic_m
         use config_m, only: periodic_match_global_kernel_approximations, &
             periodic_calculate_radial_current
         use flr2_fourier_kernel_m, only: set_global_kernel_approximations
+        use grid_m, only: rg_grid
 
         real(dp),    intent(in)  :: rm, dx_asis, dx_tr
         integer,     intent(in)  :: M, n_rg
@@ -256,6 +257,9 @@ module rt_electrostatic_periodic_m
 
         call set_global_kernel_approximations(periodic_match_global_kernel_approximations)
         call build_periodic_plasma(rm, dx_asis, dx_tr, n_rg)
+        if (allocated(plasma%radial_metric) .and. periodic_calculate_radial_current) then
+            error stop 'Periodic radial current does not support a host radial metric'
+        end if
         if (periodic_calculate_radial_current) then
             if (present(jpar_species) .and. present(rho_B_species)) then
                 call assemble_periodic_matrices(plasma, L, M, Kphi, KB, Kjphi, KjB, &
@@ -307,8 +311,17 @@ module rt_electrostatic_periodic_m
                         KBparallel, KjBparallel)
                 end if
             end if
+            if (allocated(plasma%radial_metric)) then
+                call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info, &
+                    KBparallel=KBparallel, Bparallel_const=Bparallel_drive, &
+                    radial_metric=plasma%radial_metric, r_nodes=rg_grid%xb)
+            else
+                call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info, &
+                    KBparallel=KBparallel, Bparallel_const=Bparallel_drive)
+            end if
+        else if (allocated(plasma%radial_metric)) then
             call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info, &
-                KBparallel=KBparallel, Bparallel_const=Bparallel_drive)
+                radial_metric=plasma%radial_metric, r_nodes=rg_grid%xb)
         else
             call solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info)
         end if
@@ -633,6 +646,9 @@ module rt_electrostatic_periodic_m
         call calculate_MA_field(plasma, EBdat)
         call calculate_E_in_rsp_from_cyl(EBdat)
         if (periodic_calculate_ion_tensor) then
+            if (allocated(plasma%radial_metric)) then
+                error stop 'Periodic ion tensor does not support a host radial metric'
+            end if
             allocate(EBdat%D_ion(2, 2, size(dPhi)))
             EBdat%D_ion = 0.0_dp
             if (.not. turn_off_ions) then

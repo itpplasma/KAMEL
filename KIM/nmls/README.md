@@ -182,6 +182,7 @@ the preparation step.
 - Vz_file ... string, prepared toroidal-rotation file name (default `'Vz.dat'`); used by the Er force-balance calculation, which assumes Vz = 0 if the file is missing
 - Er_file ... string, prepared radial-electric-field file name (default `'Er.dat'`); if it is missing from `profile_location`, Er is computed from force balance
 - q_file ... string, prepared safety-factor file name (default `'q.dat'`); used by the Er force-balance calculation
+- geometry_file ... string, optional flux-surface geometry from a host code (default `''`, KIM's screw pinch); a relative path is taken relative to `profile_location`. Columns `r B0 kp_m kp_n ks_m ks_n radial_metric` give the field magnitude, $k_\parallel = m\,k_{p,m} + n\,k_{p,n}$, $k_s = m\,k_{s,m} + n\,k_{s,n}$ and the radial metric $M$ (physical radial wavenumber $\sqrt{M}\,k_r$). The table replaces B0, kp and ks (and hence om_E) of every run type; a metric other than 1 is supported only by `electrostatic_periodic`, where it enters the Larmor-radius arguments and the radial Poisson operator $\partial_r (M \partial_r)$
 
 ## KIM_PERIODIC
 

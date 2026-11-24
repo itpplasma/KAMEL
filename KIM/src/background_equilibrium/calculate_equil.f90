@@ -56,6 +56,7 @@ module equilibrium_m
             use fortnum_ode_ddeabm, only: ddeabm_state_t, ddeabm_init, &
                 ddeabm_integrate_to
             use fortnum_status, only: fortnum_status_t, FORTNUM_OK
+            use host_geometry_m, only: apply_host_geometry
 
             implicit none
 
@@ -166,6 +167,11 @@ module equilibrium_m
                 plasma%om_E(i) = exb_rotation_frequency(plasma%ks(i), plasma%Er(i), plasma%B0(i))
 
             end do
+
+            ! A host geometry replaces the screw-pinch B0, kp, ks (and om_E) and
+            ! supplies the radial metric; B0z, B0th, hz and hth stay cylindrical.
+            if (allocated(plasma%radial_metric)) deallocate(plasma%radial_metric)
+            call apply_host_geometry(plasma, B0)
 
             if (write_out) call write_equil
 

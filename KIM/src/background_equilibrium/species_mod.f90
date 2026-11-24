@@ -12,6 +12,9 @@ module species_m
         real(dp), allocatable :: ks(:) ! "senkrecht" wavenumber
         real(dp), allocatable :: kp(:) ! parallel wavenumber
         real(dp), allocatable :: B0(:) ! equilibrium magnetic field magnitude
+        ! Radial metric M of the perpendicular operators from a host geometry
+        ! (physical radial wavenumber sqrt(M) k_r). Unallocated means M = 1.
+        real(dp), allocatable :: radial_metric(:)
         real(dp), allocatable :: q(:) ! safety factor profile
         real(dp), allocatable :: dqdr(:) ! safety factor gradient
         real(dp), allocatable :: Er(:) ! radial electric field
@@ -962,6 +965,9 @@ module species_m
             call allocate_species_fields(plasma_temp%spec(sp), size(grid))
         end do
         call allocate_plasma_fields(plasma_temp, size(grid))
+        if (allocated(plasma_in%radial_metric)) then
+            call reallocate(plasma_temp%radial_metric, size(grid))
+        end if
         plasma_temp%grid_size = size(grid)
         plasma_temp%r_grid = grid
 
@@ -995,6 +1001,10 @@ module species_m
             plasma_temp%q(i)    = sum(coef(0,:) * plasma_in%q(ibeg:iend))
             plasma_temp%dqdr(i) = sum(coef(0,:) * plasma_in%dqdr(ibeg:iend))
             plasma_temp%Er(i)   = sum(coef(0,:) * plasma_in%Er(ibeg:iend))
+            if (allocated(plasma_in%radial_metric)) then
+                plasma_temp%radial_metric(i) = &
+                    sum(coef(0,:) * plasma_in%radial_metric(ibeg:iend))
+            end if
 
         end do
 
@@ -1382,6 +1392,7 @@ module species_m
         if (allocated(plasma%ks)) deallocate(plasma%ks)
         if (allocated(plasma%kp)) deallocate(plasma%kp)
         if (allocated(plasma%om_E)) deallocate(plasma%om_E)
+        if (allocated(plasma%radial_metric)) deallocate(plasma%radial_metric)
         if (allocated(plasma%dqdr)) deallocate(plasma%dqdr)
 
         ! From plasma species (allocated in calculate_plasma_backs)

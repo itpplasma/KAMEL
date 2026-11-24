@@ -29,6 +29,16 @@ module periodic_solve_m
     !> reconstructed on an output radial grid as
     !>
     !>   dPhi(r) = sum_{m=-M}^{M} Phi_m exp(i k_m r).
+    !>
+    !> With a host radial metric M(r) (physical radial wavenumber sqrt(M) k_r)
+    !> the radial operator is d/dr (M d/dr). Its Galerkin projection onto the
+    !> same Fourier basis replaces the diagonal by the full matrix
+    !>
+    !>   D_{m,m'} = -k_m k_{m'} Mhat_{m-m'},
+    !>   Mhat_d   = (1/N) sum_j M(r_j) exp(-i k_d r_j),
+    !>
+    !> evaluated with the periodic trapezoidal rule on the N window nodes r_j,
+    !> as the kernel matrices are. A uniform M = 1 gives D_m = -k_m^2.
 
     use KIM_kinds_m, only: dp
 
@@ -36,6 +46,7 @@ module periodic_solve_m
     private
 
     public :: solve_periodic, reconstruct_delta_phi, reconstruct_delta_phi_derivative
+    public :: metric_radial_operator
     public :: dense_solve, reconstruct_jpar, reconstruct_jrad
 
 contains
@@ -44,7 +55,7 @@ contains
     !> Phi_m of the potential, given the Phase-2.4 matrices Kphi/KB, the period
     !> L, the mode cutoff M, and the constant drive amplitude Br_const.
     subroutine solve_periodic(Kphi, KB, L, M, Br_const, Phi_m, info, &
-                              KBparallel, Bparallel_const)
+                              KBparallel, Bparallel_const, radial_metric, r_nodes)
         use constants_m, only: pi
 
         complex(dp), intent(in) :: Kphi(:,:), KB(:,:)
@@ -55,6 +66,7 @@ contains
         integer, intent(out) :: info
         complex(dp), intent(in), optional :: KBparallel(:, :)
         complex(dp), intent(in), optional :: Bparallel_const
+        real(dp), intent(in), optional :: radial_metric(:), r_nodes(:)
 
         complex(dp), allocatable :: A(:,:), b(:)
         real(dp) :: k_m
@@ -63,14 +75,22 @@ contains
         dim = 2 * M + 1
         allocate(A(dim, dim), b(dim))
 
-        ! A = 4*pi Kphi with the diagonal Fourier-space radial operator
-        ! D_m = -k_m^2 (k_m = 2*pi*m/L) added on the diagonal.
+        if (present(radial_metric) .neqv. present(r_nodes)) then
+            error stop 'solve_periodic requires radial_metric and r_nodes together'
+        end if
+
+        ! A = 4*pi Kphi plus the Fourier-space radial operator: the diagonal
+        ! D_m = -k_m^2 (k_m = 2*pi*m/L), or its metric-weighted Galerkin matrix.
         A = 4.0_dp * pi * Kphi
-        do m_row = -M, M
-            im = m_row + M + 1
-            k_m = 2.0_dp * pi * real(m_row, dp) / L
-            A(im, im) = A(im, im) - k_m * k_m
-        end do
+        if (present(radial_metric)) then
+            A = A + metric_radial_operator(radial_metric, r_nodes, L, M)
+        else
+            do m_row = -M, M
+                im = m_row + M + 1
+                k_m = 2.0_dp * pi * real(m_row, dp) / L
+                A(im, im) = A(im, im) - k_m * k_m
+            end do
+        end if
 
         if (present(KBparallel) .neqv. present(Bparallel_const)) then
             error stop 'solve_periodic requires Bparallel matrix and drive together'
@@ -87,6 +107,49 @@ contains
 
         Phi_m = b
     end subroutine solve_periodic
+
+    !> Galerkin matrix of d/dr (M d/dr) on the Fourier basis exp(i k_m r),
+    !> m = -M..M, over one period sampled at the N equidistant nodes r_nodes:
+    !> D_{m,m'} = -k_m k_{m'} (1/N) sum_j M_j exp(-i (k_m - k_{m'}) r_j).
+    function metric_radial_operator(radial_metric, r_nodes, L, M) result(operator_matrix)
+        use constants_m, only: pi, com_unit
+
+        real(dp), intent(in) :: radial_metric(:), r_nodes(:), L
+        integer, intent(in) :: M
+        complex(dp) :: operator_matrix(2*M + 1, 2*M + 1)
+
+        complex(dp) :: metric_hat(-2*M:2*M)
+        real(dp) :: k_d, k_m, k_mp
+        integer :: shift, j, m_row, m_col, n_nodes
+
+        n_nodes = size(r_nodes)
+        if (size(radial_metric) /= n_nodes) then
+            error stop 'metric_radial_operator: radial_metric and r_nodes differ in size'
+        end if
+        ! As for the kernel matrices, N > 2M keeps every nonzero shift m - m'
+        ! distinct from the zero shift; a smooth metric has negligible content
+        ! at the aliased shifts beyond N/2.
+        if (n_nodes <= 2*M) then
+            error stop 'metric_radial_operator: too few window nodes for the Fourier cutoff'
+        end if
+
+        do shift = -2*M, 2*M
+            k_d = 2.0_dp * pi * real(shift, dp) / L
+            metric_hat(shift) = (0.0_dp, 0.0_dp)
+            do j = 1, n_nodes
+                metric_hat(shift) = metric_hat(shift) + radial_metric(j) * exp(-com_unit * k_d * r_nodes(j))
+            end do
+            metric_hat(shift) = metric_hat(shift) / real(n_nodes, dp)
+        end do
+
+        do m_col = -M, M
+            k_mp = 2.0_dp * pi * real(m_col, dp) / L
+            do m_row = -M, M
+                k_m = 2.0_dp * pi * real(m_row, dp) / L
+                operator_matrix(m_row + M + 1, m_col + M + 1) = -k_m * k_mp * metric_hat(m_row - m_col)
+            end do
+        end do
+    end function metric_radial_operator
 
     !> Solve the dense complex system A x = b in place via LAPACK zgesv, using
     !> the same argument pattern as electromagnetic_solver.f90:243. On entry b

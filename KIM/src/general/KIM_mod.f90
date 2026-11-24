@@ -13,6 +13,7 @@ module kim_mod_m
         use rt_electromagnetic_m, only: electromagnetic_t
         use rt_flr2_benchmark_m, only: flr2_benchmark_t
         use rt_flr2_m, only: flr2_t
+        use host_geometry_m, only: host_geometry_has_metric
 
         implicit none
 
@@ -37,6 +38,13 @@ module kim_mod_m
                 print *, "Options are: electrostatic, electrostatic_periodic, electromagnetic, flr2, flr2_benchmark, WKB_dispersion"
                 stop "Due to invalid type of run"
         end select
+
+        ! Only the forced-periodicity solver applies the radial metric.
+        if (host_geometry_has_metric() .and. &
+                trim(type_of_run) /= "electrostatic_periodic") then
+            print *, "A host radial metric /= 1 requires type_of_run = electrostatic_periodic"
+            stop "Due to unsupported host radial metric"
+        end if
 
     end subroutine
 

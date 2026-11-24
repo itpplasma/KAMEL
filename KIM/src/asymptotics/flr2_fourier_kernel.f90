@@ -17,6 +17,7 @@ module flr2_fourier_kernel_m
     public :: core_rho_Bparallel_sp, core_j_Bparallel_sp
     public :: scaled_bessel_pair
     public :: flr_arg_pair_sp
+    public :: radial_metric_at
     public :: set_global_kernel_approximations
 
     ! FLR-parameter convention for the two-wavenumber kernel. When .false.
@@ -42,6 +43,16 @@ contains
         kern_zero_flr_electrons = enabled
     end subroutine set_global_kernel_approximations
 
+    pure real(dp) function radial_metric_at(plasma_in, j) result(metric)
+        ! Radial metric M at node j: the physical radial wavenumber of the
+        ! coordinate wavenumber k_r is sqrt(M) k_r. M = 1 without host geometry.
+        type(plasma_t), intent(in) :: plasma_in
+        integer, intent(in) :: j
+
+        metric = 1.0_dp
+        if (allocated(plasma_in%radial_metric)) metric = plasma_in%radial_metric(j)
+    end function radial_metric_at
+
     subroutine flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
         ! Shared FLR argument pair (b_+, b_x) for the two-wavenumber kernels.
         ! Single home for the kern_include_ks2 branch used by both hatG_rho_phi
@@ -50,11 +61,12 @@ contains
         ! k_r, k'_r and collapses exactly to the diagonal source-of-truth. The
         ! .true. path reintroduces k_s^2 via kperp = sqrt(k_s^2 + k_r^2), giving
         ! b_+ = rho_L^2/2 (kperp^2 + kperpp^2) and b_x = rho_L^2 kperp kperpp.
+        ! A host radial metric M scales the radial part: kperp^2 = ks^2 + M kr^2.
         type(plasma_t), intent(in) :: plasma_in
         integer, intent(in) :: sp, j
         real(dp), intent(in) :: kr, krp
         real(dp), intent(out) :: bplus, bcross
-        real(dp) :: rho_L2, ks
+        real(dp) :: rho_L2, ks, kr2, krp2
 
         if (kern_zero_flr_electrons .and. sp == 0) then
             bplus = 0.0_dp
@@ -63,13 +75,19 @@ contains
         end if
 
         rho_L2 = plasma_in%spec(sp)%rho_L(j)**2.0d0
+        kr2 = kr**2
+        krp2 = krp**2
+        if (allocated(plasma_in%radial_metric)) then
+            kr2 = plasma_in%radial_metric(j) * kr2
+            krp2 = plasma_in%radial_metric(j) * krp2
+        end if
         if (kern_include_ks2) then
             ks = plasma_in%ks(j)
-            bplus = rho_L2 * (2.0d0 * ks**2 + kr**2 + krp**2) / 2.0d0
-            bcross = rho_L2 * sqrt(ks**2 + kr**2) * sqrt(ks**2 + krp**2)
+            bplus = rho_L2 * (2.0d0 * ks**2 + kr2 + krp2) / 2.0d0
+            bcross = rho_L2 * sqrt(ks**2 + kr2) * sqrt(ks**2 + krp2)
         else
-            bplus = rho_L2 * (kr**2 + krp**2) / 2.0d0
-            bcross = rho_L2 * abs(kr * krp)
+            bplus = rho_L2 * (kr2 + krp2) / 2.0d0
+            bcross = rho_L2 * radial_metric_at(plasma_in, j) * abs(kr * krp)
         end if
     end subroutine flr_arg_pair_sp
 
@@ -356,7 +374,8 @@ contains
         real(dp), intent(in) :: kr, krp
         f = 1.0_dp
         if (kern_zero_flr_electrons .and. sp == 0) return
-        f = exp(-0.5_dp*plasma_in%spec(sp)%rho_L(j)**2*(kr - krp)**2)
+        f = exp(-0.5_dp*plasma_in%spec(sp)%rho_L(j)**2*radial_metric_at(plasma_in, j) &
+            *(kr - krp)**2)
     end function boltzmann_gyroaverage
 
     complex(dp) function core_rho_phi_sp_bessel(plasma_in, sp, bplus, bcross, j, sI0, sIm1, &
@@ -532,8 +551,8 @@ contains
 
         rho2 = plasma_in%spec(sp)%rho_L(j)**2
         ks = plasma_in%ks(j)
-        kp_observation = hypot(ks, kr_observation)
-        kp_source = hypot(ks, kr_source)
+        kp_observation = hypot(ks, sqrt(radial_metric_at(plasma_in, j)) * kr_observation)
+        kp_source = hypot(ks, sqrt(radial_metric_at(plasma_in, j)) * kr_source)
         bplus = 0.5_dp * rho2 * (kp_observation**2 + kp_source**2)
         bcross = rho2 * kp_observation * kp_source
         dbplus = rho2 * ks
@@ -566,7 +585,7 @@ contains
         real(dp), intent(in) :: kr
         real(dp) :: b
 
-        b = (kr**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
+        b = radial_metric_at(plasma_in, j) * (kr**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
         G = core_rho_phi_sp(plasma_in, sp, b, b, j)
     end function hatG_rho_phi_diag_sp
 
@@ -581,7 +600,7 @@ contains
         real(dp), intent(in) :: kr
         real(dp) :: b
 
-        b = (kr**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
+        b = radial_metric_at(plasma_in, j) * (kr**2.0d0) * plasma_in%spec(sp)%rho_L(j)**2.0d0
         G = core_rho_B_sp(plasma_in, sp, b, b, j)
     end function hatG_rho_B_diag_sp
 end module flr2_fourier_kernel_m

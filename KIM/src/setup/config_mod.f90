@@ -127,6 +127,11 @@ module config_m
     character(256) :: Er_file = 'Er.dat'
     character(256) :: q_file = 'q.dat'
 
+    ! Optional flux-surface geometry from a host code (see host_geometry_m).
+    ! Empty keeps KIM's screw-pinch B0, k_parallel, k_s and a unit radial metric.
+    ! A relative path is taken relative to profile_location.
+    character(256) :: geometry_file = ''
+
 contains
 
     pure logical function ifunc_model_is_valid(model)

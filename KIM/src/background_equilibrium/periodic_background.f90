@@ -29,8 +29,9 @@ module periodic_background_m
     integer, parameter :: n_legacy_primitives = 5
 
     !> Number of GEOMETRY functions periodized, and their FIXED order.
-    !>     geom = [ B0, ks, kp, om_E ].
-    integer, parameter :: n_geom = 4
+    !>     geom = [ B0, ks, kp, om_E, radial_metric ].
+    !> radial_metric is 1 unless a host geometry supplies it.
+    integer, parameter :: n_geom = 5
 
     !> Cached TRUE (aperiodic) background, captured ONCE from the global plasma on
     !> the FIRST build_periodic_plasma call and reused on every later call.
@@ -56,7 +57,8 @@ module periodic_background_m
     !>
     !> Order in cache_prim for S species:
     !>   [ n_0..n_(S-1), T_0..T_(S-1), q, Er ].
-    !> Order in cache_geom: [ B0, ks, kp, om_E ]     (matches kim_geom_aperfuns).
+    !> Order in cache_geom: [ B0, ks, kp, om_E, radial_metric ]
+    !> (matches kim_geom_aperfuns).
     integer, save :: cached_generation = -1
     integer, save :: cached_n_species = 0
     real(dp), allocatable, save :: cache_r(:)
@@ -111,6 +113,8 @@ contains
             cache_geom(i, 2) = plasma%ks(i)          ! perpendicular wavenumber
             cache_geom(i, 3) = plasma%kp(i)          ! parallel wavenumber
             cache_geom(i, 4) = plasma%om_E(i)        ! ExB rotation frequency
+            cache_geom(i, 5) = 1.0_dp                ! radial metric
+            if (allocated(plasma%radial_metric)) cache_geom(i, 5) = plasma%radial_metric(i)
         end do
 
         cached_generation = profiles_generation
@@ -203,7 +207,7 @@ contains
     !> periodization_m::aperfuns_i. Evaluates the TRUE geometry at radius x via
     !> 4-point Lagrange interpolation of the CACHED true background, in the FIXED
     !> order
-    !>     funs = [ B0(x), ks(x), kp(x), om_E(x) ].
+    !>     funs = [ B0(x), ks(x), kp(x), om_E(x), radial_metric(x) ].
     !>
     !> These carry the explicit 1/r geometric factors (ks, kp, om_E) and the
     !> force-balance-integrated field (B0), which make_periodic did NOT touch when
@@ -268,7 +272,7 @@ contains
         end block
     end subroutine sample_periodic_species_profiles
 
-    !> Return the PERIODIZED geometry [ B0, ks, kp, om_E ] at query radius x,
+    !> Return the PERIODIZED geometry [ B0, ks, kp, om_E, radial_metric ] at x,
     !> driving make_periodic with kim_geom_aperfuns. Same window layout as
     !> sample_periodic_primitives.
     subroutine sample_periodic_geometry(x_mid, dx_asis, dx_tr, x, geom_per)
@@ -313,6 +317,7 @@ contains
                                  equil_grid, u, dpress_prof
         use grid_m, only: rg_grid
         use config_m, only: number_of_ion_species
+        use host_geometry_m, only: host_geometry_active
 
         real(dp), intent(in) :: rm, dx_asis, dx_tr
         integer, intent(in) :: n_rg
@@ -497,17 +502,24 @@ contains
         !> their make_periodic-periodized values, sampled per window node from the
         !> cached true geometry. omega_c and rho_L are re-derived from the
         !> periodized B0 inside calculate_plasma_backs, so periodizing B0 here
-        !> periodizes them too.
+        !> periodizes them too. A host radial metric is periodized the same way;
+        !> without a host geometry the window keeps no metric (M = 1).
         subroutine periodize_window_geometry()
             real(dp) :: geom(n_geom)
             integer :: i
 
+            if (host_geometry_active()) then
+                call reallocate(plasma%radial_metric, rg_grid%npts_b)
+            else if (allocated(plasma%radial_metric)) then
+                deallocate(plasma%radial_metric)
+            end if
             do i = 1, rg_grid%npts_b
                 call sample_periodic_geometry(rm, dx_asis, dx_tr, rg_grid%xb(i), geom)
                 plasma%B0(i)   = geom(1)
                 plasma%ks(i)   = geom(2)
                 plasma%kp(i)   = geom(3)
                 plasma%om_E(i) = geom(4)
+                if (allocated(plasma%radial_metric)) plasma%radial_metric(i) = geom(5)
                 if (allocated(B0)) B0(i) = geom(1)
             end do
         end subroutine periodize_window_geometry

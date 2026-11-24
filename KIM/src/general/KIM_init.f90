@@ -4,10 +4,12 @@ subroutine kim_init
     use IO_collection_m, only: initialize_hdf5_output, write_KIM_namelist_to_hdf5
     use config_m, only: hdf5_output, profiles_in_memory
     use profile_input_m, only: prepare_profiles
+    use host_geometry_m, only: configure_host_geometry
 
     implicit none
 
     call kim_read_config
+    call configure_host_geometry()
 
     if (hdf5_output) then
         call initialize_hdf5_output()

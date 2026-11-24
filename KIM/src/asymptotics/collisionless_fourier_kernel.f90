@@ -262,7 +262,8 @@ contains
             rho_phi, rho_B, j_phi, j_B)
         use config_m, only: artificial_debye_case
         use constants_m, only: com_unit, pi, sol
-        use flr2_fourier_kernel_m, only: flr_arg_pair_sp, scaled_bessel_pair
+        use flr2_fourier_kernel_m, only: flr_arg_pair_sp, scaled_bessel_pair, &
+            radial_metric_at
         use Krook_kernel_plasma_prefacs_m, only: Krook_collisionless_kpar, &
             Krook_collisionless_kpar_magnitude, Krook_collisionless_z0
         use setup_m, only: omega
@@ -295,7 +296,8 @@ contains
         call flr_arg_pair_sp(plasma_in, sp, kr, krp, j, bplus, bcross)
         call scaled_bessel_pair(bplus, bcross, sI0, sIm1)
         radial_gaussian = exp(&
-            -0.5_dp * plasma_in%spec(sp)%rho_L(j)**2 * (kr - krp)**2)
+            -0.5_dp * plasma_in%spec(sp)%rho_L(j)**2 * radial_metric_at(plasma_in, j) &
+            * (kr - krp)**2)
 
         k_abs = Krook_collisionless_kpar_magnitude(plasma_in%kp(j), epsilon)
         k_pole = Krook_collisionless_kpar(plasma_in%kp(j), epsilon)

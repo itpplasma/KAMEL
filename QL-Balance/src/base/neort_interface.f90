@@ -13,6 +13,7 @@ module neort_interface
         character(len=1024) :: boozer_file
         character(len=1024) :: boozer_pert_file
         integer :: amount_of_s
+        real(dp) :: s_min
         real(dp) :: s_max
         real(dp) :: antenna_factor_exponent
         type(config_t) :: config
@@ -20,6 +21,7 @@ module neort_interface
 
     public :: apply_ntv_transport
     public :: calculate_coarse_s_tor
+    public :: inner_s_of_grid
     public :: outer_s_of_grid
     public :: s_grid_problem
     public :: calculate_s_tor
@@ -59,12 +61,13 @@ contains
         ! as some values are deliberately unused or fixed plus the following:
         ! - explicit paths for the Boozer input files
         ! - amount of equidistant s to compute on
-        ! - the outer end of that s grid
+        ! - the inner and outer ends of that s grid
         ! - an exponent for the antenna_factor the resulting torque gets scaled with
         ! new meta config values:
         character(len=1024) :: boozer_file
         character(len=1024) :: boozer_pert_file
         integer :: amount_of_s
+        real(dp) :: s_min
         real(dp) :: s_max
         real(dp) :: antenna_factor_exponent
         ! original NEO-RT config values
@@ -89,7 +92,7 @@ contains
         integer :: log_level
         ! output_format not needed, nothing is written to disk
 
-        namelist /NEORT/ boozer_file, boozer_pert_file, amount_of_s, s_max, &
+        namelist /NEORT/ boozer_file, boozer_pert_file, amount_of_s, s_min, s_max, &
             antenna_factor_exponent, epsmn, supban, magdrift, magdrift_passing, nopassing, &
             noshear, nonlin, bfac, efac, inp_swi, inp_swi_pert, vsteps, mth_max_abs, &
             vmax_over_vth, log_level
@@ -98,6 +101,9 @@ contains
         boozer_file = ""
         boozer_pert_file = ""
         amount_of_s = 100
+        ! The grid starts at s(rmin) unless s_min is larger, e.g. for a Boozer file
+        ! whose first surface lies above s(rmin).
+        s_min = 0.0_dp
         ! The grid ends at s(rsepar) unless s_max is smaller. Near the separatrix
         ! the Boozer q diverges while an input q profile may not follow it.
         s_max = 1.0_dp
@@ -152,6 +158,7 @@ contains
         meta_config%boozer_file = trim(adjustl(boozer_file))
         meta_config%boozer_pert_file = trim(adjustl(boozer_pert_file))
         meta_config%amount_of_s = amount_of_s
+        meta_config%s_min = s_min
         meta_config%s_max = s_max
         meta_config%antenna_factor_exponent = antenna_factor_exponent
         meta_config%config%epsmn = epsmn
@@ -195,6 +202,9 @@ contains
             problem = "NEORT: amount_of_s must be at least 2"
         else if (.not. (meta_config%s_max > 0.0_dp .and. meta_config%s_max <= 1.0_dp)) then
             problem = "NEORT: s_max must satisfy 0 < s_max <= 1"
+        else if (.not. (meta_config%s_min >= 0.0_dp .and. &
+                        meta_config%s_min < meta_config%s_max)) then
+            problem = "NEORT: s_min must satisfy 0 <= s_min < s_max"
         else if (meta_config%config%bfac /= 1.0_dp) then
             problem = "NEORT: bfac must be 1 (equilibrium file flux is unscaled)"
         end if
@@ -458,9 +468,10 @@ contains
         problem = ""
         do i = 1, size(s_requested)
             if (.not. (abs(s_evaluated(i) - s_requested(i)) <= tolerance)) then
-                write (problem, '(A,ES12.5,A,ES12.5)') &
+                write (problem, '(A,ES12.5,A,ES12.5,A)') &
                     "NEO-RT Boozer file does not cover s = ", s_requested(i), &
-                    ", nearest tabulated s = ", s_evaluated(i)
+                    ", nearest tabulated s = ", s_evaluated(i), &
+                    "; move the grid ends with NEORT s_min or s_max"
                 return
             end if
         end do
@@ -551,6 +562,14 @@ contains
         s_tor = abs(psi_tor / psi_tor_boundary)
     end subroutine calculate_s_tor
 
+    !> @brief Inner end of NEO-RT's s grid: s at rmin, or the namelist's s_min if larger.
+    pure function inner_s_of_grid(s_rmin, s_min) result(s_inner)
+        real(dp), intent(in) :: s_rmin, s_min
+        real(dp) :: s_inner
+
+        s_inner = max(s_rmin, s_min)
+    end function inner_s_of_grid
+
     !> @brief Outer end of NEO-RT's s grid: s at rsepar, or the namelist's s_max if smaller.
     pure function outer_s_of_grid(s_rsepar, s_max) result(s_outer)
         real(dp), intent(in) :: s_rsepar, s_max
@@ -559,24 +578,27 @@ contains
         s_outer = min(s_rsepar, s_max)
     end function outer_s_of_grid
 
-    !> @brief Describe an unusable NEO-RT s grid; empty if s(rmin) .. outer end is valid
-    !> @details The grid runs from s(rmin) to outer_s_of_grid(s(rsepar), s_max). Only
-    !>          that range has to lie in 0 < s <= 1, so s_max can cut off an rsepar
-    !>          that maps slightly beyond the Boozer boundary.
-    pure function s_grid_problem(s_rmin, s_rsepar, s_max) result(problem)
-        real(dp), intent(in) :: s_rmin, s_rsepar, s_max
+    !> @brief Describe an unusable NEO-RT s grid; empty if its two ends are valid
+    !> @details The grid runs from inner_s_of_grid(s(rmin), s_min) to
+    !>          outer_s_of_grid(s(rsepar), s_max). Only that range has to lie in
+    !>          0 < s <= 1, so s_min and s_max can keep the grid inside the Boozer
+    !>          file when rmin or rsepar map beyond its surfaces.
+    pure function s_grid_problem(s_rmin, s_rsepar, s_min, s_max) result(problem)
+        real(dp), intent(in) :: s_rmin, s_rsepar, s_min, s_max
         character(len=256) :: problem
 
-        real(dp) :: s_outer
+        real(dp) :: s_inner, s_outer
 
+        s_inner = inner_s_of_grid(s_rmin, s_min)
         s_outer = outer_s_of_grid(s_rsepar, s_max)
         problem = ""
-        if (.not. (s_rmin > 0.0_dp)) then
-            problem = "TimeEvolutionNTV: rmin must map to s > 0"
+        if (.not. (s_inner > 0.0_dp)) then
+            problem = "TimeEvolutionNTV: the NEO-RT s grid must start at s > 0"
         else if (.not. (s_outer <= 1.0_dp)) then
             problem = "TimeEvolutionNTV: the NEO-RT s grid must end at s <= 1"
-        else if (.not. (s_rmin < s_outer)) then
-            problem = "TimeEvolutionNTV: s(rmin) must lie below min(s(rsepar), NEORT s_max)"
+        else if (.not. (s_inner < s_outer)) then
+            problem = "TimeEvolutionNTV: max(s(rmin), NEORT s_min) must lie below "// &
+                      "min(s(rsepar), NEORT s_max)"
         end if
     end function s_grid_problem
 
@@ -613,7 +635,7 @@ contains
         real(dp), dimension(:), allocatable :: total_torque_density  ! dT_phi/dV [dyn cm-²]
         real(dp), dimension(:, :), allocatable :: torque_of_r_coeffs
         real(dp), dimension(:, :), allocatable :: torque_splined
-        integer :: ntorque, nrb, i, i_separatrix
+        integer :: ntorque, nrb, i, i_inner, i_separatrix
 
         ! extract array sizes
         ntorque = size(transport_data)
@@ -650,14 +672,18 @@ contains
         ! make sure to not hit the separatrix
         i_separatrix = i_separatrix - 1
 
+        ! balance grid points inside the first NEO-RT surface (only if s_min is
+        ! above s(rmin))
+        i_inner = count(rb < r(1))
         ! do not extrapolate
-        torque_splined = spline_val(torque_of_r_coeffs, rb(1:i_separatrix))
+        torque_splined = spline_val(torque_of_r_coeffs, rb(i_inner + 1:i_separatrix))
 
-        ! torque beyond the last NEO-RT surface (the separatrix unless s_max is
-        ! smaller) should be zero
+        ! torque inside the first and beyond the last NEO-RT surface (the
+        ! separatrix unless s_max is smaller) should be zero
         if (.not. allocated(torque_density_ntv_unscaled)) &
             allocate (torque_density_ntv_unscaled(nrb))
-        torque_density_ntv_unscaled(1:i_separatrix) = torque_splined(:, 1)
+        torque_density_ntv_unscaled(1:i_inner) = 0.0_dp
+        torque_density_ntv_unscaled(i_inner + 1:i_separatrix) = torque_splined(:, 1)
         torque_density_ntv_unscaled(i_separatrix + 1:nrb) = 0.0_dp
 
         ! Rescale by the antenna-factor ratio with an exponent for the

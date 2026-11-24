@@ -39,7 +39,7 @@ contains
         use neort_interface, only: meta_config_neort_t, read_neort_meta_config, &
                                    meta_config_neort_problem, read_equil_file, &
                                    calculate_s_tor, calculate_coarse_s_tor, dpsi_pol_dr, &
-                                   outer_s_of_grid, poloidal_flux_problem, &
+                                   inner_s_of_grid, outer_s_of_grid, poloidal_flux_problem, &
                                    boozer_s_range_problem, s_grid_problem
         use plasma_parameters, only: qsaf
         use spline, only: spline_coeff, spline_val
@@ -100,22 +100,28 @@ contains
         allocate (s_splined(2, 3))
         s_of_r_coeffs = spline_coeff(r_eff, s_tor_equil)
         s_splined = spline_val(s_of_r_coeffs, [rmin, rsepar])
-        s_min = s_splined(1, 1)
-        ! The grid ends at min(s(rsepar), s_max), and only that range must lie in
-        ! 0 < s <= 1. Beyond its outer end the NTV torque is zero (apply_ntv_transport).
-        if (len_trim(s_grid_problem(s_min, s_splined(2, 1), meta_config%s_max)) > 0) then
-            print *, "NEO-RT s(rmin), s(rsepar), NEORT s_max: ", s_min, s_splined(2, 1), &
-                meta_config%s_max
-            error stop trim(s_grid_problem(s_min, s_splined(2, 1), meta_config%s_max))
+        ! The grid runs from max(s(rmin), s_min) to min(s(rsepar), s_max), and only
+        ! that range must lie in 0 < s <= 1. Outside it the NTV torque is zero
+        ! (apply_ntv_transport).
+        if (len_trim(s_grid_problem(s_splined(1, 1), s_splined(2, 1), meta_config%s_min, &
+                                    meta_config%s_max)) > 0) then
+            print *, "NEO-RT s(rmin), s(rsepar), NEORT s_min, s_max: ", s_splined(1, 1), &
+                s_splined(2, 1), meta_config%s_min, meta_config%s_max
+            error stop trim(s_grid_problem(s_splined(1, 1), s_splined(2, 1), &
+                                          meta_config%s_min, meta_config%s_max))
         end if
+        s_min = inner_s_of_grid(s_splined(1, 1), meta_config%s_min)
         s_max = outer_s_of_grid(s_splined(2, 1), meta_config%s_max)
 
-        ! Create an equidistant grid in s from s(rmin) to the outer end
+        ! Create an equidistant grid in s between the two ends
         call calculate_coarse_s_tor(s_tor, s_min, s_max, s_size)
         allocate (r_of_s_coeffs(size(s_tor_equil) - 1, 5))
         r_of_s_coeffs = spline_coeff(s_tor_equil, r_eff)
         r_splined = spline_val(r_of_s_coeffs, s_tor)
         r = r_splined(:, 1)
+        ! Without an s_min cut the grid starts at rmin itself, not at its r(s(rmin))
+        ! round trip, so that apply_ntv_transport keeps the torque at rb(1) = rmin.
+        if (s_min == s_splined(1, 1)) r(1) = rmin
 
         ! The Boozer file and KAMEL's equilibrium must agree on the flux surfaces,
         ! including the orientation that fixes the sign of dpsi_pol/ds. NEO-RT

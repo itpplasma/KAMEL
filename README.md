@@ -97,8 +97,12 @@ effect on a fresh configure, so run `make clean` first if `build/` exists.
 
 ## Run
 
-Each solver expects a prepared run directory; the example namelists describe
-the configuration format but are not self-contained plasma datasets.
+The [tutorials](tutorials/README.md) walk through complete, tested example runs
+of KIM (with and without Python), KiLCA and QL-Balance. Each runs in seconds.
+
+Each solver expects a prepared run directory; the example namelists in
+`KIM/nmls/` and `QL-Balance/namelists/` describe the configuration format but
+are not self-contained plasma datasets.
 
 ### KIM
 

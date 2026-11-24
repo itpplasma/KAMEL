@@ -38,8 +38,12 @@ The executable takes the run (project) directory as its first argument, or
 uses the current working directory if none is given:
 
 ```sh
-build/install/bin/KiLCA_Normal_<signature> /path/to/run-directory
+build/install/bin/KiLCA_Normal_<signature> /path/to/flre
 ```
+
+The path of the project directory must contain `flre` (plasma) or `vacuum`
+(vacuum): KiLCA selects the project type from the path and stops with
+`unknown project type in path` otherwise.
 
 A run directory contains:
 

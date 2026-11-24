@@ -108,11 +108,20 @@ The repository contains two distinct Python distributions:
 ### KAMELpy Pattern
 
 ```python
-interface = KiLCA_interface(shot, time, path, run_type, machine)
-interface.set_modes(m_modes, n_modes)
-interface.prepare_balance_input(input_file)
-interface.run_balance()
+from balance_interface import QL_Balance_interface
+
+balance = QL_Balance_interface(run_path, shot, time, name)
+balance.read_config_nml()                    # QL-Balance/namelists/balance_conf.nml
+balance.set_type_of_run("TimeEvolution")
+balance.set_modes(m_mode, n_mode)
+# expects the profiles in <run_path>/profiles/
+balance.prepare_balance(Btor=btor, a_minor=a)  # runs KiLCA, links ql-balance.x
+balance.set_config_nml()
+balance.write_config_nml(path=f"{run_path}/balance_conf.nml")
+balance.run_balance()
 ```
+
+`tutorials/04-ql-balance/setup_run.py` is a complete, tested example.
 
 For supported KIM automation, start with `KIM/python/README.md` and
 `KIM/python/docs/request-json.md`. Keep CLI commands as thin adapters over the public Python API.

@@ -3,7 +3,7 @@
 KIM reads its namelist groups without error recovery, so an example that sets an
 option the code no longer declares aborts at startup. These checks compare the
 `namelist /GROUP/ ...` declarations in KIM/src with KIM/nmls/README.md and with
-every KIM/nmls/*.nml file.
+every KIM/nmls/*.nml and tutorials/*/KIM_config.nml file.
 """
 
 import re
@@ -14,6 +14,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 KIM_SOURCE_DIR = REPO_ROOT / "KIM" / "src"
 NAMELIST_DIR = REPO_ROOT / "KIM" / "nmls"
+TUTORIAL_DIR = REPO_ROOT / "tutorials"
 REFERENCE = NAMELIST_DIR / "README.md"
 
 # Groups that kim_read_config reads sequentially, without rewinding, in this order.
@@ -115,7 +116,9 @@ def test_reference_documents_exactly_the_declared_options(declared_groups, refer
 
 
 @pytest.mark.parametrize(
-    "namelist_path", sorted(NAMELIST_DIR.glob("*.nml")), ids=lambda path: path.name
+    "namelist_path",
+    sorted(NAMELIST_DIR.glob("*.nml")) + sorted(TUTORIAL_DIR.glob("*/KIM_config.nml")),
+    ids=lambda path: str(path.relative_to(REPO_ROOT)),
 )
 def test_example_namelist_matches_declarations(namelist_path, declared_groups):
     groups = parse_namelist_file(namelist_path)

@@ -5,7 +5,7 @@ PYTHON ?= python3
 # make all CMAKE_ARGS=-DITP_LIBNEO_REF=<ref>
 CMAKE_ARGS ?=
 
-.PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install ctest golden pytest
+.PHONY: all ninja test clean KIM KiLCA QL-Balance PreProc install ctest golden pytest tutorials
 
 all: ninja
 
@@ -32,6 +32,11 @@ test: ninja
 
 pytest:
 	$(PYTHON) -m pytest test/golden/bin test/test_periodic_workflow_config.py test/test_kimpy_collision_frequency.py test/test_kim_namelist_docs.py -q
+
+# Run every tutorial in tutorials/ as written; needs a build and the kim and
+# KAMELpy Python packages (see tutorials/README.md).
+tutorials:
+	$(PYTHON) -m pytest test/test_tutorials.py -v
 
 # Golden-record regression now lives in test/golden/ and runs in the dedicated
 # GitHub Actions job, NOT in `make test`/ctest. This target is for manual local

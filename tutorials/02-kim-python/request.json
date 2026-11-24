@@ -1,0 +1,23 @@
+{
+  "run": {
+    "run_type": "electrostatic_periodic",
+    "periodic": {"n_rg": 256}
+  },
+  "plasma": {"source": "builtin", "isotope": "D"},
+  "setup": {
+    "btor": -17977.413,
+    "major_radius": 165.0,
+    "m_mode": -6,
+    "n_mode": 2,
+    "frequency": 0.0,
+    "br_boundary_real": 1.0,
+    "br_boundary_imag": 0.0
+  },
+  "grid": {
+    "radial_minimum": 11.0,
+    "plasma_radius": 39.0,
+    "l_space_dim": 32,
+    "rg_space_dim": 32
+  },
+  "profiles": {"directory": "./profiles", "coordinate_type": "r_eff"}
+}

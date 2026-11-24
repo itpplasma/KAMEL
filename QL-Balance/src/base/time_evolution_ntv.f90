@@ -38,7 +38,8 @@ contains
         use time_evolution, only: antenna_factor_max
         use neort_interface, only: meta_config_neort_t, read_neort_meta_config, &
                                    meta_config_neort_problem, read_equil_file, &
-                                   calculate_s_tor, calculate_coarse_s_tor, dpsi_pol_dr, &
+                                   calculate_s_tor, calculate_coarse_s_tor, dpsi_pol_ds, &
+                                   r_dr_ds, &
                                    inner_s_of_grid, outer_s_of_grid, poloidal_flux_problem, &
                                    boozer_s_range_problem, s_grid_problem
         use plasma_parameters, only: qsaf
@@ -132,7 +133,7 @@ contains
         allocate (dpsi_pol_ds_neort(s_size), dpsi_pol_ds_kamel(s_size), s_evaluated(s_size))
         q_of_r_coeffs = spline_coeff(rc, qsaf)
         q_splined = spline_val(q_of_r_coeffs, r)
-        dpsi_pol_ds_kamel = dpsi_pol_dr(r, q_splined(:, 1)) * r_splined(:, 2)
+        dpsi_pol_ds_kamel = dpsi_pol_ds(r_dr_ds(s_tor_equil, r_eff, s_tor), q_splined(:, 1))
         do i = 1, s_size
             call neort_get_flux_surface(s_tor(i), surface)
             s_evaluated(i) = surface%s

@@ -28,6 +28,8 @@ module neort_interface
     public :: prepare_plasma_data_for_neort
     public :: prepare_profile_data_for_neort
     public :: dpsi_pol_dr
+    public :: dpsi_pol_ds
+    public :: r_dr_ds
     public :: poloidal_flux_problem
     public :: boozer_s_range_problem
     public :: read_equil_file
@@ -420,6 +422,35 @@ contains
 
         dpsi_pol_dr = r * btor / q
     end function dpsi_pol_dr
+
+    !> @brief Poloidal flux derivative dpsi_pol/ds = psi'_pol dr/ds = B_ref (r dr/ds) / q
+    !> @param[in] r_drds r dr/ds from r_dr_ds [cm^2]
+    elemental function dpsi_pol_ds(r_drds, q)
+        use baseparam_mod, only: btor
+
+        real(dp), intent(in) :: r_drds, q
+        real(dp) :: dpsi_pol_ds
+
+        dpsi_pol_ds = btor * r_drds / q
+    end function dpsi_pol_ds
+
+    !> @brief r dr/ds at s, as 0.5 d(r^2)/ds from a spline of r^2 against s [cm^2]
+    !> @details Near the axis r ~ sqrt(s), so dr/ds diverges and a spline of r(s)
+    !>          misses it on a coarse equilibrium file. r^2 = 2 psi_tor / B_ref is
+    !>          linear in s, so the derivative of its spline is accurate down to the axis.
+    function r_dr_ds(s_equil, r_equil, s) result(r_drds)
+        use spline, only: spline_coeff, spline_val
+
+        real(dp), dimension(:), intent(in) :: s_equil, r_equil, s
+        real(dp), dimension(size(s)) :: r_drds
+
+        real(dp), dimension(:, :), allocatable :: r2_of_s_coeffs, r2_splined
+
+        allocate (r2_of_s_coeffs(size(s_equil) - 1, 5), r2_splined(size(s), 3))
+        r2_of_s_coeffs = spline_coeff(s_equil, r_equil**2)
+        r2_splined = spline_val(r2_of_s_coeffs, s)
+        r_drds = 0.5_dp * r2_splined(:, 2)
+    end function r_dr_ds
 
     !> @brief Describe a mismatch between NEO-RT's and KAMEL's dpsi_pol/ds; empty if consistent
     !> @details Both derivatives are signed. Opposite signs mean the Boozer file and

@@ -3,8 +3,8 @@ program test_neort_grid
     use, intrinsic :: ieee_arithmetic, only: ieee_value, ieee_quiet_nan
     use neort_interface, only: apply_ntv_transport, boozer_s_range_problem, &
                                calculate_coarse_s_tor, calculate_s_tor, inner_s_of_grid, &
-                               outer_s_of_grid, poloidal_flux_problem, read_equil_file, &
-                               s_grid_problem
+                               outer_s_of_grid, poloidal_flux_problem, r_dr_ds, &
+                               read_equil_file, s_grid_problem
     use control_mod, only: equil_path
 
     implicit none
@@ -21,6 +21,7 @@ program test_neort_grid
     call test_s_grid_range()
     call test_s_min_starts_grid()
     call test_torque_zero_outside_grid()
+    call test_r_dr_ds_near_axis()
 
     if (num_failed > 0) then
         print '(A,I0)', "FAILED assertions: ", num_failed
@@ -214,6 +215,22 @@ contains
         call assert_true(abs(torque_density_ntv_unscaled(1) - 2.0_dp) < tolerance, &
                          "torque kept at rmin")
     end subroutine test_torque_zero_outside_grid
+
+    subroutine test_r_dr_ds_near_axis()
+        ! r = sqrt(2 psi_tor / B_ref) gives r dr/ds = psi_tor_boundary / B_ref, constant
+        ! in s. A coarse equilibrium file near the axis must still give it there.
+        real(dp), parameter :: r2_per_s = 3600.0_dp
+        real(dp), parameter :: s_equil(7) = [0.0_dp, 0.02_dp, 0.05_dp, 0.1_dp, 0.3_dp, &
+                                             0.6_dp, 1.0_dp]
+        real(dp), parameter :: s(4) = [0.0036_dp, 0.01_dp, 0.03_dp, 0.8_dp]
+        real(dp) :: r_drds(4)
+        integer :: i
+
+        r_drds = r_dr_ds(s_equil, sqrt(r2_per_s * s_equil), s)
+        do i = 1, size(s)
+            call assert_equal(r_drds(i), 0.5_dp * r2_per_s, "r dr/ds near the axis")
+        end do
+    end subroutine test_r_dr_ds_near_axis
 
     subroutine assert_true(condition, label)
         logical, intent(in) :: condition

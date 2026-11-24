@@ -499,23 +499,3 @@ target_include_directories(
 add_test(NAME test_sysmat_profiles COMMAND ${CMAKE_BINARY_DIR}/tests/test_sysmat_profiles.x)
 add_subdirectory(tests)
 include(tests/migration_regressions.cmake)
-
-# add a target to generate API documentation with Doxygen
-find_package(Doxygen)
-
-if(DOXYGEN_FOUND)
-    configure_file(
-        ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile.in
-        ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile
-        @ONLY
-    )
-    add_custom_target(
-        doc
-        ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen
-        COMMENT "Generating API documentation with Doxygen"
-        VERBATIM
-    )
-else()
-    message(STATUS "Doxygen not found; KiLCA 'doc' target is unavailable")
-endif()

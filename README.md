@@ -37,7 +37,6 @@ The complete build requires:
 - C, C++, and Fortran compilers with OpenMP support.
 - BLAS and LAPACK.
 - SuperLU (used by KIM).
-- Doxygen (optional; only for the KiLCA API documentation target `doc`).
 
 The first configuration needs network access. CMake fetches pinned or selected
 versions of fortnum, fortio, SUNDIALS, SuiteSparse, and libneo. HDF5 and NetCDF

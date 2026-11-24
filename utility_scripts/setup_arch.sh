@@ -3,7 +3,6 @@
 sudo pacman -Sy \
     blas64-openblas \
     cmake \
-    doxygen \
     fftw \
     gcc \
     gcc-fortran \

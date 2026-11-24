@@ -26,12 +26,6 @@ The build installs into `build/install/bin/`:
 `V_2.4.2_..._Release_64bit`. Run `ls build/install/bin/KiLCA_*` to see the
 exact name.
 
-API documentation can be generated with Doxygen when it is installed:
-
-```sh
-cmake --build build --target doc
-```
-
 ## Run
 
 The executable takes the run (project) directory as its first argument, or

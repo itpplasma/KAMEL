@@ -4,7 +4,8 @@ program test_periodic_checkpoint
     use KAMEL_hdf5_tools
     use periodic_amplitude_state_m, only: periodic_amplitude_state_t
     use periodic_checkpoint_m, only: periodic_restart_t, write_periodic_checkpoint, &
-                                     read_periodic_checkpoint
+                                     read_periodic_checkpoint, equilibrium_sources_problem, &
+                                     equilibrium_sources_version
     implicit none
     type(periodic_amplitude_state_t) :: state, restored
     type(periodic_restart_t) :: source, loaded
@@ -98,6 +99,8 @@ program test_periodic_checkpoint
     end if
     if (trim(argument) == 'partial') &
         call h5_delete(file_id, '/multi_mode/KinProfiles/1007/PeriodicCheckpoint/params')
+    if (trim(argument) == 'legacy_sources') call h5_delete(file_id, &
+        '/multi_mode/KinProfiles/1007/PeriodicCheckpoint/equilibrium_sources_version')
     call h5_close(file_id)
     call h5_open(trim(filename), file_id)
     if (trim(argument) == 'modes') then
@@ -106,6 +109,16 @@ program test_periodic_checkpoint
     else
         call read_periodic_checkpoint(file_id, '/multi_mode/KinProfiles/1007/', &
                                       [-7, -6], [2, 2], restored, loaded, found)
+    end if
+    if (trim(argument) == 'legacy_sources') then
+        ! A checkpoint written before n_i = n_e/Z_i continues only runs with Z_i = 1.
+        call require(found .and. loaded%sources_version == 1, 'legacy sources not recognized')
+        call require(len_trim(equilibrium_sources_problem(loaded%sources_version, 1.0_dp)) == 0, &
+                     'legacy sources rejected for Z_i = 1')
+        call require(len_trim(equilibrium_sources_problem(loaded%sources_version, 2.0_dp)) > 0, &
+                     'legacy sources accepted for Z_i = 2')
+        print *, 'legacy equilibrium sources handled'
+        stop 0
     end if
     if (len_trim(argument) > 0) stop 0
     call require(found .and. loaded%active .and. restored%initialized, &
@@ -131,6 +144,9 @@ program test_periodic_checkpoint
                  .and. loaded%rate_dql == source%rate_dql, 'QL adaptive time scales changed')
     call require(all(loaded%dery_equisource == source%dery_equisource), &
                  'fixed equilibrium source changed')
+    call require(loaded%sources_version == equilibrium_sources_version .and. &
+                 len_trim(equilibrium_sources_problem(loaded%sources_version, 2.0_dp)) == 0, &
+                 'current equilibrium sources not accepted for Z_i = 2')
     call require(loaded%accepted_floor == source%accepted_floor &
             .and. loaded%accepted_max_scale == source%accepted_max_scale, 'accepted guards changed')
     call require(loaded%ramp_mode == 6 .and. loaded%ramp_up_down == 1 &

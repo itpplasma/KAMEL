@@ -10,6 +10,12 @@ module periodic_checkpoint_m
     public :: periodic_restart_t, pending_periodic_restart
     public :: write_periodic_checkpoint, read_periodic_checkpoint, reset_periodic_restart
     public :: periodic_mode_group
+    public :: equilibrium_sources_problem
+
+    !> Meaning of the ion entry of equilibrium_sources: 1 is d(n_e T_i)/dt (checkpoints
+    !> without the equilibrium_sources_version dataset), 2 is d(n_i T_i)/dt with
+    !> n_i = n_e/Z_i. Both agree for Z_i = 1.
+    integer, parameter, public :: equilibrium_sources_version = 2
 
     type :: periodic_restart_t
         logical :: active = .false.
@@ -63,6 +69,7 @@ module periodic_checkpoint_m
         real(dp), allocatable :: er(:)
         real(dp), allocatable :: vth(:)
         real(dp), allocatable :: dery_equisource(:)
+        integer :: sources_version = equilibrium_sources_version
         real(dp), allocatable :: timstep_arr(:)
         real(dp), allocatable :: br_abs(:)
         real(dp), allocatable :: br_abs_time(:)
@@ -121,7 +128,8 @@ contains
                                                  'br_abs', 'br_abs_time', 'br_abs_antenna_factor', &
                                              'dqle22_res_time', 'dae22_res_time', 'bif_criterion', &
                                                  'Ipar_time', 'br_formfactor', 'br_vac_res', &
-                                         'stack_present', 'tim_stack', 'y_stack', 'equilibrium_sources']
+                                         'stack_present', 'tim_stack', 'y_stack', 'equilibrium_sources', &
+                                                 'equilibrium_sources_version']
         real(dp) :: scalars(33), boundary(2)
         integer :: integers(10)
         call validate_modes(m, n)
@@ -226,6 +234,7 @@ contains
         call h5_add(file_id, root//'boundary_br', boundary, [1], [2])
         call h5_add(file_id, root//'equilibrium_sources', payload%dery_equisource, &
                     [1], [size(payload%dery_equisource)])
+        call h5_add(file_id, root//'equilibrium_sources_version', equilibrium_sources_version)
         call h5_add(file_id, root//'params', payload%params, [1, 1], shape(payload%params))
         call h5_add(file_id, root//'rc', payload%rc, [1], [size(payload%rc)])
         call h5_add(file_id, root//'rb', payload%rb, [1], [size(payload%rb)])
@@ -272,6 +281,7 @@ contains
         complex(dp), allocatable :: amplitudes(:), currents(:), residuals(:)
         real(dp) :: target, relaxation
         integer :: version, i, j, stack_present
+        logical :: sources_version_found
         character(64) :: phase
         character(:), allocatable :: root
         logical :: old_state
@@ -386,6 +396,13 @@ contains
         payload%scratch = integers(10) == 1
         payload%boundary_br = cmplx(boundary(1), boundary(2), dp)
         call get_vector(file_id, root//'equilibrium_sources', payload%dery_equisource)
+        call h5_obj_exists(file_id, root//'equilibrium_sources_version', sources_version_found)
+        payload%sources_version = 1
+        if (sources_version_found) &
+            call h5_get(file_id, root//'equilibrium_sources_version', payload%sources_version)
+        if (payload%sources_version /= 1 .and. &
+            payload%sources_version /= equilibrium_sources_version) &
+            error stop 'checkpoint unknown equilibrium_sources_version'
         call get_matrix(file_id, root//'params', payload%params)
         call get_vector(file_id, root//'rc', payload%rc)
         call get_vector(file_id, root//'rb', payload%rb)
@@ -413,6 +430,21 @@ contains
                               statuses(mapping), target, relaxation)
         payload%active = .true.
     end subroutine read_periodic_checkpoint
+
+    !> Describe why equilibrium sources of a checkpoint cannot continue a run with ion
+    !> charge Z_i; empty if they can. Version 1 sources hold d(n_e T_i)/dt, which
+    !> would be read as d(n_i T_i)/dt and multiplied by Z_i, and they were taken
+    !> from an ion energy balance without n_i = n_e/Z_i.
+    pure function equilibrium_sources_problem(sources_version, Z_i) result(problem)
+        integer, intent(in) :: sources_version
+        real(dp), intent(in) :: Z_i
+        character(len=160) :: problem
+
+        problem = ''
+        if (sources_version == 1 .and. Z_i /= 1.0_dp) problem = &
+            'periodic restart: the checkpoint predates n_i = n_e/Z_i in the ion energy '// &
+            'balance and cannot continue a run with Z_i /= 1'
+    end function equilibrium_sources_problem
 
     subroutine validate_modes(m, n)
         integer, intent(in) :: m(:), n(:)

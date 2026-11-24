@@ -326,6 +326,15 @@ foreach(
     )
 endforeach()
 
+add_test(
+    NAME test_periodic_checkpoint_legacy_sources
+    COMMAND test_periodic_checkpoint.x legacy_sources
+)
+set_tests_properties(
+    test_periodic_checkpoint_legacy_sources
+    PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/periodic_checkpoint
+)
+
 add_executable(test_periodic_workflow_validation.x test_periodic_workflow_validation.f90)
 target_link_libraries(test_periodic_workflow_validation.x PUBLIC ql-balance_lib)
 add_fortran_test(test_periodic_workflow_validation)

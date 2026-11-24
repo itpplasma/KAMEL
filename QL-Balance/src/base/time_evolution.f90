@@ -665,7 +665,8 @@ module time_evolution
     end subroutine capture_periodic_restart
 
     subroutine apply_periodic_restart(payload)
-        use periodic_checkpoint_m, only: periodic_restart_t
+        use periodic_checkpoint_m, only: periodic_restart_t, equilibrium_sources_problem
+        use baseparam_mod, only: Z_i
         use grid_mod, only: rc, rb, Ercov, dery_equisource
         use QLbalance_diag, only: timscal_dql, timscal_dqli, rate_dql
         use plasma_parameters, only: params
@@ -706,6 +707,8 @@ module time_evolution
         rate_dql = payload%rate_dql
         if (trim(equilibrium_sink_mode) /= 'explicit') &
             error stop 'periodic restart does not store the equilibrium reference state'
+        if (len_trim(equilibrium_sources_problem(payload%sources_version, Z_i)) > 0) &
+            error stop trim(equilibrium_sources_problem(payload%sources_version, Z_i))
         dery_equisource = payload%dery_equisource
         time = payload%time
         timstep = payload%next_dt

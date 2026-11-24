@@ -1,6 +1,7 @@
 # Developer documentation
 
 User documentation lives next to the code: the top-level [README](../README.md),
+the [tutorials](../tutorials/README.md),
 the component READMEs ([KiLCA](../KiLCA/README.md), [KIM](../KIM/README.md),
 [QL-Balance](../QL-Balance/README.md)), the
 [KIM namelist reference](../KIM/nmls/README.md), and [Data.md](../Data.md) for

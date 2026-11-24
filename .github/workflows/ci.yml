@@ -95,7 +95,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             cmake \
-            doxygen \
             gfortran \
             libgmp-dev \
             libgsl-dev \
@@ -185,7 +184,6 @@ jobs:
           brew install \
             cmake \
             ninja \
-            doxygen \
             gcc \
             llvm \
             lapack \

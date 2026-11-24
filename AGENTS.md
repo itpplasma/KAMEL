@@ -66,7 +66,6 @@ System libraries:
 - **OpenMP** - Shared-memory parallelism
 - **LAPACK/BLAS** - Linear algebra
 - **SuperLU** - Sparse direct solver (KIM)
-- **Doxygen** - Optional, KiLCA API documentation only
 
 Fetched by CMake at configure time (fortnum, fortio, libneo and NEO-RT commits are pinned in
 `cmake/DependencyPins.cmake`; SUNDIALS and SuiteSparse versions are set in their `cmake/Fetch*.cmake`):

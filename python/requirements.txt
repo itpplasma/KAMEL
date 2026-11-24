@@ -1,7 +1,0 @@
-numpy
-scipy
-matplotlib
-h5py
-f90nml
-plasmapy
-cxroots

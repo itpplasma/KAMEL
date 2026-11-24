@@ -29,13 +29,13 @@ ls build/install/bin
 ### Set up Python
 
 Create a virtual environment and install the two Python packages, the KIM
-interface `kim` (from `KIM/python`) and KAMELpy (from `python/`), plus
-matplotlib for the plots:
+interface `kim` (from `KIM/python`) and KAMELpy (from `python/`). Python 3.10
+or newer is required; matplotlib for the plots comes with KAMELpy:
 
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ./KIM/python -e ./python matplotlib
+python -m pip install -e ./KIM/python -e ./python
 ```
 
 Install them in editable mode (`-e`) as shown. The packages then find the

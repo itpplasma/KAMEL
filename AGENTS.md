@@ -37,11 +37,8 @@ make QL-Balance
 # Run all tests via CTest from root
 make test  # invokes ctest --test-dir build
 
-# Install Python interface
-(cd python && make init && make install)
-
-# Install and test the standalone KIM API/CLI
-python -m pip install -e './KIM/python[test]'
+# Install both Python packages (KIM API/CLI and KAMELpy) into a venv
+python -m pip install -e './KIM/python[test]' -e ./python
 python -m pytest KIM/python/tests/unit
 
 # Clean build (removes build/)

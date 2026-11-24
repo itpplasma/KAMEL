@@ -93,27 +93,11 @@ jobs:
       - name: Install dependencies (Ubuntu)
         run: |
           sudo apt-get update
+          # Keep in sync with "Prerequisites" in README.md.
           sudo apt-get install -y \
-            cmake \
-            gfortran \
-            libgmp-dev \
-            libgsl-dev \
-            libhdf5-openmpi-dev \
-            liblapack-dev \
-            libmpfr-dev \
-            libnetcdf-dev \
-            libnetcdff-dev \
-            libomp-dev \
-            libopenblas-dev \
-            libopenmpi-dev \
-            libsuitesparse-dev \
-            libsuperlu-dev \
-            ninja-build \
-            openmpi-bin \
-            python3-dev \
-            python3-pip
-          pip install numpy scipy matplotlib h5py f90nml pytest
-          pip install -e './KIM/python[test]'
+            git make cmake ninja-build gcc g++ gfortran \
+            libopenblas-dev liblapack-dev libsuperlu-dev python3-venv
+          pip install -e './KIM/python[test]' -e ./python pytest
 
       - name: Cache external dependencies
         uses: actions/cache@v6
@@ -181,24 +165,9 @@ jobs:
 
       - name: Install dependencies (macOS)
         run: |
-          brew install \
-            cmake \
-            ninja \
-            gcc \
-            llvm \
-            lapack \
-            openmpi \
-            hdf5 \
-            netcdf \
-            netcdf-fortran \
-            libomp \
-            openblas \
-            gsl \
-            suite-sparse \
-            superlu \
-            mpfr \
-            gmp
-          pip install numpy scipy matplotlib h5py f90nml pytest
+          # Keep in sync with "Prerequisites" in README.md.
+          brew install cmake ninja gcc llvm libomp openblas lapack superlu
+          pip install -e ./python pytest
 
       - name: Cache external dependencies
         uses: actions/cache@v6

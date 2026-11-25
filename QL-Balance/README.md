@@ -3,8 +3,9 @@
 QL-Balance solves one-dimensional radial transport equations for the plasma
 profiles with quasilinear transport coefficients driven by resonant magnetic
 perturbations. The perturbation fields come from a linear plasma-response
-code: KiLCA (default) or KIM. Relevant publications are Heyn et al., Nucl.
-Fusion 54 (2014) and Markl et al., Nucl. Fusion 63 (2023).
+code: KiLCA (default) or KIM. The model is described in Heyn et al., Nucl.
+Fusion 54 (2014) and Markl et al., Nucl. Fusion 63 (2023); see
+[Publications](../README.md#publications) for the full references.
 
 ## Build
 

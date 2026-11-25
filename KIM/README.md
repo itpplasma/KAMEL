@@ -1,5 +1,7 @@
 # KiLCA Integral Model (KIM)
 This is the integral plasma response model based on the code and model Kinetic Linear Cylindrical Approximation (KiLCA).
+The model is described in Markl, Kasilov and Albert, J. Plasma Phys. (2026, accepted); see
+[Publications](../README.md#publications) for the KAMEL references.
 
 ## Dependencies
 
@@ -129,10 +131,15 @@ Python implementation using cxroots: `python/KIMpy/wkb.py`
 
 ## References
 
+M. Markl, S. V. Kasilov and C. G. Albert, *Integral ion Larmor radius treatment in the linear
+plasma response to resonant magnetic perturbations*, J. Plasma Phys. (2026, accepted).
+
 P. Kravanja, M. Van Barel, O. Ragos, M.N. Vrahatis, F.A. Zafiropoulos,
 *ZEAL: A mathematical software package for computing zeros of analytic functions*,
 Computer Physics Communications **124** (2000) 212-232.
 [doi:10.1016/S0010-4655(99)00429-4](https://doi.org/10.1016/S0010-4655(99)00429-4)
+
+## Zero-FLR electron kernel
 
 The active zero-FLR electron kernel uses the P1 hat basis (`spline_base=1`).
 It integrates each existing center-constant prefactor over its complete

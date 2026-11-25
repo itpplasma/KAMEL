@@ -7,22 +7,23 @@ name = "KAMELpy"
 version = "1.0.0"
 description = "Python interface for KiLCA, KIM and QL-Balance"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "scipy",
     "h5py",
-    "f90nml"
+    "f90nml",
+    "matplotlib"
 ]
+optional-dependencies = { analysis = ["plasmapy", "cxroots"] }
 authors = [
     { name = "Markus Markl", email = "markl@tugraz.at" }
 ]
 classifiers = [
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11"
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
 ]
 [tool.setuptools]
 packages = { find = { include = ["*"], exclude = ["KIMgui", "KIMgui.*"] } }

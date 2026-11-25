@@ -71,7 +71,7 @@ class KiLCA_postprocessor:
             print("available modes:")
         for el in fs:
             if re.search("m_*", el):
-                nums = re.findall("\d+", el)
+                nums = re.findall(r"\d+", el)
                 if el[2] == "-":
                     self.m = np.append(self.m, -int(nums[0]))
                     if self.debug:
@@ -95,7 +95,7 @@ class KiLCA_postprocessor:
             self.EBdat = np.loadtxt(path_to_file + "EB.dat")
         elif path_to_file == "":
             for f in self.fs[:]:
-                nums = re.findall("\d+", f)
+                nums = re.findall(r"\d+", f)
                 if f[2] == "-":
                     st = "-" + nums[0]
                 else:

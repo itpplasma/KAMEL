@@ -38,13 +38,29 @@ The complete build requires:
 - BLAS and LAPACK.
 - SuperLU (used by KIM).
 
+On Ubuntu 24.04 or newer (Ubuntu 22.04 ships CMake 3.22, which is too old):
+
+```sh
+sudo apt-get install git make cmake ninja-build gcc g++ gfortran \
+    libopenblas-dev liblapack-dev libsuperlu-dev python3-venv
+```
+
+On macOS, install the Xcode command line tools (`xcode-select --install`) and
+then, with [Homebrew](https://brew.sh):
+
+```sh
+brew install cmake ninja gcc llvm libomp openblas lapack superlu
+```
+
+The build picks up Homebrew's LLVM `clang` and GNU Fortran automatically. CI
+installs exactly these packages, so the lists stay tested.
+
 The first configuration needs network access. CMake fetches pinned or selected
 versions of fortnum, fortio, SUNDIALS, SuiteSparse, and libneo. HDF5 and NetCDF
 files are read and written through fortio, so the native HDF5 and NetCDF
 libraries are not linked. The complex error function library libcerf is
 bundled in KIM. Python is optional for the compiled solvers but required for
-KAMELpy and several analysis workflows; its package requirements are listed in
-[`python/requirements.txt`](python/requirements.txt).
+the Python interfaces (see [Python interface](#python-interface)).
 
 CI builds and tests on Ubuntu (GNU compilers) and on macOS with Homebrew
 (GNU Fortran, LLVM OpenMP).
@@ -111,11 +127,10 @@ KIM accepts the namelist path as its first argument:
 build/install/bin/KIM.x /path/to/KIM_config.nml
 ```
 
-For the supported Python workflow (electrostatic, forced-periodic electrostatic, and FLR2), install
-and use the separate package:
+For the supported Python workflow (electrostatic, forced-periodic electrostatic, and FLR2), use
+the `kim` package (installation: [Python interface](#python-interface)):
 
 ```sh
-python -m pip install './KIM/python'
 kim --help
 kim validate /path/to/request.json
 kim run /path/to/request.json --executable /absolute/path/to/KIM.x
@@ -169,16 +184,20 @@ reference with the source.
 
 ## Python interface
 
-Install KAMELpy in editable mode from a virtual environment:
+KAMEL has two Python packages: `kim` for KIM (in `KIM/python`) and KAMELpy
+for QL-Balance and KiLCA (in `python/`). Both need Python 3.10 or newer.
+Install them in editable mode into a virtual environment from the repository
+root:
 
 ```sh
-cd python
-make init
-make install
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e ./KIM/python -e ./python
 ```
 
-See [`python/README.md`](python/README.md) and the component-specific Python
-READMEs for usage.
+Editable installs find the executables in `build/install/bin/` of this
+checkout. See [`python/README.md`](python/README.md) and the
+[KIM Python API guide](KIM/python/README.md) for usage.
 
 ## Installation
 

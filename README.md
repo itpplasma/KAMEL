@@ -29,6 +29,45 @@ the [KIM namelist reference](KIM/nmls/README.md) for options and restrictions.
 Data flow between the codes, file formats and units are described in
 [Data.md](Data.md).
 
+## Publications
+
+The physics models and numerical methods are described in the following
+papers. If you use KAMEL in a publication, cite the papers of the codes you
+used.
+
+KiLCA:
+
+- M. F. Heyn, I. B. Ivanov, S. V. Kasilov and W. Kernbichler, *Kinetic
+  modelling of the interaction of rotating magnetic fields with a radially
+  inhomogeneous plasma*, Nucl. Fusion **46**, S159 (2006).
+  [doi:10.1088/0029-5515/46/4/S07](https://doi.org/10.1088/0029-5515/46/4/S07)
+- M. F. Heyn, I. B. Ivanov, S. V. Kasilov, W. Kernbichler, I. Joseph,
+  R. A. Moyer and A. M. Runov, *Kinetic estimate of the shielding of resonant
+  magnetic field perturbations by the plasma in DIII-D*, Nucl. Fusion **48**,
+  024005 (2008).
+  [doi:10.1088/0029-5515/48/2/024005](https://doi.org/10.1088/0029-5515/48/2/024005)
+- I. B. Ivanov, M. F. Heyn, S. V. Kasilov and W. Kernbichler, *Kinetic linear
+  model of the interaction of helical magnetic perturbations with cylindrical
+  plasmas*, Phys. Plasmas **18**, 022501 (2011).
+  [doi:10.1063/1.3551740](https://doi.org/10.1063/1.3551740)
+
+QL-Balance:
+
+- M. F. Heyn et al., *Quasilinear modelling of RMP interaction with a tokamak
+  plasma: application to ASDEX Upgrade ELM mitigation experiments*, Nucl.
+  Fusion **54**, 064005 (2014).
+  [doi:10.1088/0029-5515/54/6/064005](https://doi.org/10.1088/0029-5515/54/6/064005)
+- M. Markl et al., *Kinetic study of the bifurcation of resonant magnetic
+  perturbations for edge localized mode suppression in ASDEX Upgrade*, Nucl.
+  Fusion **63**, 126007 (2023).
+  [doi:10.1088/1741-4326/acf20c](https://doi.org/10.1088/1741-4326/acf20c)
+
+KIM:
+
+- M. Markl, S. V. Kasilov and C. G. Albert, *Integral ion Larmor radius
+  treatment in the linear plasma response to resonant magnetic
+  perturbations*, J. Plasma Phys. (2026, accepted).
+
 ## Prerequisites
 
 The complete build requires:

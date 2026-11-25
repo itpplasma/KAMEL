@@ -4,7 +4,10 @@ KiLCA computes the linear response of a cylindrical plasma to external
 magnetic perturbations, using a finite-Larmor-radius (FLR) expansion of the
 kinetic conductivity. The radial domain is split into zones; each zone is
 solved with its own plasma model (FLR, ideal MHD, homogeneous medium, or
-vacuum), and the zone solutions are stitched at the boundaries.
+vacuum), and the zone solutions are stitched at the boundaries. The model is
+described in Heyn et al., Nucl. Fusion 46 (2006), Heyn et al., Nucl. Fusion
+48 (2008) and Ivanov et al., Phys. Plasmas 18 (2011); see
+[Publications](../README.md#publications) for the full references.
 
 ## Build
 

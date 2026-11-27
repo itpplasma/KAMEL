@@ -486,16 +486,25 @@ contains
         !   dT_i/dt = (Z_i (2/3) S_{w,i}^0 - T_i S_n^0) / n_e,
         ! the second term being the dilution by the particle source.
         !
+        ! The ion row is evaluated as Z_i ((2/3) S_{w,i}^0 - T_i S_n^0 / Z_i) / n_e,
+        ! i.e. the electron form with S_n^0 / Z_i, multiplied by Z_i afterwards.
+        ! Writing Z_i * S_{w,i}^0 inside the difference would hand the compiler a
+        ! second product to fuse into a multiply-add (default with -march=x86-64-v3),
+        ! so even Z_i = 1 would round differently from the form without Z_i. This
+        ! way both extra operations are exact for Z_i = 1.
+        !
         real(dp), dimension(4), intent(in) :: sources, params_point, reference
         logical, intent(in) :: implicit_sinks
         real(dp), intent(in) :: Z_i
         real(dp), dimension(4), intent(out) :: source_rates
         real(dp), dimension(4) :: effective
+        real(dp), dimension(3:4) :: dilution
 
         call apply_equilibrium_sinks(sources, params_point, reference, implicit_sinks, effective)
-        effective(4) = Z_i * effective(4)
+        dilution = [effective(1), effective(1) / Z_i]
         source_rates(1:2) = effective(1:2)
-        source_rates(3:4) = (effective(3:4) - params_point(3:4) * effective(1)) / params_point(1)
+        source_rates(3:4) = (effective(3:4) - params_point(3:4) * dilution) / params_point(1)
+        source_rates(4) = Z_i * source_rates(4)
     end subroutine compute_equilibrium_source_rates
 
     pure subroutine linearize_equilibrium_source_rates(sources, params_point, reference, &
@@ -511,6 +520,7 @@ contains
         real(dp), dimension(4), intent(in) :: params_lin_point
         real(dp), dimension(4), intent(out) :: source_rates_lin
         real(dp), dimension(4) :: effective, effective_lin
+        real(dp), dimension(3:4) :: dilution, dilution_lin
         integer :: ieq
 
         call apply_equilibrium_sinks(sources, params_point, reference, implicit_sinks, effective)
@@ -525,16 +535,20 @@ contains
             end do
         end if
 
-        ! The ion pressure source is stored for n_i = n_e / Z_i.
-        effective(4) = Z_i * effective(4)
-        effective_lin(4) = Z_i * effective_lin(4)
+        ! The ion pressure source is stored for n_i = n_e / Z_i. As in
+        ! compute_equilibrium_source_rates, the ion row is the electron form with
+        ! S_n^0 / Z_i, multiplied by Z_i afterwards, so Z_i = 1 rounds exactly
+        ! like the form without Z_i.
+        dilution = [effective(1), effective(1) / Z_i]
+        dilution_lin = [effective_lin(1), effective_lin(1) / Z_i]
 
         source_rates_lin(1) = effective_lin(1)
         source_rates_lin(2) = 0.0_dp
-        source_rates_lin(3:4) = (effective_lin(3:4) - params_lin_point(3:4) * effective(1) - &
-                                 params_point(3:4) * effective_lin(1) - &
-                                 (effective(3:4) - params_point(3:4) * effective(1)) * &
+        source_rates_lin(3:4) = (effective_lin(3:4) - params_lin_point(3:4) * dilution - &
+                                 params_point(3:4) * dilution_lin - &
+                                 (effective(3:4) - params_point(3:4) * dilution) * &
                                  params_lin_point(1) / params_point(1)) / params_point(1)
+        source_rates_lin(4) = Z_i * source_rates_lin(4)
     end subroutine linearize_equilibrium_source_rates
 
     subroutine refresh_state_diagnostics()

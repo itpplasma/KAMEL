@@ -215,9 +215,10 @@ module rt_electrostatic_periodic_m
         use periodic_assembly_m, only: assemble_periodic_matrices, &
             assemble_periodic_bparallel_matrices
         use periodic_solve_m, only: solve_periodic, reconstruct_delta_phi, &
-            reconstruct_delta_phi_derivative, reconstruct_jpar, reconstruct_jrad
+            reconstruct_delta_phi_derivative, reconstruct_jpar, reconstruct_jrad, &
+            reconstruction_filter
         use config_m, only: periodic_match_global_kernel_approximations, &
-            periodic_calculate_radial_current
+            periodic_calculate_radial_current, periodic_filter_order
         use flr2_fourier_kernel_m, only: set_global_kernel_approximations
         use grid_m, only: rg_grid
 
@@ -246,6 +247,7 @@ module rt_electrostatic_periodic_m
         complex(dp), allocatable :: KjBparallel_species(:,:,:)
         complex(dp) :: Bparallel_drive
         real(dp) :: L
+        real(dp) :: sigma(2*M + 1)
         integer :: sp
         logical :: bparallel_active, want_bparallel_species
 
@@ -327,18 +329,21 @@ module rt_electrostatic_periodic_m
         end if
         if (info /= 0) return
 
+        ! The filter acts only on the reconstruction in r; phi_spectrum (used by
+        ! the Fourier-space ion tensor) stays unfiltered.
+        sigma = reconstruction_filter(M, periodic_filter_order)
         if (present(phi_spectrum)) phi_spectrum = Phi_m
-        dPhi = reconstruct_delta_phi(Phi_m, L, M, r_out)
-        if (present(dPhi_dr)) dPhi_dr = reconstruct_delta_phi_derivative(Phi_m, L, M, r_out)
+        dPhi = reconstruct_delta_phi(Phi_m, L, M, r_out, sigma)
+        if (present(dPhi_dr)) dPhi_dr = reconstruct_delta_phi_derivative(Phi_m, L, M, r_out, sigma)
         if (present(rho_B)) then
-            rho_B = reconstruct_delta_phi(Br_const * KB(:, M + 1), L, M, r_out)
+            rho_B = reconstruct_delta_phi(Br_const * KB(:, M + 1), L, M, r_out, sigma)
         end if
 
         if (present(rho_B_species)) then
             allocate(rho_B_species(size(r_out), 0:plasma%n_species - 1))
             do sp = 0, plasma%n_species - 1
                 rho_B_species(:, sp) = reconstruct_delta_phi(&
-                    Br_const * KB_species(:, M + 1, sp), L, M, r_out)
+                    Br_const * KB_species(:, M + 1, sp), L, M, r_out, sigma)
             end do
         end if
 
@@ -347,7 +352,7 @@ module rt_electrostatic_periodic_m
             rho_Bparallel = (0.0_dp, 0.0_dp)
             if (bparallel_active) then
                 rho_Bparallel = reconstruct_delta_phi(&
-                    Bparallel_drive * KBparallel(:, M + 1), L, M, r_out)
+                    Bparallel_drive * KBparallel(:, M + 1), L, M, r_out, sigma)
             end if
         end if
 
@@ -358,7 +363,7 @@ module rt_electrostatic_periodic_m
                 do sp = 0, plasma%n_species - 1
                     rho_Bparallel_species(:, sp) = reconstruct_delta_phi(&
                         Bparallel_drive * KBparallel_species(:, M + 1, sp), &
-                        L, M, r_out)
+                        L, M, r_out, sigma)
                 end do
             end if
         end if
@@ -371,11 +376,11 @@ module rt_electrostatic_periodic_m
                         Kjphi_species(:, :, sp), KjB_species(:, :, sp), &
                         Phi_m, Br_const, L, M, r_out, &
                         KjBparallel=KjBparallel_species(:, :, sp), &
-                        Bparallel_const=Bparallel_drive)
+                        Bparallel_const=Bparallel_drive, filter=sigma)
                 else
                     jpar_species(:, sp) = reconstruct_jpar(&
                         Kjphi_species(:, :, sp), KjB_species(:, :, sp), &
-                        Phi_m, Br_const, L, M, r_out)
+                        Phi_m, Br_const, L, M, r_out, filter=sigma)
                 end if
             end do
         end if
@@ -384,17 +389,20 @@ module rt_electrostatic_periodic_m
             if (bparallel_active) then
                 jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, &
                     r_out, KjBparallel=KjBparallel, &
-                    Bparallel_const=Bparallel_drive)
+                    Bparallel_const=Bparallel_drive, filter=sigma)
             else
-                jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out)
+                jpar = reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out, &
+                    filter=sigma)
             end if
         end if
         if (present(jrad) .and. periodic_calculate_radial_current) then
             if (bparallel_active) then
                 jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
-                    KjrBparallel=KjrBparallel, Bparallel_const=Bparallel_drive)
+                    KjrBparallel=KjrBparallel, Bparallel_const=Bparallel_drive, &
+                    filter=sigma)
             else
-                jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out)
+                jrad = reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
+                    filter=sigma)
             end if
         end if
     end subroutine compute_periodic_delta_phi

@@ -173,6 +173,8 @@ module IO_collection_m
         call h5_add(h5grpid, 'periodic_calculate_ion_tensor', &
             periodic_calculate_ion_tensor, &
             'Whether the periodic ion diffusion tensor is calculated and returned.', 'true/false')
+        call h5_add(h5grpid, 'periodic_filter_order', periodic_filter_order, &
+            'Order of the exponential filter of the periodic reconstruction (0 = off).', '1')
 
         call h5_close_group(h5grpid)
 

@@ -192,6 +192,7 @@ the preparation step.
 - periodic_n_rg ... integer, number of endpoint-exclusive guiding-centre samples over one period
 - periodic_calculate_radial_current ... boolean, assemble and reconstruct the periodic radial-current response; default false. Set true when `/fields/jrad` is needed
 - periodic_calculate_ion_tensor ... boolean, calculate and return the periodic ion diffusion tensor; default false. Set true for QL-Balance transport or other runs that need `D_ion`; field/current/diagnostic-only runs leave it unavailable
+- periodic_filter_order ... integer, order $p$ of the exponential filter $\sigma_m = \exp[-\alpha (|m|/M)^p]$, $\alpha = -\ln \epsilon$, applied to the Fourier coefficients when the periodic solution (Phi, Er, rho, jpar, jrad) is reconstructed in r; default 0 (off). It removes the Gibbs ringing of the truncated series (period $2\pi/k_\mathrm{max}$) and keeps window averages; the solve and the Fourier-space ion tensor are unchanged. $p = 8$ is a typical choice
 - periodic_Bparallel_ratio ... complex, ratio of the constant parallel magnetic-field drive to the constant radial drive: the periodic solve uses `Bparallel = periodic_Bparallel_ratio * (Br_boundary_re + i Br_boundary_im)`. Default `(0.0, 0.0)` disables the parallel drive (purely radial benchmark); set it explicitly for coupled runs
 - periodic_match_global_kernel_approximations ... boolean, if true drops $k_s^2$ from the FLR arguments and takes electrons in the zero-FLR limit for comparison with the simplified global model; default false
 

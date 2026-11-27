@@ -69,6 +69,11 @@ module config_m
     ! Assemble and return the periodic ion diffusion tensor. Keep disabled by
     ! default; QL-Balance explicitly enables it for coupled transport.
     logical :: periodic_calculate_ion_tensor = .false.
+    ! Order p of the exponential filter sigma_m = exp(-alpha (|m|/M)^p) applied
+    ! to the Fourier coefficients when the periodic solution is reconstructed in
+    ! r (0 = no filter). It removes the Gibbs ringing of the truncated series;
+    ! the solve and the Fourier-space ion tensor are unchanged.
+    integer :: periodic_filter_order = 0
     ! Reproduce the global FEM kernel approximations for direct comparisons:
     ! drop k_s^2 from Bessel arguments and take electrons in the zero-FLR limit.
     ! The forced-periodic solver uses its full Fourier kernel by default.

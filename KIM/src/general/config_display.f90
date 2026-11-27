@@ -127,6 +127,8 @@ contains
                 periodic_calculate_radial_current, width)
             call print_bool_line('Periodic Ion Tensor', &
                 periodic_calculate_ion_tensor, width)
+            write(value_str, '(I0)') periodic_filter_order
+            call print_config_line('Periodic Filter Order', trim(value_str), width)
         end if
         if (trim(type_of_run) == "WKB_dispersion") then
             call print_config_line('WKB Dispersion Mode', trim(WKB_dispersion_mode), width)

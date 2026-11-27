@@ -1524,3 +1524,22 @@ target_link_libraries(
 )
 add_test(NAME test_host_geometry COMMAND ${CMAKE_BINARY_DIR}/tests/test_host_geometry.x)
 set_tests_properties(test_host_geometry PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)
+
+# Exponential reconstruction filter of the periodic solver.
+add_executable(test_periodic_filter ${CMAKE_SOURCE_DIR}/KIM/tests/test_periodic_filter.f90)
+set_target_properties(
+    test_periodic_filter
+    PROPERTIES
+        OUTPUT_NAME test_periodic_filter.x
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/"
+)
+target_link_libraries(
+    test_periodic_filter
+    KIM_lib
+    kilca_lib
+    lapack
+    cerf
+    fortnum_amos_compat
+)
+add_test(NAME test_periodic_filter COMMAND ${CMAKE_BINARY_DIR}/tests/test_periodic_filter.x)
+set_tests_properties(test_periodic_filter PROPERTIES WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests/)

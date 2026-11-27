@@ -46,7 +46,7 @@ module periodic_solve_m
     private
 
     public :: solve_periodic, reconstruct_delta_phi, reconstruct_delta_phi_derivative
-    public :: metric_radial_operator
+    public :: metric_radial_operator, reconstruction_filter
     public :: dense_solve, reconstruct_jpar, reconstruct_jrad
 
 contains
@@ -191,7 +191,7 @@ contains
     !> j_par is then inverse-DFT'd exactly as the potential is:
     !>   j_par(r) = sum_{m=-M}^{M} j_m exp(i k_m r).
     function reconstruct_jpar(Kjphi, KjB, Phi_m, Br_const, L, M, r_out, &
-            KjBparallel, Bparallel_const) result(jpar)
+            KjBparallel, Bparallel_const, filter) result(jpar)
         complex(dp), intent(in) :: Kjphi(:,:), KjB(:,:)
         complex(dp), intent(in) :: Phi_m(:)
         complex(dp), intent(in) :: Br_const
@@ -199,6 +199,7 @@ contains
         integer, intent(in) :: M
         complex(dp), intent(in), optional :: KjBparallel(:,:)
         complex(dp), intent(in), optional :: Bparallel_const
+        real(dp), intent(in), optional :: filter(:)
         complex(dp) :: jpar(size(r_out))
 
         complex(dp), allocatable :: j_m(:)
@@ -213,24 +214,28 @@ contains
                 j_m = j_m + Bparallel_const * KjBparallel(:, M + 1)
         end if
 
-        jpar = reconstruct_delta_phi(j_m, L, M, r_out)
+        jpar = reconstruct_delta_phi(j_m, L, M, r_out, filter)
     end function reconstruct_jpar
 
-    function reconstruct_delta_phi_derivative(Phi_m, L, M, r_out) result(dphi)
+    function reconstruct_delta_phi_derivative(Phi_m, L, M, r_out, filter) result(dphi)
         use constants_m, only: pi, com_unit
         complex(dp), intent(in) :: Phi_m(:)
         real(dp), intent(in) :: L
         integer, intent(in) :: M
         real(dp), intent(in) :: r_out(:)
+        real(dp), intent(in), optional :: filter(:)
         complex(dp) :: dphi(size(r_out))
+        complex(dp) :: coefficients(size(Phi_m))
         integer :: i, mm, im
         real(dp) :: k
+        coefficients = Phi_m
+        if (present(filter)) coefficients = filter * Phi_m
         dphi = (0.0_dp, 0.0_dp)
         do i = 1, size(r_out)
             do mm = -M, M
                 im = mm + M + 1
                 k = 2.0_dp*pi*real(mm,dp)/L
-                dphi(i) = dphi(i) + com_unit*k*Phi_m(im)*exp(com_unit*k*r_out(i))
+                dphi(i) = dphi(i) + com_unit*k*coefficients(im)*exp(com_unit*k*r_out(i))
             end do
         end do
     end function reconstruct_delta_phi_derivative
@@ -239,13 +244,14 @@ contains
     !> Constant Br and optional Bparallel drives occupy only Fourier column m'=0,
     !> as in the Poisson right-hand side and parallel-current reconstruction.
     function reconstruct_jrad(Kjrphi, KjrB, Phi_m, Br_const, L, M, r_out, &
-            KjrBparallel, Bparallel_const) result(jrad)
+            KjrBparallel, Bparallel_const, filter) result(jrad)
         complex(dp), intent(in) :: Kjrphi(:,:), KjrB(:,:)
         complex(dp), intent(in) :: Phi_m(:)
         complex(dp), intent(in) :: Br_const
         real(dp), intent(in) :: L, r_out(:)
         integer, intent(in) :: M
         complex(dp), intent(in), optional :: KjrBparallel(:,:), Bparallel_const
+        real(dp), intent(in), optional :: filter(:)
         complex(dp) :: jrad(size(r_out))
 
         complex(dp), allocatable :: j_m(:)
@@ -257,29 +263,52 @@ contains
         if (present(KjrBparallel)) then
             j_m = j_m + Bparallel_const * KjrBparallel(:, M + 1)
         end if
-        jrad = reconstruct_delta_phi(j_m, L, M, r_out)
+        jrad = reconstruct_delta_phi(j_m, L, M, r_out, filter)
     end function reconstruct_jrad
+
+    !> Exponential filter sigma_m = exp(-alpha (|m|/M)^p), alpha = -ln(epsilon),
+    !> for the Fourier modes m = -M..M (index m + M + 1); p = 0 gives sigma = 1.
+    !> sigma_0 = 1, so window averages are kept, and sigma_M = epsilon removes
+    !> the top modes whose truncation causes Gibbs ringing. For p = 8,
+    !> sigma = 0.9995 at |m| = M/4 and 0.87 at |m| = M/2.
+    function reconstruction_filter(M, order) result(sigma)
+        integer, intent(in) :: M, order
+        real(dp) :: sigma(2*M + 1)
+        real(dp) :: alpha
+        integer :: mm
+
+        sigma = 1.0_dp
+        if (order <= 0 .or. M == 0) return
+        alpha = -log(epsilon(1.0_dp))
+        do mm = -M, M
+            sigma(mm + M + 1) = exp(-alpha * (real(abs(mm), dp) / real(M, dp))**order)
+        end do
+    end function reconstruction_filter
 
     !> Inverse DFT: reconstruct dPhi(r) = sum_{m=-M}^{M} Phi_m exp(i k_m r)
     !> on the output radial grid r_out, with k_m = 2*pi*m/L. Phi_m is indexed
     !> im = m + M + 1 (size 2M+1).
-    function reconstruct_delta_phi(Phi_m, L, M, r_out) result(dPhi)
+    function reconstruct_delta_phi(Phi_m, L, M, r_out, filter) result(dPhi)
         use constants_m, only: pi, com_unit
 
         complex(dp), intent(in) :: Phi_m(:)
         real(dp), intent(in) :: L, r_out(:)
         integer, intent(in) :: M
+        real(dp), intent(in), optional :: filter(:)
         complex(dp) :: dPhi(size(r_out))
 
+        complex(dp) :: coefficients(size(Phi_m))
         real(dp) :: k_m
         integer :: i, m_row, im
 
+        coefficients = Phi_m
+        if (present(filter)) coefficients = filter * Phi_m
         dPhi = (0.0_dp, 0.0_dp)
         do m_row = -M, M
             im = m_row + M + 1
             k_m = 2.0_dp * pi * real(m_row, dp) / L
             do i = 1, size(r_out)
-                dPhi(i) = dPhi(i) + Phi_m(im) * exp(com_unit * k_m * r_out(i))
+                dPhi(i) = dPhi(i) + coefficients(im) * exp(com_unit * k_m * r_out(i))
             end do
         end do
     end function reconstruct_delta_phi

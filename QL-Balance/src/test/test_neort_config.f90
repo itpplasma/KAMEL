@@ -34,6 +34,8 @@ program test_neort_config
     call assert_true(meta_config%config%epsmn == 1.0_dp, "epsmn NEO-RT default")
     call assert_true(meta_config%config%vmax_over_vth == 4.0_dp, "vmax_over_vth default")
     call assert_true(meta_config%amount_of_s == 100, "amount_of_s default")
+    call assert_true(meta_config%s_min == 0.0_dp, "s_min defaults to the full grid")
+    call assert_true(meta_config%s_max == 1.0_dp, "s_max defaults to the full grid")
     ! antenna_factor is already the squared field ratio, quasilinear torque ~ dB^2
     call assert_true(meta_config%antenna_factor_exponent == 1.0_dp, &
                      "antenna_factor_exponent defaults to quasilinear scaling")
@@ -51,6 +53,29 @@ program test_neort_config
     meta_config%antenna_factor_exponent = -1.0_dp
     call assert_true(len_trim(meta_config_neort_problem(meta_config)) > 0, &
                      "negative exponent reported")
+    meta_config%antenna_factor_exponent = 1.0_dp
+    meta_config%config%bfac = 2.0_dp
+    call assert_true(len_trim(meta_config_neort_problem(meta_config)) > 0, &
+                     "scaled Boozer field reported")
+    meta_config%config%bfac = 1.0_dp
+    meta_config%s_max = 0.0_dp
+    call assert_true(len_trim(meta_config_neort_problem(meta_config)) > 0, &
+                     "s_max = 0 reported")
+    meta_config%s_max = 1.5_dp
+    call assert_true(len_trim(meta_config_neort_problem(meta_config)) > 0, &
+                     "s_max > 1 reported")
+    meta_config%s_max = 0.95_dp
+    call assert_true(len_trim(meta_config_neort_problem(meta_config)) == 0, &
+                     "s_max inside (0, 1] accepted")
+    meta_config%s_min = -0.1_dp
+    call assert_true(len_trim(meta_config_neort_problem(meta_config)) > 0, &
+                     "s_min < 0 reported")
+    meta_config%s_min = 0.95_dp
+    call assert_true(len_trim(meta_config_neort_problem(meta_config)) > 0, &
+                     "s_min = s_max reported")
+    meta_config%s_min = 0.005_dp
+    call assert_true(len_trim(meta_config_neort_problem(meta_config)) == 0, &
+                     "s_min inside [0, s_max) accepted")
 
     open (newunit=iunit, file=nml_file, status="old")
     close (iunit, status="delete")

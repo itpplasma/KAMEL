@@ -41,6 +41,9 @@ program test_periodic_workflow_validation
         2, modes_m, modes_n, 4.0_dp, 'conductivity', 'drift_kinetic', &
         'finite_larmor_radius', &
         'disabled', 'none')
+    call validate_periodic_workflow('KIM', 'electrostatic_periodic', 'TimeEvolutionNTV', .true., &
+        2, modes_m, modes_n, 4.0_dp, 'conductivity', 'drift_kinetic', &
+        'finite_larmor_radius', 'disabled', 'none')
     call validate_periodic_workflow('KIM', 'electrostatic_periodic', 'SingleStep', .true., &
         2, modes_m, modes_n, 0.0_dp, 'conductivity', 'drift_kinetic', 'drift_kinetic', &
         'disabled', 'none')

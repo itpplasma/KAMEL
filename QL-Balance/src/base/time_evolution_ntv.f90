@@ -1,7 +1,9 @@
 module time_evolution_ntv
     use iso_fortran_env, only: dp => real64
     use time_evolution, only: TimeEvolution_t
-    use neort_lib
+    use neort_lib, only: transport_data_t, equilibrium_t, flux_surface_t, neort_init, &
+                         neort_get_equilibrium, neort_get_flux_surface, &
+                         neort_prepare_splines, neort_compute_at_s
 
     implicit none
 
@@ -25,27 +27,35 @@ module time_evolution_ntv
     real(dp) :: antenna_factor_exponent
 
     ! from NEO-RT
+    type(equilibrium_t) :: equil
     type(transport_data_t), dimension(:), allocatable :: transport_data
 
 contains
 
     subroutine initTimeEvolutionNTV(this)
         use baseparam_mod, only: am, Z_i, rsepar
-        use grid_mod, only: rmin
+        use grid_mod, only: rc, rmin
         use time_evolution, only: antenna_factor_max
         use neort_interface, only: meta_config_neort_t, read_neort_meta_config, &
                                    meta_config_neort_problem, read_equil_file, &
-                                   calculate_s_tor, calculate_coarse_s_tor
+                                   calculate_s_tor, calculate_coarse_s_tor, dpsi_pol_ds, &
+                                   r_dr_ds, &
+                                   inner_s_of_grid, outer_s_of_grid, poloidal_flux_problem, &
+                                   boozer_s_range_problem, s_grid_problem
+        use plasma_parameters, only: qsaf
         use spline, only: spline_coeff, spline_val
 
         class(TimeEvolutionNTV_t), intent(inout) :: this
 
         real(dp), dimension(:), allocatable :: r_eff, psi_tor, s_tor_equil
         real(dp), dimension(:, :), allocatable :: r_of_s_coeffs, s_of_r_coeffs
-        real(dp), dimension(:, :), allocatable :: s_splined, r_splined
+        real(dp), dimension(:, :), allocatable :: s_splined, r_splined, q_splined
+        real(dp), dimension(:, :), allocatable :: q_of_r_coeffs
+        real(dp), dimension(:), allocatable :: dpsi_pol_ds_neort, dpsi_pol_ds_kamel, s_evaluated
         real(dp) :: s_min, s_max
         type(meta_config_neort_t) :: meta_config
-        integer :: s_size
+        type(flux_surface_t) :: surface
+        integer :: s_size, i
 
         character(len=*), parameter :: balance_config_file = "balance_conf.nml"
 
@@ -74,37 +84,73 @@ contains
         allocate (profile_data(s_size, 2))
         allocate (transport_data(s_size))
 
+        ! NEO-RT initialization
+        call neort_init(meta_config%config, meta_config%boozer_file, meta_config%boozer_pert_file)
+        call neort_get_equilibrium(equil)
+
         ! Prepare grid splines for NEO-RT
         call read_equil_file(r_eff=r_eff, psi_tor=psi_tor)
         ! The s(r) spline must not extrapolate: NEO-RT needs s inside [0, 1].
         if (rmin < minval(r_eff) .or. rsepar > maxval(r_eff)) error stop &
             "TimeEvolutionNTV: the equilibrium file must cover rmin..rsepar"
         allocate (s_tor_equil(size(psi_tor)))
-        call calculate_s_tor(s_tor_equil, psi_tor)
+        call calculate_s_tor(s_tor_equil, psi_tor, equil%toroidal_flux_boundary)
 
         ! Find s values corresponding to rmin and rsepar by splining s(r)
         allocate (s_of_r_coeffs(size(r_eff) - 1, 5))
         allocate (s_splined(2, 3))
         s_of_r_coeffs = spline_coeff(r_eff, s_tor_equil)
         s_splined = spline_val(s_of_r_coeffs, [rmin, rsepar])
-        s_min = s_splined(1, 1)
-        s_max = s_splined(2, 1)
+        ! The grid runs from max(s(rmin), s_min) to min(s(rsepar), s_max), and only
+        ! that range must lie in 0 < s <= 1. Outside it the NTV torque is zero
+        ! (apply_ntv_transport).
+        if (len_trim(s_grid_problem(s_splined(1, 1), s_splined(2, 1), meta_config%s_min, &
+                                    meta_config%s_max)) > 0) then
+            print *, "NEO-RT s(rmin), s(rsepar), NEORT s_min, s_max: ", s_splined(1, 1), &
+                s_splined(2, 1), meta_config%s_min, meta_config%s_max
+            error stop trim(s_grid_problem(s_splined(1, 1), s_splined(2, 1), &
+                                          meta_config%s_min, meta_config%s_max))
+        end if
+        s_min = inner_s_of_grid(s_splined(1, 1), meta_config%s_min)
+        s_max = outer_s_of_grid(s_splined(2, 1), meta_config%s_max)
 
-        ! Create an equidistant grid in s
+        ! Create an equidistant grid in s between the two ends
         call calculate_coarse_s_tor(s_tor, s_min, s_max, s_size)
         allocate (r_of_s_coeffs(size(s_tor_equil) - 1, 5))
         r_of_s_coeffs = spline_coeff(s_tor_equil, r_eff)
         r_splined = spline_val(r_of_s_coeffs, s_tor)
         r = r_splined(:, 1)
+        ! Without an s_min cut the grid starts at rmin itself, not at its r(s(rmin))
+        ! round trip, so that apply_ntv_transport keeps the torque at rb(1) = rmin.
+        if (s_min == s_splined(1, 1)) r(1) = rmin
+
+        ! The Boozer file and KAMEL's equilibrium must agree on the flux surfaces,
+        ! including the orientation that fixes the sign of dpsi_pol/ds. NEO-RT
+        ! defines Omega_tE through dPhi/ds = -sign_theta psi_pr / (q c) Omega_tE
+        ! (neort_profiles), so poloidal_flux_derivative has to be
+        ! sign_theta * iota * psi_pr: the denominator NEO-RT itself uses.
+        allocate (q_of_r_coeffs(size(rc) - 1, 5), q_splined(s_size, 3))
+        allocate (dpsi_pol_ds_neort(s_size), dpsi_pol_ds_kamel(s_size), s_evaluated(s_size))
+        q_of_r_coeffs = spline_coeff(rc, qsaf)
+        q_splined = spline_val(q_of_r_coeffs, r)
+        dpsi_pol_ds_kamel = dpsi_pol_ds(r_dr_ds(s_tor_equil, r_eff, s_tor), q_splined(:, 1))
+        do i = 1, s_size
+            call neort_get_flux_surface(s_tor(i), surface)
+            s_evaluated(i) = surface%s
+            dpsi_pol_ds_neort(i) = surface%poloidal_flux_derivative
+        end do
+        if (len_trim(boozer_s_range_problem(s_tor, s_evaluated)) > 0) then
+            error stop trim(boozer_s_range_problem(s_tor, s_evaluated))
+        end if
+        if (len_trim(poloidal_flux_problem(dpsi_pol_ds_neort, dpsi_pol_ds_kamel)) > 0) then
+            error stop trim(poloidal_flux_problem(dpsi_pol_ds_neort, dpsi_pol_ds_kamel))
+        end if
 
         ! Cache species parameters for parallel use (same mass/charge for both species)
         am1 = am
         am2 = am
         Z1 = Z_i
         Z2 = Z_i
-
-        ! NEO-RT initialization
-        call neort_init(meta_config%config, meta_config%boozer_file, meta_config%boozer_pert_file)
 
         deallocate (r_eff)
         deallocate (psi_tor)
@@ -113,6 +159,7 @@ contains
         deallocate (s_of_r_coeffs)
         deallocate (s_splined)
         deallocate (r_splined)
+        deallocate (q_of_r_coeffs, q_splined, dpsi_pol_ds_neort, dpsi_pol_ds_kamel, s_evaluated)
     end subroutine initTimeEvolutionNTV
 
     subroutine runTimeEvolutionNTV(this)
@@ -156,7 +203,7 @@ contains
         s_size = size(s_tor)
 
         call prepare_plasma_data_for_neort(plasma_data, r, s_tor)
-        call prepare_profile_data_for_neort(profile_data, r, s_tor)
+        call prepare_profile_data_for_neort(profile_data, r, s_tor, equil%major_radius)
         call neort_prepare_splines(s_size, am1, am2, Z1, Z2, plasma_data, profile_data)
 
         ! Initialize progress tracking
